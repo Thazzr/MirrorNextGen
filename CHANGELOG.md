@@ -19,6 +19,8 @@ automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages gener
 - **web**: Upload-Tests nutzen Nodes FormData und File
 - **dashboard**: Nachtruhe rendert nur die schwarze Fläche
 - Kamera und Nachtruhe in README und Projektregeln
+- **web**: MockApi liest Multipart auch unter undici 7
+- Node-Versionen und jsdom-Globals in den Testregeln
 
 ### Fixed
 
