@@ -12,10 +12,12 @@ automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages gener
 ### Changed
 
 - Tags nur noch für festgehaltene Versionen
+- Schichtzeiten mit Minuten in den Projektregeln
 
 ### Fixed
 
 - **icons**: Hochgeladene SVG-Symbole nehmen die Textfarbe an
+- **calendar**: Schichtzeiten immer mit Minuten
 
 ## [0.9.1] - 2026-11-14
 
