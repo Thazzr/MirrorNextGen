@@ -194,6 +194,7 @@ Nutzerentscheidung 2026-11-14: Der Spiegel besteht aus **internen Modulen**, und
 - **Frontend:**
   - Vitest + Testing Library + jsdom.
   - API-Aufrufe in Tests über einen gemockten `fetch` am erzeugten Client, nicht durch Umgehen des Clients.
+  - **Node-Version:** Die CI läuft unter Node 26 (undici 7+), lokal oft Node 22 (undici 6). Unter jsdom sind `File`, `Blob` und `FormData` jsdoms Klassen, `Request`/`fetch` aber Nodes. undici 7 lehnt die Mischung ab, undici 6 duldete sie. Deshalb liest `test/mockApi.ts` Multipart-Bodys mit Nodes `File`/`Blob` (`readFormData`), Upload-Tests bauen `FormData` und `File` aus Node, und ein nicht lesbarer Body erscheint als `bodyError` mit Meldung statt als stiller Timeout. Bei Tests rund um Dateien, Streams oder `Request` lokal zusätzlich unter einer Node-Version mit undici 7 laufen lassen, wenn eine vorhanden ist.
 - **Zeitzonen:** Tests, die von der Zeitzone abhängen, setzen sie ausdrücklich (`time.LoadLocation("Europe/Berlin")` bzw. `TZ` in der Vitest-Konfiguration) und decken die Sommerzeitumstellung ab, wo sie eine Rolle spielt.
 
 ## Verifikation
