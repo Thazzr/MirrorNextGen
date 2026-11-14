@@ -7,6 +7,16 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
+## [0.8.0] - 2026-11-14
+
+### Added
+
+- **calendar**: Dienstplan zeigt die nächsten Arbeitstage wie die Terminliste
+
+### Changed
+
+- Dienstplan-Darstellung in den Projektregeln
+
 ## [0.7.2] - 2026-11-14
 
 ### Changed
