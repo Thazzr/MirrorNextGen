@@ -2,7 +2,11 @@
 
 Der Nachfolger von SmartMirror2: ein schlanker Smart Mirror für einen **Raspberry Pi 5** mit **Ubuntu 26.04 LTS Server** (ohne Desktop). Alles läuft in Docker. Das Dashboard erscheint im Vollbild auf einem WQHD-Monitor im Hochformat (1440×2560). Die Drehung lässt sich in der App einstellen.
 
-> **Stand: Phase 1 (Grundgerüst).** Der Server liefert API und Oberfläche aus. Das Dashboard zeigt bisher Datum, Uhrzeit und Kalenderwoche, dazu das Testbild unter `/?diagnose`. Kiosk, Admin-Bereich und Dashboard-Inhalte folgen in den nächsten Phasen (siehe [Roadmap](#roadmap)).
+> **Stand: Phase 3 (Kiosk) in Arbeit.**
+> - **Server und Verwaltung:** Der Server liefert API und Oberfläche aus. Die Verwaltung unter `/admin` bietet Anmeldung, Konto und den Bereich „Anzeige“ (Drehung, Monitor-Ausgang, Testbild).
+> - **Dashboard:** zeigt bisher Datum, Uhrzeit und Kalenderwoche sowie auf Wunsch das Testbild.
+> - **Kiosk-Container:** steht bereit, ist aber noch nicht am Gerät abgenommen.
+> - **Inhalte:** Wetter, Kalender, Bring!, Kamera und Nachtruhe folgen (siehe [Roadmap](#roadmap)).
 
 ## Architektur
 
@@ -22,9 +26,10 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker (docker compose up -d)
 | Pfad | Inhalt |
 |---|---|
 | `api/` | OpenAPI-Vertrag |
-| `server/` | Go-Modul: `cmd/mirror`, `internal/{api,config,httpserver,web}` |
-| `web/` | React-App (`src/app`, `src/shared`, `src/features`) |
-| `deploy/` | `compose.yaml` und `.env.example` für den Pi |
+| `server/` | Go-Modul: `cmd/mirror` (Server), `cmd/kioskd` (Kiosk-Agent), `internal/{api,auth,config,fsutil,httpserver,kiosk,settings,web}` |
+| `web/` | React-App (`src/app`, `src/shared`, `src/features/{dashboard,admin}`); die Verwaltung (Mantine) lädt als eigener Chunk |
+| `kiosk/` | Dockerfile des Kiosk-Images (Cage, Chromium, kioskd) |
+| `deploy/` | `compose.yaml`, `.env.example` und `INSTALL.md` (Installation auf dem Pi) |
 | `tools/` | Prüfskript `verify.mjs`, Changelog-Werkzeug `changelog.mjs` |
 | `.github/workflows/` | CI: Prüfung und Images für GHCR |
 
@@ -57,6 +62,15 @@ Oberfläche mit Hot Reload entwickeln: den Server wie oben starten, dann `npm --
 |---|---|---|
 | `MIRROR_ADDR` | `:8080` | Listen-Adresse (`host:port`) |
 | `MIRROR_DATA_DIR` | `/data` | Verzeichnis für Einstellungen und Daten |
+
+### Verwaltung
+
+Die Verwaltung liegt unter `/admin` und funktioniert am Handy wie am Rechner.
+- **Beim ersten Aufruf:** Du legst das Admin-Passwort fest (mindestens 10 Zeichen). Gespeichert wird es als Argon2id-Hash in `<MIRROR_DATA_DIR>/admin.json`.
+- **Sitzung:** Eine Anmeldung gilt 8 Stunden ab der letzten Nutzung.
+- **Fehlversuche:** Nach 5 falschen Passwörtern in 15 Minuten sperrt der Server weitere Versuche dieser Adresse vorübergehend.
+- **Einstellungen:** Sie liegen in `<MIRROR_DATA_DIR>/settings.json`. Eine unlesbare oder fremde Datei wird als `settings.json.discarded-<Zeit>` beiseitegelegt, und der Server startet mit Standardwerten.
+- **Passwort vergessen:** Server stoppen, `admin.json` im Datenverzeichnis löschen, neu starten und neu einrichten.
 
 ### API ändern
 
@@ -109,7 +123,7 @@ cp deploy/.env.example deploy/.env     # MIRROR_TAG, MIRROR_PORT, TZ anpassen
 docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
 ```
 
-Ist das Repo privat, braucht der Pi einmalig `docker login ghcr.io` mit einem Token mit `read:packages`. Die vollständige Installationsanleitung für Ubuntu 26.04 inklusive Kiosk folgt in Phase 3 (`deploy/INSTALL.md`).
+Die Schritt-für-Schritt-Anleitung für den Pi 5 mit Ubuntu 26.04 Server (Anzeige-Vorbereitung, Docker, Start, Abnahme-Checkliste, Fehlersuche) steht in [`deploy/INSTALL.md`](deploy/INSTALL.md). Solange die Images in GHCR privat sind, braucht der Pi einmalig `docker login ghcr.io` mit einem Token mit `read:packages`.
 
 ## Roadmap
 
