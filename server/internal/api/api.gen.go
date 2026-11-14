@@ -160,6 +160,27 @@ func (e DisplaySettingsRotation) Valid() bool {
 	}
 }
 
+// Defines values for DisplayStatusReason.
+const (
+	Always   DisplayStatusReason = "always"
+	Schedule DisplayStatusReason = "schedule"
+	Test     DisplayStatusReason = "test"
+)
+
+// Valid indicates whether the value is a known member of the DisplayStatusReason enum.
+func (e DisplayStatusReason) Valid() bool {
+	switch e {
+	case Always:
+		return true
+	case Schedule:
+		return true
+	case Test:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	Ok HealthStatus = "ok"
@@ -549,6 +570,17 @@ type DashboardWifi struct {
 	Ssid *string `json:"ssid,omitempty"`
 }
 
+// DisplaySchedule Night schedule (Nachtruhe). The monitor is off from `offTime` (inclusive) until `onTime` (exclusive) in the mirror's time zone; the period may cross midnight. Equal times mean there is no quiet time.
+type DisplaySchedule struct {
+	Enabled bool `json:"enabled"`
+
+	// OffTime Time of day `HH:mm` at which the monitor goes off.
+	OffTime string `json:"offTime"`
+
+	// OnTime Time of day `HH:mm` at which the monitor goes on.
+	OnTime string `json:"onTime"`
+}
+
 // DisplaySettings Settings of the mirror's screen.
 type DisplaySettings struct {
 	// Output Connector name such as HDMI-A-1; empty means automatic.
@@ -557,12 +589,37 @@ type DisplaySettings struct {
 	// Rotation Rotation in degrees clockwise.
 	Rotation DisplaySettingsRotation `json:"rotation"`
 
+	// Schedule Night schedule (Nachtruhe). The monitor is off from `offTime` (inclusive) until `onTime` (exclusive) in the mirror's time zone; the period may cross midnight. Equal times mean there is no quiet time.
+	Schedule DisplaySchedule `json:"schedule"`
+
 	// TestPattern Shows the diagnose overlay on the mirror.
 	TestPattern bool `json:"testPattern"`
 }
 
 // DisplaySettingsRotation Rotation in degrees clockwise.
 type DisplaySettingsRotation int
+
+// DisplayStatus Whether the monitor is on now and why.
+type DisplayStatus struct {
+	// NextSwitchAt Next switch of the schedule; absent without a schedule in effect.
+	NextSwitchAt *time.Time `json:"nextSwitchAt,omitempty"`
+
+	// NextSwitchOn True when the next switch turns the monitor on; present with `nextSwitchAt`.
+	NextSwitchOn *bool `json:"nextSwitchOn,omitempty"`
+
+	// Now The server's clock in the mirror's time zone.
+	Now     time.Time `json:"now"`
+	PowerOn bool      `json:"powerOn"`
+
+	// Reason `schedule` when a night schedule is in effect, `test` during the test switch-off, `always` when there is no quiet time.
+	Reason DisplayStatusReason `json:"reason"`
+
+	// TimeZone Name of the mirror's time zone, e.g. Europe/Berlin.
+	TimeZone string `json:"timeZone"`
+}
+
+// DisplayStatusReason `schedule` when a night schedule is in effect, `test` during the test switch-off, `always` when there is no quiet time.
+type DisplayStatusReason string
 
 // ForecastDay Forecast of one day.
 type ForecastDay struct {
@@ -643,6 +700,9 @@ type Info struct {
 type KioskState struct {
 	// Output Connector name such as HDMI-A-1; empty means automatic.
 	Output string `json:"output"`
+
+	// PowerOn False while the night schedule or the test switch-off wants the monitor off. Agents and dashboards that predate this field treat a missing value as true.
+	PowerOn bool `json:"powerOn"`
 
 	// Rotation Rotation in degrees clockwise.
 	Rotation KioskStateRotation `json:"rotation"`
@@ -936,6 +996,12 @@ type ServerInterface interface {
 	// GetDashboardWifi Guest Wi-Fi QR code for the dashboard
 	// (GET /api/v1/dashboard/wifi)
 	GetDashboardWifi(w http.ResponseWriter, r *http.Request)
+	// GetDisplayStatus Monitor state
+	// (GET /api/v1/display/status)
+	GetDisplayStatus(w http.ResponseWriter, r *http.Request)
+	// TestDisplayOff Switch the monitor off for ten seconds
+	// (POST /api/v1/display/test-off)
+	TestDisplayOff(w http.ResponseWriter, r *http.Request)
 	// GetHealth Liveness check
 	// (GET /api/v1/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -1156,6 +1222,34 @@ func (siw *ServerInterfaceWrapper) GetDashboardWifi(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDashboardWifi(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDisplayStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetDisplayStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDisplayStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestDisplayOff operation middleware
+func (siw *ServerInterfaceWrapper) TestDisplayOff(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestDisplayOff(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1626,6 +1720,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/password", wrapper.ChangePassword)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/display", wrapper.GetDisplaySettings)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/display", wrapper.UpdateDisplaySettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/display/status", wrapper.GetDisplayStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/display/test-off", wrapper.TestDisplayOff)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/kiosk/state", wrapper.GetKioskState)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/weather", wrapper.GetWeatherSettings)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/weather", wrapper.UpdateWeatherSettings)
@@ -2089,6 +2185,96 @@ func (response GetDashboardWifi200JSONResponse) VisitGetDashboardWifiResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDisplayStatusRequestObject struct {
+}
+
+type GetDisplayStatusResponseObject interface {
+	VisitGetDisplayStatusResponse(w http.ResponseWriter) error
+}
+
+type GetDisplayStatus200JSONResponse DisplayStatus
+
+func (response GetDisplayStatus200JSONResponse) VisitGetDisplayStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDisplayStatus401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetDisplayStatus401ApplicationProblemPlusJSONResponse) VisitGetDisplayStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestDisplayOffRequestObject struct {
+}
+
+type TestDisplayOffResponseObject interface {
+	VisitTestDisplayOffResponse(w http.ResponseWriter) error
+}
+
+type TestDisplayOff200JSONResponse DisplayStatus
+
+func (response TestDisplayOff200JSONResponse) VisitTestDisplayOffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestDisplayOff401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response TestDisplayOff401ApplicationProblemPlusJSONResponse) VisitTestDisplayOffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestDisplayOff403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response TestDisplayOff403ApplicationProblemPlusJSONResponse) VisitTestDisplayOffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3297,6 +3483,12 @@ type StrictServerInterface interface {
 	// GetDashboardWifi Guest Wi-Fi QR code for the dashboard
 	// (GET /api/v1/dashboard/wifi)
 	GetDashboardWifi(ctx context.Context, request GetDashboardWifiRequestObject) (GetDashboardWifiResponseObject, error)
+	// GetDisplayStatus Monitor state
+	// (GET /api/v1/display/status)
+	GetDisplayStatus(ctx context.Context, request GetDisplayStatusRequestObject) (GetDisplayStatusResponseObject, error)
+	// TestDisplayOff Switch the monitor off for ten seconds
+	// (POST /api/v1/display/test-off)
+	TestDisplayOff(ctx context.Context, request TestDisplayOffRequestObject) (TestDisplayOffResponseObject, error)
 	// GetHealth Liveness check
 	// (GET /api/v1/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -3660,6 +3852,54 @@ func (sh *strictHandler) GetDashboardWifi(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDashboardWifiResponseObject); ok {
 		if err := validResponse.VisitGetDashboardWifiResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDisplayStatus operation middleware
+func (sh *strictHandler) GetDisplayStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetDisplayStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDisplayStatus(ctx, request.(GetDisplayStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDisplayStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDisplayStatusResponseObject); ok {
+		if err := validResponse.VisitGetDisplayStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestDisplayOff operation middleware
+func (sh *strictHandler) TestDisplayOff(w http.ResponseWriter, r *http.Request) {
+	var request TestDisplayOffRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestDisplayOff(ctx, request.(TestDisplayOffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestDisplayOff")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestDisplayOffResponseObject); ok {
+		if err := validResponse.VisitTestDisplayOffResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

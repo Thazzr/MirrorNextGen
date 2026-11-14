@@ -97,5 +97,14 @@ export function DashboardPage() {
       )}
     </main>
   )
-  return browserMode ? <RotatedViewport style={browser.style}>{page}</RotatedViewport> : page
+  // Only an explicit false switches off: a failed request or an older server
+  // without the field must never black out the mirror.
+  const blackout = kioskState.data?.powerOn === false
+  return (
+    <>
+      {browserMode ? <RotatedViewport style={browser.style}>{page}</RotatedViewport> : page}
+      {/* Outside the rotated wrapper, so it covers the whole window whatever the rotation. */}
+      {blackout && <div className="mirror-blackout" data-testid="blackout" aria-hidden />}
+    </>
+  )
 }

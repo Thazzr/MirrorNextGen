@@ -9,7 +9,7 @@ import { renderWithProviders } from '../../test/renderWithProviders.tsx'
 preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
 
-const settings = { rotation: 0, output: '', testPattern: false }
+const settings = { rotation: 0, output: '', testPattern: false, schedule: { enabled: false, offTime: '23:00', onTime: '06:00' } }
 
 describe('admin route guard', () => {
   it('sends a first start to the setup page', async () => {

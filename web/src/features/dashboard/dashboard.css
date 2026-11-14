@@ -48,3 +48,6 @@ body.mirror-kiosk, body.mirror-kiosk * { cursor: none !important; }
 /* Browser rotation: the wrapper has the content size, so the page fills it rather than the window. */
 .rotated-viewport { overflow: hidden; }
 .rotated-viewport .mirror-dashboard { min-height: 100%; }
+
+/* Night schedule: a monitor that ignores the power-off command still shows black. */
+.mirror-blackout { background: #000; inset: 0; position: fixed; z-index: 2147483647; }

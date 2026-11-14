@@ -1,6 +1,6 @@
 // Command kioskd is the kiosk agent: it starts seatd and the Cage compositor
 // running Chromium on the mirror's dashboard, and applies the screen state the
-// server asks for (rotation, later power) with wlr-randr. It starts programs
+// server asks for (rotation and power) with wlr-randr. It starts programs
 // only with fixed argument lists, never through a shell.
 package main
 
@@ -92,18 +92,19 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) int 
 
 	agentCtx, cancelAgent := context.WithCancel(ctx)
 	defer cancelAgent()
-	if cfg.Rotation == kiosk.RotationCompositor {
-		agent := &kiosk.Agent{
-			Fetch: func(c context.Context) (kiosk.State, error) {
-				return kiosk.FetchState(c, httpClient, cfg.URL)
-			},
-			Commander: &userCommander{account: account},
-			Log:       log,
-		}
-		ticker := time.NewTicker(cfg.PollInterval)
-		defer ticker.Stop()
-		go agent.Run(agentCtx, ticker.C)
+	// The agent always runs: it switches the monitor by the night schedule.
+	// With browser rotation it leaves the transform to the dashboard.
+	agent := &kiosk.Agent{
+		Fetch: func(c context.Context) (kiosk.State, error) {
+			return kiosk.FetchState(c, httpClient, cfg.URL)
+		},
+		Commander:    &userCommander{account: account},
+		Log:          log,
+		SkipRotation: cfg.Rotation == kiosk.RotationBrowser,
 	}
+	ticker := time.NewTicker(cfg.PollInterval)
+	defer ticker.Stop()
+	go agent.Run(agentCtx, ticker.C)
 
 	code := supervise(ctx, log, cage, seatd)
 	cancelAgent()

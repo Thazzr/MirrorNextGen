@@ -9,7 +9,20 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/thazzr/mirrornextgen/server/internal/display"
 )
+
+// okSchedule is a valid night schedule for tests that are about other fields.
+var okSchedule = display.Schedule{OffTime: "23:00", OnTime: "06:00"}
+
+// withSchedule gives d the valid schedule unless it already has one.
+func withSchedule(d DisplaySettings) DisplaySettings {
+	if d.Schedule == (display.Schedule{}) {
+		d.Schedule = okSchedule
+	}
+	return d
+}
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -37,11 +50,19 @@ func TestValidate(t *testing.T) {
 		{"output space", DisplaySettings{Output: "HDMI A 1"}, "display.output", ""},
 		{"output injection", DisplaySettings{Output: "a;rm"}, "display.output", ""},
 		{"output umlaut", DisplaySettings{Output: "äö"}, "display.output", ""},
+		{"schedule enabled", DisplaySettings{Schedule: display.Schedule{Enabled: true, OffTime: "00:00", OnTime: "23:59"}}, "", ""},
+		{"schedule equal times", DisplaySettings{Schedule: display.Schedule{Enabled: true, OffTime: "07:00", OnTime: "07:00"}}, "", ""},
+		{"off time empty", DisplaySettings{Schedule: display.Schedule{OnTime: "06:00"}}, "display.schedule.offTime", "display.schedule.onTime"},
+		{"on time empty", DisplaySettings{Schedule: display.Schedule{OffTime: "23:00"}}, "display.schedule.onTime", "display.schedule.offTime"},
+		{"off time 24:00", DisplaySettings{Schedule: display.Schedule{OffTime: "24:00", OnTime: "06:00"}}, "display.schedule.offTime", ""},
+		{"on time without zero", DisplaySettings{Schedule: display.Schedule{OffTime: "23:00", OnTime: "6:00"}}, "display.schedule.onTime", ""},
+		{"on time with seconds", DisplaySettings{Schedule: display.Schedule{OffTime: "23:00", OnTime: "06:00:00"}}, "display.schedule.onTime", ""},
+		{"invalid time while disabled is still rejected", DisplaySettings{Schedule: display.Schedule{OffTime: "abc", OnTime: "06:00"}}, "display.schedule.offTime", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := Defaults()
-			st.Display = tt.d
+			st.Display = withSchedule(tt.d)
 			errs := st.Validate()
 			if tt.wantField == "" {
 				if errs != nil {
@@ -54,6 +75,9 @@ func TestValidate(t *testing.T) {
 				t.Fatalf("errs = %v, want %s", errs, tt.wantField)
 			}
 			if tt.wantField == "display.rotation" && msg != "Erlaubt sind 0°, 90°, 180° und 270°." {
+				t.Errorf("message %q", msg)
+			}
+			if strings.HasPrefix(tt.wantField, "display.schedule.") && msg != "Erlaubt ist eine Uhrzeit im Format HH:mm." {
 				t.Errorf("message %q", msg)
 			}
 			if tt.wantField == "display.output" && !strings.HasPrefix(msg, "Erlaubt sind 1 bis 32 Zeichen") {
@@ -84,7 +108,7 @@ func TestLoadMissingFileGivesDefaultsAndWritesNothing(t *testing.T) {
 func TestSaveRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Load(dir, quiet)
-	want := DisplaySettings{Rotation: 90, Output: "HDMI-A-1", TestPattern: true}
+	want := DisplaySettings{Rotation: 90, Output: "HDMI-A-1", TestPattern: true, Schedule: display.Schedule{Enabled: true, OffTime: "22:30", OnTime: "05:45"}}
 	got, errs, err := s.UpdateDisplay(want)
 	if err != nil || errs != nil || got != want {
 		t.Fatalf("got %+v %v %v", got, errs, err)
@@ -151,17 +175,17 @@ func TestBadFilesAreMovedAside(t *testing.T) {
 func TestFailedValidationWritesNothing(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Load(dir, quiet)
-	good := DisplaySettings{Rotation: 180}
+	good := DisplaySettings{Rotation: 180, Schedule: okSchedule}
 	if _, _, err := s.UpdateDisplay(good); err != nil {
 		t.Fatal(err)
 	}
 	before, _ := os.ReadFile(filepath.Join(dir, "settings.json"))
 
-	got, errs, err := s.UpdateDisplay(DisplaySettings{Rotation: 45, Output: "a;b"})
+	got, errs, err := s.UpdateDisplay(DisplaySettings{Rotation: 45, Output: "a;b", Schedule: display.Schedule{OffTime: "x", OnTime: "06:00"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if errs["rotation"] == "" || errs["output"] == "" || len(errs) != 2 {
+	if errs["rotation"] == "" || errs["output"] == "" || errs["schedule.offTime"] == "" || len(errs) != 3 {
 		t.Errorf("errs = %v (keys must have no section prefix)", errs)
 	}
 	if got != good || s.Get().Display != good {
@@ -176,7 +200,7 @@ func TestFailedValidationWritesNothing(t *testing.T) {
 func TestFailedValidationOnFreshStoreCreatesNoFile(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := Load(dir, quiet)
-	if _, errs, _ := s.UpdateDisplay(DisplaySettings{Rotation: 1}); errs == nil {
+	if _, errs, _ := s.UpdateDisplay(DisplaySettings{Rotation: 1, Schedule: okSchedule}); errs == nil {
 		t.Fatal("expected errors")
 	}
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
@@ -193,7 +217,7 @@ func TestConcurrentUpdates(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, errs, err := s.UpdateDisplay(DisplaySettings{Rotation: rots[i%4], TestPattern: i%2 == 0}); err != nil || errs != nil {
+			if _, errs, err := s.UpdateDisplay(DisplaySettings{Rotation: rots[i%4], TestPattern: i%2 == 0, Schedule: okSchedule}); err != nil || errs != nil {
 				t.Errorf("update: %v %v", errs, err)
 			}
 			_ = s.Get()
@@ -238,7 +262,7 @@ func TestFailedWriteKeepsOldState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old := DisplaySettings{Rotation: 90}
+	old := DisplaySettings{Rotation: 90, Schedule: okSchedule}
 	if _, _, err := s.UpdateDisplay(old); err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +270,7 @@ func TestFailedWriteKeepsOldState(t *testing.T) {
 	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
-	if _, errs, err := s.UpdateDisplay(DisplaySettings{Rotation: 270, TestPattern: true}); err == nil || errs != nil {
+	if _, errs, err := s.UpdateDisplay(DisplaySettings{Rotation: 270, TestPattern: true, Schedule: okSchedule}); err == nil || errs != nil {
 		t.Fatalf("err = %v, errs = %v; want a write error", err, errs)
 	}
 	if got := s.Get().Display; got != old {

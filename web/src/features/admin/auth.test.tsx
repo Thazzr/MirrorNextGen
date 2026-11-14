@@ -10,7 +10,7 @@ preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
 
 const setupRequired = { setupRequired: true, authenticated: false }
-const settings = { rotation: 90, output: '', testPattern: true }
+const settings = { rotation: 90, output: '', testPattern: true, schedule: { enabled: false, offTime: '23:00', onTime: '06:00' } }
 
 describe('setup page', () => {
   function arrange(extra = {}) {

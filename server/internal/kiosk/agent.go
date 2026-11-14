@@ -21,6 +21,9 @@ type Commander interface {
 type kioskStateBody struct {
 	Rotation int    `json:"rotation"`
 	Output   string `json:"output"`
+	// PowerOn is a pointer because servers that predate the night schedule
+	// do not send it; a missing value means "on".
+	PowerOn *bool `json:"powerOn"`
 }
 
 // FetchState reads the target state from the mirror server. baseURL ends in "/".
@@ -43,7 +46,7 @@ func FetchState(ctx context.Context, client *http.Client, baseURL string) (State
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&body); err != nil {
 		return State{}, fmt.Errorf("decode kiosk state: %w", err)
 	}
-	return State{Rotation: body.Rotation, Output: body.Output}, nil
+	return State{Rotation: body.Rotation, Output: body.Output, PowerOn: body.PowerOn == nil || *body.PowerOn}, nil
 }
 
 // WaitHealthy blocks until GET <baseURL>api/v1/health answers 200. It retries
@@ -92,7 +95,13 @@ type Agent struct {
 	Fetch     func(ctx context.Context) (State, error)
 	Commander Commander
 	Log       *slog.Logger
+	// SkipRotation leaves the transform alone (KIOSK_ROTATION=browser); the
+	// power state is still switched.
+	SkipRotation bool
 
+	// applied is what the last successful pass asked of the compositor. A
+	// rotation that changed while the monitor was off is part of it, because
+	// turning the monitor on always re-applies the transform.
 	applied *State
 }
 
@@ -103,27 +112,33 @@ func (a *Agent) Tick(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("get target state: %w", err)
 	}
-	if _, err := Transform(desired.Rotation); err != nil {
-		return fmt.Errorf("target state: %w", err)
+	if !a.SkipRotation {
+		if _, err := Transform(desired.Rotation); err != nil {
+			return fmt.Errorf("target state: %w", err)
+		}
 	}
 	out, err := a.Commander.Run(ctx, "wlr-randr", "--json")
 	if err != nil {
 		return fmt.Errorf("list outputs: %w", err)
 	}
-	name, err := PickOutput(out, desired.Output)
+	var last string
+	if a.applied != nil {
+		last = a.applied.Output
+	}
+	name, err := PickOutput(out, desired.Output, last)
 	if err != nil {
 		return err
 	}
-	plan := Plan(desired, a.applied, name)
+	plan := Plan(desired, a.applied, name, !a.SkipRotation)
 	for _, args := range plan {
 		if _, err := a.Commander.Run(ctx, "wlr-randr", args...); err != nil {
 			return fmt.Errorf("wlr-randr %v: %w", args, err)
 		}
 	}
 	if len(plan) > 0 {
-		a.Log.Info("applied screen state", "rotation", desired.Rotation, "output", name)
+		a.Log.Info("applied screen state", "rotation", desired.Rotation, "output", name, "powerOn", desired.PowerOn)
 	}
-	a.applied = &State{Rotation: desired.Rotation, Output: name}
+	a.applied = &State{Rotation: desired.Rotation, Output: name, PowerOn: desired.PowerOn}
 	return nil
 }
 

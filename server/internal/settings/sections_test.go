@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/thazzr/mirrornextgen/server/internal/display"
 )
 
 func TestOldFileWithOnlyDisplayLoadsAdditively(t *testing.T) {
@@ -20,7 +22,7 @@ func TestOldFileWithOnlyDisplayLoadsAdditively(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := s.Get()
-	if got.Display != (DisplaySettings{Rotation: 90, Output: "DP-1", TestPattern: true}) {
+	if got.Display != (DisplaySettings{Rotation: 90, Output: "DP-1", TestPattern: true, Schedule: display.Schedule{OffTime: "23:00", OnTime: "06:00"}}) {
 		t.Errorf("display lost: %+v", got.Display)
 	}
 	if got.Weather != (WeatherSettings{ShowIcons: true, RefreshMinutes: 15}) {
@@ -217,5 +219,38 @@ func TestSettingsFileEncodingNamesSecrets(t *testing.T) {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("%s missing in %s", want, data)
 		}
+	}
+}
+
+func TestOldDisplayWithoutScheduleGetsTheDefaultSchedule(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"schemaVersion":1,"display":{"rotation":0,"output":"","testPattern":false}}`
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load(dir, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Get().Display.Schedule; got != (display.Schedule{Enabled: false, OffTime: "23:00", OnTime: "06:00"}) {
+		t.Errorf("schedule = %+v", got)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Errorf("file moved aside: %v", entries)
+	}
+}
+
+func TestPartialScheduleInFileKeepsTheOtherDefaults(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"schemaVersion":1,"display":{"rotation":0,"output":"","testPattern":false,"schedule":{"enabled":true,"offTime":"22:00"}}}`
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load(dir, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Get().Display.Schedule; got != (display.Schedule{Enabled: true, OffTime: "22:00", OnTime: "06:00"}) {
+		t.Errorf("schedule = %+v", got)
 	}
 }

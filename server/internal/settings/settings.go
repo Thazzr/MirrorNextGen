@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/modules"
 )
 
@@ -19,6 +20,7 @@ const SchemaVersion = 1
 const (
 	msgRotation = "Erlaubt sind 0°, 90°, 180° und 270°."
 	msgOutput   = "Erlaubt sind 1 bis 32 Zeichen aus Buchstaben, Ziffern, Punkt, Bindestrich und Unterstrich."
+	msgClock    = "Erlaubt ist eine Uhrzeit im Format HH:mm."
 
 	msgLocation       = "Höchstens 100 Zeichen."
 	msgAPIKeyLength   = "Höchstens 200 Zeichen."
@@ -47,6 +49,8 @@ type DisplaySettings struct {
 	Output string `json:"output"`
 	// TestPattern shows the diagnose overlay on the mirror.
 	TestPattern bool `json:"testPattern"`
+	// Schedule is the night schedule (Nachtruhe): monitor off by the clock.
+	Schedule display.Schedule `json:"schedule"`
 }
 
 // Wi-Fi security values.
@@ -229,6 +233,7 @@ func (s Settings) validateLayout(errs map[string]string) {
 func Defaults() Settings {
 	return Settings{
 		SchemaVersion: SchemaVersion,
+		Display:       DisplaySettings{Schedule: display.Schedule{OffTime: "23:00", OnTime: "06:00"}},
 		Weather:       WeatherSettings{ShowIcons: true, RefreshMinutes: 15},
 		Wifi:          WifiSettings{Security: SecurityWPA},
 		Bring:         BringSettings{MaxItems: 18, RefreshMinutes: 5},
@@ -251,6 +256,12 @@ func (s Settings) validate(iconExists func(string) bool) map[string]string {
 	}
 	if s.Display.Output != "" && !outputPattern.MatchString(s.Display.Output) {
 		errs["display.output"] = msgOutput
+	}
+	if _, ok := display.ParseClock(s.Display.Schedule.OffTime); !ok {
+		errs["display.schedule.offTime"] = msgClock
+	}
+	if _, ok := display.ParseClock(s.Display.Schedule.OnTime); !ok {
+		errs["display.schedule.onTime"] = msgClock
 	}
 	w := s.Weather
 	if utf8.RuneCountInString(w.Location) > 100 {

@@ -53,9 +53,11 @@ function useDisplayStatus(): TileStatus {
   const query = useQuery({ queryKey: displaySettingsQueryKey, queryFn: fetchDisplaySettings })
   if (query.isPending) return { loading: true }
   if (query.isError) return UNAVAILABLE
+  const { rotation, testPattern, schedule } = query.data
+  const night = schedule.enabled ? ` · Nachtruhe ${schedule.offTime}–${schedule.onTime}` : ''
   return {
     loading: false,
-    text: `Drehung ${query.data.rotation}° · Testbild ${query.data.testPattern ? 'an' : 'aus'}`,
+    text: `Drehung ${rotation}° · Testbild ${testPattern ? 'an' : 'aus'}${night}`,
   }
 }
 

@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { Alert, Skeleton, Stack, Switch, Text, TextInput, Title, SegmentedControl } from '@mantine/core'
+import { Alert, Button, Group, SimpleGrid, Skeleton, Stack, Switch, Text, TextInput, Title, SegmentedControl } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../../shared/api/client.ts'
 import {
   displaySettingsQueryKey,
+  displayStatusQueryKey,
   fetchDisplaySettings,
+  fetchDisplayStatus,
   saveDisplaySettings,
+  testDisplayOff,
   type DisplaySettings,
 } from '../api/display.ts'
 import { DetailHeader } from '../components/DetailHeader.tsx'
@@ -15,7 +18,9 @@ import { RotationPicker } from '../components/RotationPicker.tsx'
 import { UnsavedChangesBar } from '../components/UnsavedChangesBar.tsx'
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog.tsx'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard.ts'
-import { changedAreas } from './displayForm.ts'
+import { changedAreas, statusText } from './displayForm.ts'
+
+const statusInterval = 5000
 
 export function DisplayPage() {
   const query = useQuery({ queryKey: displaySettingsQueryKey, queryFn: fetchDisplaySettings })
@@ -51,6 +56,12 @@ function DisplayForm({ saved }: { saved: DisplaySettings }) {
   const form = useForm<DisplaySettings>({ initialValues: saved })
   const [specificOutput, setSpecificOutput] = useState(saved.output !== '')
   const [saveError, setSaveError] = useState<string | null>(null)
+  // Polled, so the line follows the schedule and the end of a test switch-off.
+  const status = useQuery({
+    queryKey: displayStatusQueryKey,
+    queryFn: fetchDisplayStatus,
+    refetchInterval: statusInterval,
+  })
 
   const areas = changedAreas(form.values, saved)
   const dirty = areas.length > 0
@@ -61,6 +72,8 @@ function DisplayForm({ saved }: { saved: DisplaySettings }) {
     onSuccess: (stored) => {
       // The answer is the new baseline; no refetch is needed to show it.
       queryClient.setQueryData(displaySettingsQueryKey, stored)
+      // The schedule decides the status line.
+      void queryClient.invalidateQueries({ queryKey: displayStatusQueryKey })
       form.setValues(stored)
       setSpecificOutput(stored.output !== '')
       setSaveError(null)
@@ -72,12 +85,25 @@ function DisplayForm({ saved }: { saved: DisplaySettings }) {
       const mapped: Record<string, string> = {}
       if (fieldErrors.rotation) mapped.rotation = fieldErrors.rotation
       if (fieldErrors.output) mapped.output = fieldErrors.output
+      if (fieldErrors['schedule.offTime']) mapped['schedule.offTime'] = fieldErrors['schedule.offTime']
+      if (fieldErrors['schedule.onTime']) mapped['schedule.onTime'] = fieldErrors['schedule.onTime']
       form.setErrors(mapped)
       if (Object.keys(mapped).length === 0) {
         setSaveError(error instanceof ApiError ? (error.detail ?? error.message) : error.message)
       } else {
         setSaveError(null)
       }
+    },
+  })
+
+  const testOff = useMutation({
+    mutationFn: testDisplayOff,
+    onSuccess: (st) => queryClient.setQueryData(displayStatusQueryKey, st),
+    onError: (error) => {
+      notifications.show({
+        color: 'red',
+        message: error instanceof ApiError ? (error.detail ?? error.message) : error.message,
+      })
     },
   })
 
@@ -95,7 +121,12 @@ function DisplayForm({ saved }: { saved: DisplaySettings }) {
       return
     }
     form.clearErrors()
-    mutation.mutate({ rotation: form.values.rotation, output, testPattern: form.values.testPattern })
+    mutation.mutate({
+      rotation: form.values.rotation,
+      output,
+      testPattern: form.values.testPattern,
+      schedule: form.values.schedule,
+    })
   }
 
   return (
@@ -156,6 +187,36 @@ function DisplayForm({ saved }: { saved: DisplaySettings }) {
             description="Zeigt Rahmen, Ausrichtung und Auflösung, um die Drehung zu prüfen."
             {...form.getInputProps('testPattern', { type: 'checkbox' })}
           />
+        </Stack>
+
+        <Stack gap="xs" component="section" aria-labelledby="display-night">
+          <Title order={2} size="h3" id="display-night">
+            Nachtruhe
+          </Title>
+          <Switch
+            label="Nachtruhe aktivieren"
+            description="Der Monitor schaltet sich zu den gewählten Zeiten aus und wieder an."
+            {...form.getInputProps('schedule.enabled', { type: 'checkbox' })}
+          />
+          <SimpleGrid cols={{ base: 1, xs: 2 }}>
+            <TextInput label="Ausschalten um" type="time" {...form.getInputProps('schedule.offTime')} />
+            <TextInput label="Einschalten um" type="time" {...form.getInputProps('schedule.onTime')} />
+          </SimpleGrid>
+          <Text size="sm" c="dimmed">
+            Gilt in der Zeitzone des Spiegels{status.data ? ` (${status.data.timeZone})` : ''}. Gleiche Zeiten bedeuten: keine Nachtruhe.
+          </Text>
+          <Group justify="space-between" align="center" gap="sm">
+            <Text size="sm" role="status">
+              {status.data
+                ? statusText(status.data)
+                : status.isError
+                  ? 'Der Monitorstatus konnte nicht geladen werden.'
+                  : 'Status wird geladen …'}
+            </Text>
+            <Button variant="default" loading={testOff.isPending} onClick={() => testOff.mutate()}>
+              Monitor 10 Sekunden ausschalten
+            </Button>
+          </Group>
         </Stack>
       </Stack>
 

@@ -155,7 +155,7 @@ paths:
     get:
       operationId: getDisplaySettings
       summary: Display settings
-      description: Returns the stored display settings (rotation, output, test pattern).
+      description: Returns the stored display settings (rotation, output, test pattern, night schedule).
       security:
         - sessionCookie: []
       responses:
@@ -172,7 +172,8 @@ paths:
       summary: Change the display settings
       description: >-
         Validates and stores the display settings. Invalid values answer 400 with
-        `errors` keyed by field name (`rotation`, `output`); nothing is stored then.
+        `errors` keyed by field name (`rotation`, `output`, `schedule.offTime`,
+        `schedule.onTime`); nothing is stored then.
       security:
         - sessionCookie: []
       requestBody:
@@ -190,6 +191,45 @@ paths:
                 $ref: "#/components/schemas/DisplaySettings"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/display/status:
+    get:
+      operationId: getDisplayStatus
+      summary: Monitor state
+      description: >-
+        Returns whether the monitor is on now and why, and the next switch of the
+        night schedule. Times use the mirror's time zone.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The monitor state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplayStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/display/test-off:
+    post:
+      operationId: testDisplayOff
+      summary: Switch the monitor off for ten seconds
+      description: >-
+        Overrides the schedule and keeps the monitor off for ten seconds from now
+        (a second call restarts the ten seconds), so the night schedule's effect can
+        be tried. The override lives in memory only. Answers the monitor state.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The monitor state right after the call.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplayStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -833,10 +873,55 @@ components:
           type: string
         newPassword:
           type: string
+    DisplaySchedule:
+      type: object
+      description: >-
+        Night schedule (Nachtruhe). The monitor is off from `offTime` (inclusive) until
+        `onTime` (exclusive) in the mirror's time zone; the period may cross midnight.
+        Equal times mean there is no quiet time.
+      required: [enabled, offTime, onTime]
+      properties:
+        enabled:
+          type: boolean
+        offTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Time of day `HH:mm` at which the monitor goes off.
+        onTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Time of day `HH:mm` at which the monitor goes on.
+    DisplayStatus:
+      type: object
+      description: Whether the monitor is on now and why.
+      required: [powerOn, reason, now, timeZone]
+      properties:
+        powerOn:
+          type: boolean
+        reason:
+          type: string
+          enum: [schedule, test, always]
+          description: >-
+            `schedule` when a night schedule is in effect, `test` during the test
+            switch-off, `always` when there is no quiet time.
+        nextSwitchAt:
+          type: string
+          format: date-time
+          description: Next switch of the schedule; absent without a schedule in effect.
+        nextSwitchOn:
+          type: boolean
+          description: True when the next switch turns the monitor on; present with `nextSwitchAt`.
+        now:
+          type: string
+          format: date-time
+          description: The server's clock in the mirror's time zone.
+        timeZone:
+          type: string
+          description: Name of the mirror's time zone, e.g. Europe/Berlin.
     DisplaySettings:
       type: object
       description: Settings of the mirror's screen.
-      required: [rotation, output, testPattern]
+      required: [rotation, output, testPattern, schedule]
       properties:
         rotation:
           type: integer
@@ -848,10 +933,12 @@ components:
         testPattern:
           type: boolean
           description: Shows the diagnose overlay on the mirror.
+        schedule:
+          $ref: "#/components/schemas/DisplaySchedule"
     KioskState:
       type: object
       description: Target state of the screen as the kiosk agent applies it.
-      required: [rotation, output, testPattern]
+      required: [rotation, output, testPattern, powerOn]
       properties:
         rotation:
           type: integer
@@ -863,6 +950,11 @@ components:
         testPattern:
           type: boolean
           description: Shows the diagnose overlay on the mirror.
+        powerOn:
+          type: boolean
+          description: >-
+            False while the night schedule or the test switch-off wants the monitor off.
+            Agents and dashboards that predate this field treat a missing value as true.
     WeatherSettings:
       type: object
       description: Weather settings as the admin UI reads them; the API key is never included.

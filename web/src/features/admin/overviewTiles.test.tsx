@@ -15,7 +15,7 @@ function arrange(over: Record<string, Handler> = {}) {
   mockApi({
     'GET /api/v1/auth/session': () => json(authedSession),
     'GET /api/v1/info': () => json(info),
-    'GET /api/v1/settings/display': () => json({ rotation: 0, output: '', testPattern: false }),
+    'GET /api/v1/settings/display': () => json({ rotation: 0, output: '', testPattern: false, schedule: { enabled: false, offTime: '23:00', onTime: '06:00' } }),
     'GET /api/v1/settings/layout': () => json({ ...emptyLayout, topLeft: ['clock', 'weather'], bottomRight: ['wifi'] }),
     'GET /api/v1/dashboard/weather': () =>
       json({ configured: true, stale: false, data: { location: 'Berlin', temperatureC: 12, condition: 'Leichter Regen' } }),

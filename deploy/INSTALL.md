@@ -109,6 +109,8 @@ Der Kiosk wartet, bis der Server bereit ist, und startet dann die Anzeige. Beend
 - [ ] Jede Drehung (0°, 90°, 180°, 270°) wird innerhalb von etwa 5 Sekunden übernommen, ohne dass etwas neu startet.
 - [ ] Nach `sudo reboot` kommt alles von selbst zurück (Dashboard sichtbar, ohne dass du etwas tippst).
 - [ ] `docker compose logs kiosk` zeigt die angewendeten Drehungen (Einträge „applied screen state“ mit `rotation` und `output`).
+- [ ] Admin → Anzeige → **Monitor 10 Sekunden ausschalten**: Der Monitor geht innerhalb von etwa 5 Sekunden aus und nach etwa 10 Sekunden wieder an, mit derselben Drehung wie vorher.
+- [ ] Nachtruhe mit einer Ausschaltzeit kurz nach jetzt speichern: Der Monitor geht zur eingestellten Minute aus und zur Einschaltzeit wieder an.
 
 Notiere Abweichungen, besonders den Namen des Ausgangs (z. B. `HDMI-A-1`) und welche Drehung zur Aufstellung deines Monitors passt.
 
@@ -125,7 +127,12 @@ Notiere Abweichungen, besonders den Namen des Ausgangs (z. B. `HDMI-A-1`) und we
 
 **Drehung wird nicht übernommen**
 - Im Log nach Fehlern von `wlr-randr` suchen.
-- Ausweg: `KIOSK_ROTATION=browser` in `.env`. Dann dreht sich das Dashboard selbst (keine Drehung am Compositor), und der Kiosk-Agent ruft kein `wlr-randr` auf. Das Testbild zeigt dann „Drehung: Browser …“ und die Inhaltsgröße 1440 × 2560.
+- Ausweg: `KIOSK_ROTATION=browser` in `.env`. Dann dreht sich das Dashboard selbst (keine Drehung am Compositor). Der Kiosk-Agent schaltet mit `wlr-randr` nur noch den Monitor für die Nachtruhe aus und an. Das Testbild zeigt dann „Drehung: Browser …“ und die Inhaltsgröße 1440 × 2560.
+
+**Monitor geht zur Nachtruhe nicht aus**
+- Admin → Anzeige → **Monitor 10 Sekunden ausschalten**, dann `docker compose logs kiosk` ansehen: Erwartet sind Einträge „applied screen state“ mit `powerOn` false und true.
+- Ignoriert der Monitor das Abschalten, bleibt das Bild trotzdem schwarz: Das Dashboard legt dann eine schwarze Fläche über alles. Die Hintergrundbeleuchtung läuft in diesem Fall weiter.
+- Die Zeiten gelten in der Zeitzone aus `TZ` in `.env`.
 
 **Login-Prompt oder Konsolentext sichtbar, Anzeige hängt am Umschalten der Konsole**
 - Prüfe, dass `getty@tty1` abgeschaltet ist: `systemctl status getty@tty1`.

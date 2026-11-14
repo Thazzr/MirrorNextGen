@@ -20,6 +20,7 @@ import (
 
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
+	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
 )
@@ -111,6 +112,11 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Location: berlin,
 		Logger:   slog.New(slog.NewTextHandler(logs, nil)),
 	})
+	displayCtl := display.NewController(display.Options{
+		Schedule: func() display.Schedule { return settingsStore.Get().Display.Schedule },
+		Now:      clock.now,
+		Location: berlin,
+	})
 	deps := Deps{
 		Build:    BuildInfo{Version: "1.2.3", Commit: "abc123", BuildTime: "2026-01-02T03:04:05Z"},
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -122,6 +128,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Bring:    bringSvc,
 		Calendar: calSvc,
 		Icons:    iconStore,
+		Display:  displayCtl,
 	}
 	mux := &recordingMux{ServeMux: http.NewServeMux()}
 	lastOp := new(string)

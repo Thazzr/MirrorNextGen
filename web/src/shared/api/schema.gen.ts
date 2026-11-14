@@ -153,15 +153,55 @@ export interface paths {
         };
         /**
          * Display settings
-         * @description Returns the stored display settings (rotation, output, test pattern).
+         * @description Returns the stored display settings (rotation, output, test pattern, night schedule).
          */
         get: operations["getDisplaySettings"];
         /**
          * Change the display settings
-         * @description Validates and stores the display settings. Invalid values answer 400 with `errors` keyed by field name (`rotation`, `output`); nothing is stored then.
+         * @description Validates and stores the display settings. Invalid values answer 400 with `errors` keyed by field name (`rotation`, `output`, `schedule.offTime`, `schedule.onTime`); nothing is stored then.
          */
         put: operations["updateDisplaySettings"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/display/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Monitor state
+         * @description Returns whether the monitor is on now and why, and the next switch of the night schedule. Times use the mirror's time zone.
+         */
+        get: operations["getDisplayStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/display/test-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch the monitor off for ten seconds
+         * @description Overrides the schedule and keeps the monitor off for ten seconds from now (a second call restarts the ten seconds), so the night schedule's effect can be tried. The override lives in memory only. Answers the monitor state.
+         */
+        post: operations["testDisplayOff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -578,6 +618,37 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        /** @description Night schedule (Nachtruhe). The monitor is off from `offTime` (inclusive) until `onTime` (exclusive) in the mirror's time zone; the period may cross midnight. Equal times mean there is no quiet time. */
+        DisplaySchedule: {
+            enabled: boolean;
+            /** @description Time of day `HH:mm` at which the monitor goes off. */
+            offTime: string;
+            /** @description Time of day `HH:mm` at which the monitor goes on. */
+            onTime: string;
+        };
+        /** @description Whether the monitor is on now and why. */
+        DisplayStatus: {
+            powerOn: boolean;
+            /**
+             * @description `schedule` when a night schedule is in effect, `test` during the test switch-off, `always` when there is no quiet time.
+             * @enum {string}
+             */
+            reason: "schedule" | "test" | "always";
+            /**
+             * Format: date-time
+             * @description Next switch of the schedule; absent without a schedule in effect.
+             */
+            nextSwitchAt?: string;
+            /** @description True when the next switch turns the monitor on; present with `nextSwitchAt`. */
+            nextSwitchOn?: boolean;
+            /**
+             * Format: date-time
+             * @description The server's clock in the mirror's time zone.
+             */
+            now: string;
+            /** @description Name of the mirror's time zone, e.g. Europe/Berlin. */
+            timeZone: string;
+        };
         /** @description Settings of the mirror's screen. */
         DisplaySettings: {
             /**
@@ -589,6 +660,7 @@ export interface components {
             output: string;
             /** @description Shows the diagnose overlay on the mirror. */
             testPattern: boolean;
+            schedule: components["schemas"]["DisplaySchedule"];
         };
         /** @description Target state of the screen as the kiosk agent applies it. */
         KioskState: {
@@ -601,6 +673,8 @@ export interface components {
             output: string;
             /** @description Shows the diagnose overlay on the mirror. */
             testPattern: boolean;
+            /** @description False while the night schedule or the test switch-off wants the monitor off. Agents and dashboards that predate this field treat a missing value as true. */
+            powerOn: boolean;
         };
         /** @description Weather settings as the admin UI reads them; the API key is never included. */
         WeatherSettings: {
@@ -1239,6 +1313,49 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDisplayStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The monitor state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisplayStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    testDisplayOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The monitor state right after the call. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisplayStatus"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };

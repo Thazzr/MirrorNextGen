@@ -17,6 +17,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/api"
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
+	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
 	"github.com/thazzr/mirrornextgen/server/internal/weather"
@@ -48,6 +49,7 @@ func newHandler(t *testing.T, files fstest.MapFS) http.Handler {
 		Weather:  weather.New(weather.Options{Config: func() weather.Config { return weather.Config{} }}),
 		Calendar: calendar.NewService(calendar.ServiceOptions{Feeds: calendar.NewFeeds(calendar.FeedsOptions{})}),
 		Icons:    ic,
+		Display:  display.NewController(display.Options{Schedule: func() display.Schedule { return st.Get().Display.Schedule }}),
 	}, files)
 }
 

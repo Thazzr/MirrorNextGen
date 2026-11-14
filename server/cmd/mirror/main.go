@@ -21,6 +21,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/bring"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
 	"github.com/thazzr/mirrornextgen/server/internal/config"
+	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
@@ -108,6 +109,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Location: time.Local,
 		Logger:   logger,
 	})
+	displayCtl := display.NewController(display.Options{
+		Schedule: func() display.Schedule { return settingsStore.Get().Display.Schedule },
+		Now:      time.Now,
+		Location: mirrorLocation(getenv("TZ")),
+	})
 	deps := api.Deps{
 		Build:    api.BuildInfo{Version: version, Commit: commit, BuildTime: buildTime},
 		Logger:   logger,
@@ -119,6 +125,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Bring:    bringSvc,
 		Calendar: calendarSvc,
 		Icons:    iconStore,
+		Display:  displayCtl,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,
@@ -152,6 +159,18 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return 1
 	}
 	return 0
+}
+
+// mirrorLocation is the mirror's time zone: TZ by name when it loads (so the
+// admin can show the name; time.Local reports only "Local"), else the process
+// default.
+func mirrorLocation(tz string) *time.Location {
+	if tz != "" {
+		if loc, err := time.LoadLocation(tz); err == nil {
+			return loc
+		}
+	}
+	return time.Local
 }
 
 func healthcheck(ctx context.Context, addr string, stderr io.Writer) int {
