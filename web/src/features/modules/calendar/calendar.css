@@ -45,5 +45,3 @@
 .mirror-agenda__time > span { flex-shrink: 0; }
 .mirror-agenda__relative { font-size: clamp(1.05rem,1.8vw,1.9rem); font-weight: 600; letter-spacing: .025rem; }
 .mirror-agenda__moment { color: rgba(255,255,255,.86); font-size: clamp(.95rem,1.4vw,1.3rem); letter-spacing: .03rem; }
-/* A running event is only told apart by the accent colour of its relative text. */
-.mirror-agenda__relative--ongoing { color: var(--mirror-accent); }

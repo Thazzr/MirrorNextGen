@@ -1710,10 +1710,51 @@ components:
           description: "`HH:mm`; empty together with `start`."
         icon:
           $ref: "#/components/schemas/IconRef"
+    HighlightColor:
+      type: string
+      pattern: "^#[0-9a-fA-F]{6}$"
+      description: A colour as `#rrggbb`.
+    CalendarHighlight:
+      type: object
+      description: |
+        Colours the time text of a section by how soon an item starts. Tiers by
+        priority: `ongoing` (running now, all-day today counts), `soon` (starts
+        within `hours` hours), `today` (starts later today). `enabled` is the
+        master switch.
+      required: [enabled, ongoing, soon, today]
+      properties:
+        enabled:
+          type: boolean
+        ongoing:
+          $ref: "#/components/schemas/HighlightTier"
+        soon:
+          $ref: "#/components/schemas/HighlightSoon"
+        today:
+          $ref: "#/components/schemas/HighlightTier"
+    HighlightTier:
+      type: object
+      required: [enabled, color]
+      properties:
+        enabled:
+          type: boolean
+        color:
+          $ref: "#/components/schemas/HighlightColor"
+    HighlightSoon:
+      type: object
+      required: [enabled, color, hours]
+      properties:
+        enabled:
+          type: boolean
+        color:
+          $ref: "#/components/schemas/HighlightColor"
+        hours:
+          type: integer
+          minimum: 1
+          maximum: 48
     CalendarSection:
       type: object
       description: A calendar area of the mirror, one module instance (`calendar:<id>`).
-      required: [id, title, type, calendarIds, maxEvents, lookAheadDays, shiftDays, showFreeDays, shifts]
+      required: [id, title, type, calendarIds, maxEvents, lookAheadDays, shiftDays, showFreeDays, shifts, highlight]
       properties:
         id:
           type: string
@@ -1745,6 +1786,8 @@ components:
           description: Only for type `shifts`.
           items:
             $ref: "#/components/schemas/CalendarShift"
+        highlight:
+          $ref: "#/components/schemas/CalendarHighlight"
     CalendarRule:
       type: object
       required: [id, calendarIds, matchMode, text, action, icon, renameTo]
@@ -1833,6 +1876,9 @@ components:
           type: boolean
         ongoing:
           type: boolean
+        highlightColor:
+          type: string
+          description: "Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none."
         hidden:
           type: boolean
           description: A hide rule removed the event.
@@ -1873,6 +1919,9 @@ components:
         ongoing:
           type: boolean
           description: "The shift is running now (all-day: today)."
+        highlightColor:
+          type: string
+          description: "Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none."
     CalendarPreviewSection:
       type: object
       required: [id, title, type]
@@ -1934,6 +1983,9 @@ components:
           type: boolean
         ongoing:
           type: boolean
+        highlightColor:
+          type: string
+          description: "Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none."
     DashboardCalendarSection:
       type: object
       description: Data of one calendar section for the dashboard.

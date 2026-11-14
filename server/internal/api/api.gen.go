@@ -426,6 +426,17 @@ type CalendarError struct {
 	Message    string `json:"message"`
 }
 
+// CalendarHighlight Colours the time text of a section by how soon an item starts. Tiers by
+// priority: `ongoing` (running now, all-day today counts), `soon` (starts
+// within `hours` hours), `today` (starts later today). `enabled` is the
+// master switch.
+type CalendarHighlight struct {
+	Enabled bool          `json:"enabled"`
+	Ongoing HighlightTier `json:"ongoing"`
+	Soon    HighlightSoon `json:"soon"`
+	Today   HighlightTier `json:"today"`
+}
+
 // CalendarPreview defines model for CalendarPreview.
 type CalendarPreview struct {
 	CalendarErrors []CalendarError          `json:"calendarErrors"`
@@ -477,7 +488,13 @@ type CalendarRuleMatchMode string
 type CalendarSection struct {
 	// CalendarIds Ids of existing calendars; at least one.
 	CalendarIds []string `json:"calendarIds"`
-	Id          string   `json:"id"`
+
+	// Highlight Colours the time text of a section by how soon an item starts. Tiers by
+	// priority: `ongoing` (running now, all-day today counts), `soon` (starts
+	// within `hours` hours), `today` (starts later today). `enabled` is the
+	// master switch.
+	Highlight CalendarHighlight `json:"highlight"`
+	Id        string            `json:"id"`
 
 	// LookAheadDays 1 to 60; 0 means the default 14. For type `shifts` it is the search horizon for work days.
 	LookAheadDays int `json:"lookAheadDays"`
@@ -637,6 +654,9 @@ type DashboardBring struct {
 type DashboardCalendarItem struct {
 	AllDay bool `json:"allDay"`
 
+	// HighlightColor Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none.
+	HighlightColor *string `json:"highlightColor,omitempty"`
+
 	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
 	Icon      IconRef `json:"icon"`
 	Location  *string `json:"location,omitempty"`
@@ -774,6 +794,24 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// HighlightColor A colour as `#rrggbb`.
+type HighlightColor = string
+
+// HighlightSoon defines model for HighlightSoon.
+type HighlightSoon struct {
+	// Color A colour as `#rrggbb`.
+	Color   HighlightColor `json:"color"`
+	Enabled bool           `json:"enabled"`
+	Hours   int            `json:"hours"`
+}
+
+// HighlightTier defines model for HighlightTier.
+type HighlightTier struct {
+	// Color A colour as `#rrggbb`.
+	Color   HighlightColor `json:"color"`
+	Enabled bool           `json:"enabled"`
+}
+
 // HourlyPoint One point of the day chart.
 type HourlyPoint struct {
 	Condition       string  `json:"condition"`
@@ -901,6 +939,9 @@ type PreviewItem struct {
 	// Hidden A hide rule removed the event.
 	Hidden bool `json:"hidden"`
 
+	// HighlightColor Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none.
+	HighlightColor *string `json:"highlightColor,omitempty"`
+
 	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
 	Icon     IconRef `json:"icon"`
 	Location *string `json:"location,omitempty"`
@@ -963,6 +1004,9 @@ type ShiftDay struct {
 	// DayLabel `Heute`, `Morgen`, the weekday for the next days up to six days ahead, then for example `Mo, 23.11.`.
 	DayLabel string `json:"dayLabel"`
 	Free     bool   `json:"free"`
+
+	// HighlightColor Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none.
+	HighlightColor *string `json:"highlightColor,omitempty"`
 
 	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
 	Icon IconRef `json:"icon"`

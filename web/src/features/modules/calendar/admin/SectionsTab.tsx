@@ -2,6 +2,7 @@ import { Button, Card, Group, MultiSelect, NumberInput, SegmentedControl, Select
 import { IconPlus } from '@tabler/icons-react'
 import { IconPicker } from '../../../admin/components/IconPicker.tsx'
 import type { CalendarSection, CalendarSettingsUpdate, CalendarShift } from './api.ts'
+import { HighlightEditor } from './HighlightEditor.tsx'
 import { ItemControls } from './Controls.tsx'
 import { move, newSection, newShift, removeAt, replaceAt } from './draft.ts'
 
@@ -163,26 +164,34 @@ export function SectionsTab({ draft, onChange, errors }: Props) {
                 error={errors[`${path}.calendarIds`]}
               />
               {section.type === 'list' ? (
-                <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                  <NumberInput
-                    label="Höchstens N Termine"
-                    min={1}
-                    max={30}
-                    allowDecimal={false}
-                    value={section.maxEvents}
-                    onChange={(v) => set({ maxEvents: num(v) })}
-                    error={errors[`${path}.maxEvents`]}
+                <>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                    <NumberInput
+                      label="Höchstens N Termine"
+                      min={1}
+                      max={30}
+                      allowDecimal={false}
+                      value={section.maxEvents}
+                      onChange={(v) => set({ maxEvents: num(v) })}
+                      error={errors[`${path}.maxEvents`]}
+                    />
+                    <NumberInput
+                      label="Vorschau-Tage"
+                      min={1}
+                      max={60}
+                      allowDecimal={false}
+                      value={section.lookAheadDays}
+                      onChange={(v) => set({ lookAheadDays: num(v) })}
+                      error={errors[`${path}.lookAheadDays`]}
+                    />
+                  </SimpleGrid>
+                  <HighlightEditor
+                    value={section.highlight}
+                    path={`${path}.highlight`}
+                    errors={errors}
+                    onChange={(highlight) => set({ highlight })}
                   />
-                  <NumberInput
-                    label="Vorschau-Tage"
-                    min={1}
-                    max={60}
-                    allowDecimal={false}
-                    value={section.lookAheadDays}
-                    onChange={(v) => set({ lookAheadDays: num(v) })}
-                    error={errors[`${path}.lookAheadDays`]}
-                  />
-                </SimpleGrid>
+                </>
               ) : (
                 <Stack gap="sm">
                   <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -212,6 +221,12 @@ export function SectionsTab({ draft, onChange, errors }: Props) {
                     description="Zeigt auch Tage ohne Schicht als „frei“. Aus: nur die nächsten Arbeitstage."
                     checked={section.showFreeDays}
                     onChange={(e) => set({ showFreeDays: e.currentTarget.checked })}
+                  />
+                  <HighlightEditor
+                    value={section.highlight}
+                    path={`${path}.highlight`}
+                    errors={errors}
+                    onChange={(highlight) => set({ highlight })}
                   />
                   <Text size="sm" fw={500}>
                     Schichten

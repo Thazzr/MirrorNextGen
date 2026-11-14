@@ -68,12 +68,16 @@ export function PreviewTab({ draft, active }: Props) {
                 {section.days?.length === 0 && !section.error && <Text size="sm" c="dimmed">Keine Schichten im Zeitraum.</Text>}
                 {section.days?.map((day) => (
                   <Group key={day.date} gap="xs">
-                    <Text size="sm" fw={500} w={90}>
+                    <Text size="sm" fw={500} w={90} style={{ color: day.highlightColor }}>
                       {day.dayLabel}
                     </Text>
                     <Text size="sm" c={day.free ? 'dimmed' : undefined} fw={day.ongoing ? 700 : undefined}>
                       {day.title}
-                      {day.timeRange ? ` ${day.timeRange}` : ''}
+                      {day.timeRange && (
+                        <Text span inherit style={{ color: day.highlightColor }}>
+                          {` ${day.timeRange}`}
+                        </Text>
+                      )}
                     </Text>
                   </Group>
                 ))}
@@ -85,29 +89,33 @@ export function PreviewTab({ draft, active }: Props) {
                   const overLimit = !item.shown && !item.hidden
                   const renamed = item.title !== item.originalTitle
                   return (
-                    <Group key={`${item.calendarId}-${item.start}-${i}`} gap="xs" align="baseline" wrap="wrap">
-                      <Text size="sm" c="dimmed" w={110}>
-                        {item.timeLabel}
-                      </Text>
+                    <Stack key={`${item.calendarId}-${item.start}-${i}`} gap={2} data-testid="preview-item" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-dark-4)' }}>
                       <Text size="sm" td={item.hidden ? 'line-through' : undefined} c={item.hidden || overLimit ? 'dimmed' : undefined}>
                         {renamed ? `${item.title} (vorher: ${item.originalTitle})` : item.title}
                       </Text>
-                      {item.hidden && (
-                        <Badge color="gray" variant="light">
-                          ausgeblendet
-                        </Badge>
-                      )}
-                      {overLimit && (
-                        <Badge color="gray" variant="light">
-                          über dem Limit
-                        </Badge>
-                      )}
-                      {item.matchedRules.map((id) => (
-                        <Badge key={id} size="sm" variant="outline">
-                          Regel {ruleNumber(id)}
-                        </Badge>
-                      ))}
-                    </Group>
+                      <Group gap={6} align="center" wrap="wrap">
+                        {(item.relative || item.timeLabel) && (
+                          <Text size="xs" c={item.shown && item.highlightColor ? undefined : 'dimmed'} style={item.shown && item.highlightColor ? { color: item.highlightColor } : undefined}>
+                            {item.relative || item.timeLabel}
+                          </Text>
+                        )}
+                        {item.hidden && (
+                          <Badge color="gray" variant="light">
+                            ausgeblendet
+                          </Badge>
+                        )}
+                        {overLimit && (
+                          <Badge color="gray" variant="light">
+                            über dem Limit
+                          </Badge>
+                        )}
+                        {item.matchedRules.map((id) => (
+                          <Badge key={id} size="sm" variant="outline">
+                            Regel {ruleNumber(id)}
+                          </Badge>
+                        ))}
+                      </Group>
+                    </Stack>
                   )
                 })}
               </>

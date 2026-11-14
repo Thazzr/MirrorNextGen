@@ -23,6 +23,24 @@ func fromIconRef(r IconRef) settings.IconRef {
 	return settings.IconRef{Kind: string(r.Kind), Name: deref(r.Name), File: deref(r.File)}
 }
 
+func toHighlight(h settings.CalendarHighlight) CalendarHighlight {
+	return CalendarHighlight{
+		Enabled: h.Enabled,
+		Ongoing: HighlightTier{Enabled: h.Ongoing.Enabled, Color: h.Ongoing.Color},
+		Soon:    HighlightSoon{Enabled: h.Soon.Enabled, Color: h.Soon.Color, Hours: h.Soon.Hours},
+		Today:   HighlightTier{Enabled: h.Today.Enabled, Color: h.Today.Color},
+	}
+}
+
+func fromHighlight(h CalendarHighlight) settings.CalendarHighlight {
+	return settings.CalendarHighlight{
+		Enabled: h.Enabled,
+		Ongoing: settings.HighlightTier{Enabled: h.Ongoing.Enabled, Color: h.Ongoing.Color},
+		Soon:    settings.HighlightSoon{Enabled: h.Soon.Enabled, Color: h.Soon.Color, Hours: h.Soon.Hours},
+		Today:   settings.HighlightTier{Enabled: h.Today.Enabled, Color: h.Today.Color},
+	}
+}
+
 func toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
 	out := CalendarSettings{
 		RefreshMinutes: c.RefreshMinutes,
@@ -41,7 +59,8 @@ func toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
 		o := CalendarSection{
 			Id: sec.ID, Title: sec.Title, Type: CalendarSectionType(sec.Type), CalendarIds: sec.CalendarIDs,
 			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays, ShowFreeDays: sec.ShowFreeDays,
-			Shifts: make([]CalendarShift, 0, len(sec.Shifts)),
+			Highlight: toHighlight(sec.Highlight),
+			Shifts:    make([]CalendarShift, 0, len(sec.Shifts)),
 		}
 		for _, sh := range sec.Shifts {
 			o.Shifts = append(o.Shifts, CalendarShift{
@@ -69,6 +88,7 @@ func toCalendarUpdate(b CalendarSettingsUpdate) settings.CalendarUpdate {
 		o := settings.CalendarSection{
 			ID: sec.Id, Title: sec.Title, Type: string(sec.Type), CalendarIDs: sec.CalendarIds,
 			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays, ShowFreeDays: sec.ShowFreeDays,
+			Highlight: fromHighlight(sec.Highlight),
 		}
 		for _, sh := range sec.Shifts {
 			o.Shifts = append(o.Shifts, settings.CalendarShift{
@@ -102,6 +122,12 @@ func calendarConfig(c settings.CalendarSettings) calendar.Config {
 			ID: sec.ID, Title: sec.Title, Type: sec.Type, CalendarIDs: sec.CalendarIDs,
 			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays, ShowFreeDays: sec.ShowFreeDays,
 		}
+		o.Highlight = calendar.Highlight{
+			Enabled: sec.Highlight.Enabled,
+			Ongoing: calendar.HighlightTier(sec.Highlight.Ongoing),
+			Soon:    calendar.HighlightSoon(sec.Highlight.Soon),
+			Today:   calendar.HighlightTier(sec.Highlight.Today),
+		}
 		for _, sh := range sec.Shifts {
 			o.Shifts = append(o.Shifts, calendar.Shift{
 				ID: sh.ID, Match: sh.Match, MatchMode: sh.MatchMode, Label: sh.Label, Start: sh.Start, End: sh.End, Icon: ref(sh.Icon),
@@ -127,7 +153,7 @@ func toShiftDays(days []calendar.ShiftDay) []ShiftDay {
 		if err != nil {
 			continue // the engine formats the date itself; cannot happen
 		}
-		out = append(out, ShiftDay{Date: openapi_types.Date{Time: date}, DayLabel: d.DayLabel, Title: d.Title, TimeRange: optional(d.TimeRange), Icon: calIcon(d.Icon), Free: d.Free, Ongoing: d.Ongoing})
+		out = append(out, ShiftDay{Date: openapi_types.Date{Time: date}, DayLabel: d.DayLabel, Title: d.Title, TimeRange: optional(d.TimeRange), Icon: calIcon(d.Icon), Free: d.Free, Ongoing: d.Ongoing, HighlightColor: optional(d.HighlightColor)})
 	}
 	return out
 }
@@ -184,7 +210,7 @@ func (s *Server) PreviewCalendar(ctx context.Context, request PreviewCalendarReq
 				}
 				items = append(items, PreviewItem{
 					Title: p.Title, OriginalTitle: p.OriginalTitle, Location: optional(p.Location), TimeLabel: p.TimeLabel,
-					Relative: p.Relative, Icon: calIcon(p.Icon), AllDay: p.AllDay, Ongoing: p.Ongoing,
+					Relative: p.Relative, Icon: calIcon(p.Icon), AllDay: p.AllDay, Ongoing: p.Ongoing, HighlightColor: optional(p.HighlightColor),
 					Hidden: p.Hidden, Shown: p.Shown, MatchedRules: rules, CalendarId: p.CalendarID, Start: p.Start,
 				})
 			}
@@ -214,7 +240,7 @@ func (s *Server) GetDashboardCalendarSection(ctx context.Context, request GetDas
 	for _, it := range res.Items {
 		items = append(items, DashboardCalendarItem{
 			Title: it.Title, Location: optional(it.Location), TimeLabel: it.TimeLabel, Relative: it.Relative,
-			Icon: calIcon(it.Icon), AllDay: it.AllDay, Ongoing: it.Ongoing,
+			Icon: calIcon(it.Icon), AllDay: it.AllDay, Ongoing: it.Ongoing, HighlightColor: optional(it.HighlightColor),
 		})
 	}
 	out.Items = &items

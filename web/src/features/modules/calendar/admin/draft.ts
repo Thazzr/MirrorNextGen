@@ -73,6 +73,12 @@ export const newSection = (): CalendarSection => ({
   shiftDays: 5,
   showFreeDays: false,
   shifts: [],
+  highlight: {
+    enabled: true,
+    ongoing: { enabled: true, color: '#f6b73c' },
+    soon: { enabled: false, color: '#ff8a65', hours: 2 },
+    today: { enabled: false, color: '#8fd3ff' },
+  },
 })
 
 export const newShift = (): CalendarShift => ({

@@ -19,8 +19,8 @@ func goodCalendar() CalendarSettings {
 			{ID: "dienst", Name: "Dienst", URL: "webcal://example.org/dienst.ics", Icon: none},
 		},
 		Sections: []CalendarSection{
-			{ID: "termine", Title: "Termine", Type: "list", CalendarIDs: []string{"familie"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 2, Shifts: []CalendarShift{}},
-			{ID: "schichten", Title: "Dienstplan", Type: "shifts", CalendarIDs: []string{"dienst"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 2, Shifts: []CalendarShift{
+			{ID: "termine", Title: "Termine", Type: "list", CalendarIDs: []string{"familie"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 2, Shifts: []CalendarShift{}, Highlight: DefaultHighlight()},
+			{ID: "schichten", Title: "Dienstplan", Type: "shifts", CalendarIDs: []string{"dienst"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 2, Highlight: DefaultHighlight(), Shifts: []CalendarShift{
 				{ID: "frueh", Match: "F", MatchMode: "equals", Label: "Frühdienst", Start: "06:00", End: "14:00", Icon: none},
 			}},
 		},
@@ -77,6 +77,11 @@ func TestValidateCalendar(t *testing.T) {
 		{"section unknown calendar", func(c *CalendarSettings) { c.Sections[0].CalendarIDs = []string{"gibtsnicht"} }, "calendar.sections.0.calendarIds", "Den Kalender „gibtsnicht“ gibt es nicht."},
 		{"section maxEvents low", func(c *CalendarSettings) { c.Sections[0].MaxEvents = 0 }, "calendar.sections.0.maxEvents", msgSecMaxEvents},
 		{"section maxEvents high", func(c *CalendarSettings) { c.Sections[0].MaxEvents = 31 }, "calendar.sections.0.maxEvents", msgSecMaxEvents},
+		{"highlight ongoing color", func(c *CalendarSettings) { c.Sections[0].Highlight.Ongoing.Color = "#12345" }, "calendar.sections.0.highlight.ongoing.color", msgHighColor},
+		{"highlight soon color", func(c *CalendarSettings) { c.Sections[1].Highlight.Soon.Color = "orange" }, "calendar.sections.1.highlight.soon.color", msgHighColor},
+		{"highlight today color", func(c *CalendarSettings) { c.Sections[0].Highlight.Today.Color = "#gggggg" }, "calendar.sections.0.highlight.today.color", msgHighColor},
+		{"highlight hours low", func(c *CalendarSettings) { c.Sections[0].Highlight.Soon.Hours = 0 }, "calendar.sections.0.highlight.soon.hours", msgHighHours},
+		{"highlight hours high", func(c *CalendarSettings) { c.Sections[0].Highlight.Soon.Hours = 49 }, "calendar.sections.0.highlight.soon.hours", msgHighHours},
 		{"section lookAhead high", func(c *CalendarSettings) { c.Sections[0].LookAheadDays = 61 }, "calendar.sections.0.lookAheadDays", msgSecLookAhead},
 		{"section shiftDays high", func(c *CalendarSettings) { c.Sections[1].ShiftDays = 15 }, "calendar.sections.1.shiftDays", msgSecShiftDays},
 		{"section shiftDays negative", func(c *CalendarSettings) { c.Sections[1].ShiftDays = -1 }, "calendar.sections.1.shiftDays", msgSecShiftDays},
@@ -236,7 +241,7 @@ func TestUpdateCalendarFillsDefaultsAndNormalizesIcons(t *testing.T) {
 	st, _ := Load(t.TempDir(), quiet)
 	u := CalendarUpdate{
 		Calendars: []CalendarSourceUpdate{{ID: "a", Name: "A", URL: "https://example.org/a.ics"}},
-		Sections:  []CalendarSection{{ID: "s", Title: "S", Type: "list", CalendarIDs: []string{"a"}}},
+		Sections:  []CalendarSection{{ID: "s", Title: "S", Type: "list", CalendarIDs: []string{"a"}, Highlight: DefaultHighlight()}},
 	}
 	cur, errs, err := st.UpdateCalendar(u)
 	if err != nil || errs != nil {
@@ -257,7 +262,7 @@ func TestUpdateCalendarCouplesTheLayout(t *testing.T) {
 	sec := func(ids ...string) []CalendarSection {
 		var out []CalendarSection
 		for _, id := range ids {
-			out = append(out, CalendarSection{ID: id, Title: id, Type: "list", CalendarIDs: []string{"a"}})
+			out = append(out, CalendarSection{ID: id, Title: id, Type: "list", CalendarIDs: []string{"a"}, Highlight: DefaultHighlight()})
 		}
 		return out
 	}
@@ -451,5 +456,80 @@ func TestShowFreeDaysSurvivesUpdateAndLoad(t *testing.T) {
 	again, _ := Load(dir, quiet)
 	if !again.Get().Calendar.Sections[1].ShowFreeDays {
 		t.Error("showFreeDays lost")
+	}
+}
+
+func TestDefaultHighlight(t *testing.T) {
+	h := DefaultHighlight()
+	want := CalendarHighlight{
+		Enabled: true,
+		Ongoing: HighlightTier{Enabled: true, Color: "#f6b73c"},
+		Soon:    HighlightSoon{Enabled: false, Color: "#ff8a65", Hours: 2},
+		Today:   HighlightTier{Enabled: false, Color: "#8fd3ff"},
+	}
+	if h != want {
+		t.Errorf("DefaultHighlight = %+v", h)
+	}
+	for _, c := range []string{"#f6b73c", "#FF8A65", "#000000"} {
+		if !colorPattern.MatchString(c) {
+			t.Errorf("%s rejected", c)
+		}
+	}
+}
+
+func TestLoadSectionWithoutHighlightGetsDefaults(t *testing.T) {
+	dir := t.TempDir()
+	content := `{"schemaVersion":1,"calendar":{"refreshMinutes":15,"calendars":[{"id":"d","name":"D","url":"https://example.org/d.ics","icon":{"kind":"none","name":"","file":""}}],` +
+		`"sections":[{"id":"plan","title":"Plan","type":"shifts","calendarIds":["d"],"maxEvents":8,"lookAheadDays":14,"shiftDays":3,"shifts":[]},` +
+		`{"id":"teil","title":"Teil","type":"list","calendarIds":["d"],"maxEvents":8,"lookAheadDays":14,"shiftDays":3,"shifts":[],"highlight":{"enabled":true,"soon":{"enabled":true,"hours":5}}}],"rules":[]}}`
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := Load(dir, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := filepath.Glob(filepath.Join(dir, "settings.json.discarded-*")); len(entries) != 0 {
+		t.Fatalf("file was discarded: %v", entries)
+	}
+	secs := st.Get().Calendar.Sections
+	if len(secs) != 2 {
+		t.Fatalf("sections = %+v", secs)
+	}
+	if secs[0].Highlight != DefaultHighlight() {
+		t.Errorf("section without highlight = %+v, want defaults", secs[0].Highlight)
+	}
+	// A partial highlight keeps the defaults for what it leaves out.
+	want := DefaultHighlight()
+	want.Soon.Enabled, want.Soon.Hours = true, 5
+	if secs[1].Highlight != want {
+		t.Errorf("partial highlight = %+v, want %+v", secs[1].Highlight, want)
+	}
+}
+
+func TestHighlightSurvivesUpdateAndLoad(t *testing.T) {
+	dir := t.TempDir()
+	st, _ := Load(dir, quiet)
+	good := goodCalendar()
+	good.Sections[0].Highlight = CalendarHighlight{
+		Enabled: false,
+		Ongoing: HighlightTier{Enabled: false, Color: "#ffffff"},
+		Soon:    HighlightSoon{Enabled: true, Color: "#7ee787", Hours: 12},
+		Today:   HighlightTier{Enabled: true, Color: "#ff5c5c"},
+	}
+	if _, errs, _ := st.UpdateCalendar(updateFrom(good, func(id string) string {
+		if id == "familie" {
+			return good.Calendars[0].URL
+		}
+		return good.Calendars[1].URL
+	})); errs != nil {
+		t.Fatal(errs)
+	}
+	again, err := Load(dir, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := again.Get().Calendar.Sections[0].Highlight; got != good.Sections[0].Highlight {
+		t.Errorf("reloaded highlight = %+v", got)
 	}
 }
