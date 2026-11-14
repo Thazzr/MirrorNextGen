@@ -5,7 +5,9 @@ go 1.27.4
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
+	github.com/emersion/go-ical v0.0.0-20261112170022-46c5b53a1723
 	github.com/oapi-codegen/runtime v1.9.0
+	github.com/teambition/rrule-go v1.8.2
 	golang.org/x/crypto v0.59.0
 	rsc.io/qr v0.2.0
 )
