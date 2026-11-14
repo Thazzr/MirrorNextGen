@@ -152,10 +152,14 @@ func TestWifiSettingsDefaultsAndSecretSemantics(t *testing.T) {
 	}
 
 	// Changing the SSID without a password keeps the password.
-	for name, pw := range map[string]*string{"absent": nil, "empty": ptr("")} {
-		rec := e.do(http.MethodPut, wifiPath, WifiSettingsUpdate{Ssid: "Home-" + name, Security: "WPA", Password: pw}, o)
+	// A slice, not a map: the last SSID ("Home-empty") must be deterministic.
+	for _, c := range []struct {
+		name string
+		pw   *string
+	}{{"absent", nil}, {"empty", ptr("")}} {
+		rec := e.do(http.MethodPut, wifiPath, WifiSettingsUpdate{Ssid: "Home-" + c.name, Security: "WPA", Password: c.pw}, o)
 		if got := decode[WifiSettings](t, rec); !got.HasPassword {
-			t.Errorf("%s password: %+v", name, got)
+			t.Errorf("%s password: %+v", c.name, got)
 		}
 	}
 	// The kept password is the one in the QR code.
