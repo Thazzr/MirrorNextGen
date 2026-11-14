@@ -37,7 +37,7 @@ describe('wifi page', () => {
     expectSinglePageTitle('WLAN-QR-Code')
     expect(screen.getByLabelText('Netzwerkname (SSID)')).toHaveValue('Gäste')
     expect(screen.getByRole('radio', { name: 'WPA/WPA2' })).toBeChecked()
-    expect(screen.getByLabelText('Passwort')).toHaveAttribute('placeholder', 'Gespeichert – leer lassen, um ihn zu behalten')
+    expect(screen.getByLabelText('Passwort')).toHaveAttribute('placeholder', 'Gespeichert – leer lassen zum Behalten')
     expect(screen.getByText('Gäste scannen den QR-Code unten am Spiegel und verbinden sich ohne Tippen.')).toBeInTheDocument()
     expect(bar()).not.toBeInTheDocument()
   })

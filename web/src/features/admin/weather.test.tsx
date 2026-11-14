@@ -41,7 +41,7 @@ describe('weather page', () => {
       'Darstellung',
     ])
     expect(screen.getByRole('textbox', { name: 'Ort' })).toHaveValue('Berlin')
-    expect(screen.getByLabelText('API-Key')).toHaveAttribute('placeholder', 'Gespeichert – leer lassen, um ihn zu behalten')
+    expect(screen.getByLabelText('API-Key')).toHaveAttribute('placeholder', 'Gespeichert – leer lassen zum Behalten')
     expect(screen.getByRole('switch', { name: 'Wettersymbole anzeigen' })).toBeChecked()
     expect(screen.getByLabelText('Aktualisierung')).toHaveValue('30 Minuten')
     expect(bar()).not.toBeInTheDocument()

@@ -50,7 +50,7 @@ export function SecretField({
       <PasswordInput
         label={label}
         description={description}
-        placeholder={hasSecret ? 'Gespeichert – leer lassen, um ihn zu behalten' : placeholder}
+        placeholder={hasSecret ? 'Gespeichert – leer lassen zum Behalten' : placeholder}
         autoComplete="new-password"
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}

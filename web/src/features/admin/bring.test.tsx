@@ -45,7 +45,7 @@ describe('bring page', () => {
     expectSinglePageTitle('Bring!-Einkaufsliste')
     expect(screen.getByRole('link', { name: '← Übersicht' })).toHaveAttribute('href', '/admin')
     expect(screen.getByLabelText('E-Mail')).toHaveValue('familie@example.org')
-    expect(screen.getByLabelText('Passwort')).toHaveAttribute('placeholder', 'Gespeichert – leer lassen, um ihn zu behalten')
+    expect(screen.getByLabelText('Passwort')).toHaveAttribute('placeholder', 'Gespeichert – leer lassen zum Behalten')
     expect(listBox()).toHaveValue('Standardliste')
     expect(screen.getByLabelText('Anzahl Einträge')).toHaveValue('Höchstens 18 Einträge')
     expect(screen.getByLabelText('Aktualisierung (Minuten)')).toHaveValue('5 Minuten')

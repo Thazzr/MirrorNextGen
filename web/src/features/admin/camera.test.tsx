@@ -49,7 +49,7 @@ describe('camera page', () => {
     expect(screen.getByLabelText('Titel')).toHaveValue('Haustür')
     const field = screen.getByLabelText('Stream-Adresse')
     expect(field).toHaveValue('')
-    expect(field).toHaveAttribute('placeholder', 'Gespeichert – leer lassen, um ihn zu behalten')
+    expect(field).toHaveAttribute('placeholder', 'Gespeichert – leer lassen zum Behalten')
     expect(screen.getByText(/Gespeichert für rtsp:\/\/192\.168\.1\.20\. Nur RTSP und RTSPS\. Die Adresse bleibt auf dem Spiegel\./)).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Helligkeit' })).toHaveAttribute('aria-valuenow', '120')
     expect(screen.getByRole('slider', { name: 'Kontrast' })).toHaveAttribute('aria-valuenow', '100')
