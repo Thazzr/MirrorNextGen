@@ -2,10 +2,11 @@
 
 Der Nachfolger von SmartMirror2: ein schlanker Smart Mirror für einen **Raspberry Pi 5** mit **Ubuntu 26.04 LTS Server** (ohne Desktop). Alles läuft in Docker. Das Dashboard erscheint im Vollbild auf einem WQHD-Monitor im Hochformat (1440×2560). Die Drehung lässt sich in der App einstellen.
 
-> **Stand: Phase 3 (Kiosk) abgeschlossen, Phase 4 in Arbeit.**
-> - **Server und Verwaltung:** Der Server liefert API und Oberfläche aus. Die Verwaltung unter `/admin` bietet Anmeldung, Konto und den Bereich „Anzeige“ (Drehung, Monitor-Ausgang, Testbild).
-> - **Kiosk-Container:** Er zeigt das Dashboard per Cage und Chromium im Vollbild und setzt die Drehung zur Laufzeit. Bei Bedarf dreht sich das Dashboard selbst (`KIOSK_ROTATION=browser`). Die Abnahme am Pi steht noch aus (siehe [`deploy/INSTALL.md`](deploy/INSTALL.md)).
-> - **Module:** Uhr, Wetter, WLAN, Kalender, Bring! und Kamera kommen als frei anordenbare Module (siehe [Roadmap](#roadmap)).
+> **Stand: Phase 4 (Module und Anordnung) abgeschlossen, Phase 5 (Kalender, Bring!) in Arbeit.**
+> - **Verwaltung unter `/admin`:** Anmeldung und Konto, die Anordnung der Module auf dem Spiegel, Anzeige (Drehung, Monitor-Ausgang, Testbild), Wetter und WLAN-QR-Code.
+> - **Dashboard:** Es zeigt die Module Uhr, Wetter (OpenWeather One Call 3.0, Tagesverlauf, 3 Tage) und WLAN-QR-Code in der eingestellten Anordnung, im Look von SmartMirror2.
+> - **Kiosk-Container:** Er zeigt das Dashboard per Cage und Chromium im Vollbild und dreht es zur Laufzeit. Die Abnahme am Pi steht noch aus (siehe [`deploy/INSTALL.md`](deploy/INSTALL.md)).
+> - **Kalender:** Der neue Kalender-Kern ist fertig. Seine Einstellungen und Ansichten folgen mit Bring!, Kamera, Nachtruhe, Logbuch und Update-Knopf (siehe [Roadmap](#roadmap)).
 
 ## Architektur
 
@@ -25,8 +26,8 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker (docker compose up -d)
 | Pfad | Inhalt |
 |---|---|
 | `api/` | OpenAPI-Vertrag |
-| `server/` | Go-Modul: `cmd/mirror` (Server), `cmd/kioskd` (Kiosk-Agent), `internal/{api,auth,config,fsutil,httpserver,kiosk,settings,web}` |
-| `web/` | React-App (`src/app`, `src/shared`, `src/features/{dashboard,admin}`); die Verwaltung (Mantine) lädt als eigener Chunk |
+| `server/` | Go-Modul: `cmd/mirror` (Server), `cmd/kioskd` (Kiosk-Agent), `internal/{api,auth,calendar,config,fsutil,httpserver,kiosk,modules,settings,weather,web,wifi}` |
+| `web/` | React-App (`src/app`, `src/shared`, `src/features/{dashboard,admin,modules}`); je Modul ein Ordner mit Widget und Admin-Seite; die Verwaltung (Mantine) lädt als eigener Chunk |
 | `kiosk/` | Dockerfile des Kiosk-Images (Cage, Chromium, kioskd) |
 | `deploy/` | `compose.yaml`, `.env.example` und `INSTALL.md` (Installation auf dem Pi) |
 | `tools/` | Prüfskript `verify.mjs`, Changelog-Werkzeug `changelog.mjs` |
@@ -61,6 +62,7 @@ Oberfläche mit Hot Reload entwickeln: den Server wie oben starten, dann `npm --
 |---|---|---|
 | `MIRROR_ADDR` | `:8080` | Listen-Adresse (`host:port`) |
 | `MIRROR_DATA_DIR` | `/data` | Verzeichnis für Einstellungen und Daten |
+| `MIRROR_OPENWEATHER_URL` | `https://api.openweathermap.org/` | Basis-URL von OpenWeather (nur für Tests mit einem nachgebauten Server) |
 
 ### Verwaltung
 
@@ -70,6 +72,8 @@ Die Verwaltung liegt unter `/admin` und funktioniert am Handy wie am Rechner.
 - **Fehlversuche:** Nach 5 falschen Passwörtern in 15 Minuten sperrt der Server weitere Versuche dieser Adresse vorübergehend.
 - **Einstellungen:** Sie liegen in `<MIRROR_DATA_DIR>/settings.json`. Eine unlesbare oder fremde Datei wird als `settings.json.discarded-<Zeit>` beiseitegelegt, und der Server startet mit Standardwerten.
 - **Passwort vergessen:** Server stoppen, `admin.json` im Datenverzeichnis löschen, neu starten und neu einrichten.
+- **Module und Anordnung:** Der Spiegel besteht aus Modulen (Uhr, Wetter, WLAN-QR-Code; Kalender, Bring! und Kamera folgen). Unter „Anordnung“ legst du fest, welches Modul in welcher der fünf Regionen steht: oben links, oben rechts, Mitte, unten links, unten rechts. Was nicht eingeordnet ist, bleibt aus.
+- **Wetter:** Es braucht einen OpenWeather-API-Key mit dem Abo „One Call API 3.0“ (1.000 Abrufe am Tag sind kostenlos).
 
 ### API ändern
 
