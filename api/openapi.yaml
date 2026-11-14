@@ -1713,7 +1713,7 @@ components:
     CalendarSection:
       type: object
       description: A calendar area of the mirror, one module instance (`calendar:<id>`).
-      required: [id, title, type, calendarIds, maxEvents, lookAheadDays, shiftDays, shifts]
+      required: [id, title, type, calendarIds, maxEvents, lookAheadDays, shiftDays, showFreeDays, shifts]
       properties:
         id:
           type: string
@@ -1733,10 +1733,13 @@ components:
           description: 1 to 30; 0 means the default 8.
         lookAheadDays:
           type: integer
-          description: 1 to 60; 0 means the default 14.
+          description: 1 to 60; 0 means the default 14. For type `shifts` it is the search horizon for work days.
         shiftDays:
           type: integer
-          description: 1 to 7; 0 means the default 2.
+          description: "Type `shifts`: number of rows. 1 to 14; 0 means the default 5."
+        showFreeDays:
+          type: boolean
+          description: "Type `shifts`: also show days without a shift as `frei` (consecutive days from today). Off: only the next work days."
         shifts:
           type: array
           description: Only for type `shifts`.
@@ -1849,21 +1852,27 @@ components:
     ShiftDay:
       type: object
       description: One day of the compact shift display.
-      required: [date, dayLabel, text, icon, free]
+      required: [date, dayLabel, title, icon, free, ongoing]
       properties:
         date:
           type: string
           format: date
         dayLabel:
           type: string
-          description: "`Heute`, `Morgen` or the weekday."
-        text:
+          description: "`Heute`, `Morgen`, the weekday for the next days up to six days ahead, then for example `Mo, 23.11.`."
+        title:
           type: string
-          description: For example `Frühdienst 06–14 Uhr` or `frei`.
+          description: Shift name, the event title when no shift matches, or `frei`.
+        timeRange:
+          type: string
+          description: For example `06–14` or `06:30–19:00`; absent when unknown.
         icon:
           $ref: "#/components/schemas/IconRef"
         free:
           type: boolean
+        ongoing:
+          type: boolean
+          description: "The shift is running now (all-day: today)."
     CalendarPreviewSection:
       type: object
       required: [id, title, type]
@@ -1887,9 +1896,6 @@ components:
           description: Type `shifts`.
           items:
             $ref: "#/components/schemas/ShiftDay"
-        summary:
-          type: string
-          description: "Type `shifts`; for example `Heute: Frühdienst 06–14 Uhr · Morgen: frei`."
     CalendarError:
       type: object
       required: [calendarId, message]

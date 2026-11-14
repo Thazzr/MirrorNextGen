@@ -42,6 +42,7 @@ type Section struct {
 	MaxEvents     int
 	LookAheadDays int
 	ShiftDays     int
+	ShowFreeDays  bool
 	Shifts        []Shift
 }
 
@@ -66,7 +67,6 @@ type SectionResult struct {
 	// for the admin preview.
 	Candidates []PreviewItem
 	Days       []ShiftDay
-	Summary    string
 }
 
 // CalendarError names a calendar that could not be loaded.
@@ -157,7 +157,7 @@ func (s *Service) evaluate(ctx context.Context, cfg Config, sec Section) (Sectio
 	var win Window
 	today := time.Date(now.In(s.loc).Year(), now.In(s.loc).Month(), now.In(s.loc).Day(), 0, 0, 0, 0, s.loc)
 	if sec.Type == TypeShifts {
-		win = Window{From: today, To: today.AddDate(0, 0, max(sec.ShiftDays, 1))}
+		win = Window{From: today, To: today.AddDate(0, 0, shiftHorizon(sec))}
 	} else {
 		win = Window{From: now, To: now.In(s.loc).AddDate(0, 0, max(sec.LookAheadDays, 1))}
 	}
@@ -217,8 +217,7 @@ func (s *Service) evaluate(ctx context.Context, cfg Config, sec Section) (Sectio
 	}
 
 	if sec.Type == TypeShifts {
-		res.Days = BuildShifts(sourced, cfg.Rules, sec.Shifts, sec.ShiftDays, now, s.loc)
-		res.Summary = ShiftSummary(res.Days)
+		res.Days = BuildShifts(sourced, cfg.Rules, sec.Shifts, shiftOptions(sec), now, s.loc)
 		return res, errs
 	}
 	res.Candidates = BuildPreview(ListInput{Occurrences: sourced, Rules: cfg.Rules, MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays}, now, s.loc)
@@ -228,4 +227,19 @@ func (s *Service) evaluate(ctx context.Context, cfg Config, sec Section) (Sectio
 		}
 	}
 	return res, errs
+}
+
+// shiftOptions maps the section settings to the shift builder's options.
+func shiftOptions(sec Section) ShiftOptions {
+	return ShiftOptions{ShowFreeDays: sec.ShowFreeDays, Rows: max(sec.ShiftDays, 1), HorizonDays: max(sec.LookAheadDays, 1)}
+}
+
+// shiftHorizon is how many days from today a shift section needs expanded:
+// the search horizon, or the row count when free days fill consecutive rows.
+func shiftHorizon(sec Section) int {
+	o := shiftOptions(sec)
+	if o.ShowFreeDays {
+		return o.Rows
+	}
+	return o.HorizonDays
 }

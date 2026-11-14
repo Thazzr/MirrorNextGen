@@ -1120,10 +1120,12 @@ export interface components {
             calendarIds: string[];
             /** @description 1 to 30; 0 means the default 8. */
             maxEvents: number;
-            /** @description 1 to 60; 0 means the default 14. */
+            /** @description 1 to 60; 0 means the default 14. For type `shifts` it is the search horizon for work days. */
             lookAheadDays: number;
-            /** @description 1 to 7; 0 means the default 2. */
+            /** @description Type `shifts`: number of rows. 1 to 14; 0 means the default 5. */
             shiftDays: number;
+            /** @description Type `shifts`: also show days without a shift as `frei` (consecutive days from today). Off: only the next work days. */
+            showFreeDays: boolean;
             /** @description Only for type `shifts`. */
             shifts: components["schemas"]["CalendarShift"][];
         };
@@ -1179,12 +1181,16 @@ export interface components {
         ShiftDay: {
             /** Format: date */
             date: string;
-            /** @description `Heute`, `Morgen` or the weekday. */
+            /** @description `Heute`, `Morgen`, the weekday for the next days up to six days ahead, then for example `Mo, 23.11.`. */
             dayLabel: string;
-            /** @description For example `Frühdienst 06–14 Uhr` or `frei`. */
-            text: string;
+            /** @description Shift name, the event title when no shift matches, or `frei`. */
+            title: string;
+            /** @description For example `06–14` or `06:30–19:00`; absent when unknown. */
+            timeRange?: string;
             icon: components["schemas"]["IconRef"];
             free: boolean;
+            /** @description The shift is running now (all-day: today). */
+            ongoing: boolean;
         };
         CalendarPreviewSection: {
             id: string;
@@ -1196,8 +1202,6 @@ export interface components {
             items?: components["schemas"]["PreviewItem"][];
             /** @description Type `shifts`. */
             days?: components["schemas"]["ShiftDay"][];
-            /** @description Type `shifts`; for example `Heute: Frühdienst 06–14 Uhr · Morgen: frei`. */
-            summary?: string;
         };
         CalendarError: {
             calendarId: string;

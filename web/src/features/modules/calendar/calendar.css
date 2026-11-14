@@ -47,10 +47,3 @@
 .mirror-agenda__moment { color: rgba(255,255,255,.86); font-size: clamp(.95rem,1.4vw,1.3rem); letter-spacing: .03rem; }
 /* A running event is only told apart by the accent colour of its relative text. */
 .mirror-agenda__relative--ongoing { color: var(--mirror-accent); }
-
-/* Shifts: one compact row per day, day label left, symbol and text right. */
-.mirror-shifts { display: flex; flex-direction: column; gap: clamp(3px,.3vw,5px); list-style: none; margin: clamp(.4rem,.6vw,.75rem) 0 0; padding: 0; }
-.mirror-shifts__day { align-items: center; display: flex; gap: clamp(.85rem,1.5vw,1.8rem); justify-content: space-between; }
-.mirror-shifts__label { color: rgba(255,255,255,.86); font-size: clamp(.95rem,1.4vw,1.3rem); letter-spacing: .03rem; }
-.mirror-shifts__text { align-items: center; color: #fff; display: flex; font-size: clamp(1.3rem,2vw,2.1rem); font-weight: 600; gap: clamp(.4rem,.6vw,.75rem); letter-spacing: .025rem; text-align: right; }
-.mirror-shifts__day--free .mirror-shifts__text { color: var(--mirror-muted); font-weight: 400; }

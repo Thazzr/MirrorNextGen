@@ -70,7 +70,8 @@ export const newSection = (): CalendarSection => ({
   calendarIds: [],
   maxEvents: 8,
   lookAheadDays: 14,
-  shiftDays: 2,
+  shiftDays: 5,
+  showFreeDays: false,
   shifts: [],
 })
 

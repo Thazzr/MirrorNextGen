@@ -78,7 +78,8 @@ func TestValidateCalendar(t *testing.T) {
 		{"section maxEvents low", func(c *CalendarSettings) { c.Sections[0].MaxEvents = 0 }, "calendar.sections.0.maxEvents", msgSecMaxEvents},
 		{"section maxEvents high", func(c *CalendarSettings) { c.Sections[0].MaxEvents = 31 }, "calendar.sections.0.maxEvents", msgSecMaxEvents},
 		{"section lookAhead high", func(c *CalendarSettings) { c.Sections[0].LookAheadDays = 61 }, "calendar.sections.0.lookAheadDays", msgSecLookAhead},
-		{"section shiftDays high", func(c *CalendarSettings) { c.Sections[1].ShiftDays = 8 }, "calendar.sections.1.shiftDays", msgSecShiftDays},
+		{"section shiftDays high", func(c *CalendarSettings) { c.Sections[1].ShiftDays = 15 }, "calendar.sections.1.shiftDays", msgSecShiftDays},
+		{"section shiftDays negative", func(c *CalendarSettings) { c.Sections[1].ShiftDays = -1 }, "calendar.sections.1.shiftDays", msgSecShiftDays},
 		{"shifts only for type shifts", func(c *CalendarSettings) { c.Sections[0].Shifts = c.Sections[1].Shifts }, "calendar.sections.0.shifts", msgSecShiftsOnly},
 		{"shift id pattern", func(c *CalendarSettings) { c.Sections[1].Shifts[0].ID = "F!" }, "calendar.sections.1.shifts.0.id", msgCalID},
 		{"shift id duplicate", func(c *CalendarSettings) {
@@ -242,7 +243,7 @@ func TestUpdateCalendarFillsDefaultsAndNormalizesIcons(t *testing.T) {
 		t.Fatalf("%v %v", errs, err)
 	}
 	sec := cur.Sections[0]
-	if cur.RefreshMinutes != 15 || sec.MaxEvents != 8 || sec.LookAheadDays != 14 || sec.ShiftDays != 2 {
+	if cur.RefreshMinutes != 15 || sec.MaxEvents != 8 || sec.LookAheadDays != 14 || sec.ShiftDays != 5 || sec.ShowFreeDays {
 		t.Errorf("defaults: refresh %d, %+v", cur.RefreshMinutes, sec)
 	}
 	if cur.Calendars[0].Icon.Kind != "none" {
@@ -402,5 +403,53 @@ func TestCalendarSurvivesSaveAndLoad(t *testing.T) {
 	}
 	if !again.Get().Equal(st.Get()) || len(again.Get().Calendar.Sections) != 2 {
 		t.Errorf("reloaded = %+v", again.Get().Calendar)
+	}
+}
+
+func TestShiftDaysAcceptsTheFullRange(t *testing.T) {
+	for _, n := range []int{1, 5, 14} {
+		c := goodCalendar()
+		c.Sections[1].ShiftDays = n
+		errs := map[string]string{}
+		c.validate(errs, nil)
+		if len(errs) != 0 {
+			t.Errorf("shiftDays %d: %v", n, errs)
+		}
+	}
+}
+
+func TestLoadSectionWithoutShowFreeDaysDefaultsToFalse(t *testing.T) {
+	dir := t.TempDir()
+	content := `{"schemaVersion":1,"calendar":{"refreshMinutes":15,"calendars":[{"id":"d","name":"D","url":"https://example.org/d.ics","icon":{"kind":"none","name":"","file":""}}],` +
+		`"sections":[{"id":"plan","title":"Plan","type":"shifts","calendarIds":["d"],"maxEvents":8,"lookAheadDays":14,"shiftDays":3,"shifts":[]}],"rules":[]}}`
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := Load(dir, quiet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secs := st.Get().Calendar.Sections
+	if len(secs) != 1 || secs[0].ShowFreeDays || secs[0].ShiftDays != 3 {
+		t.Errorf("sections = %+v", secs)
+	}
+}
+
+func TestShowFreeDaysSurvivesUpdateAndLoad(t *testing.T) {
+	dir := t.TempDir()
+	st, _ := Load(dir, quiet)
+	good := goodCalendar()
+	good.Sections[1].ShowFreeDays = true
+	if _, errs, _ := st.UpdateCalendar(updateFrom(good, func(id string) string {
+		if id == "familie" {
+			return good.Calendars[0].URL
+		}
+		return good.Calendars[1].URL
+	})); errs != nil {
+		t.Fatal(errs)
+	}
+	again, _ := Load(dir, quiet)
+	if !again.Get().Calendar.Sections[1].ShowFreeDays {
+		t.Error("showFreeDays lost")
 	}
 }

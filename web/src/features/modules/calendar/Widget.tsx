@@ -83,26 +83,33 @@ function Shifts({ section }: { section: Section }) {
   return (
     <>
       {section.error && <div className="mirror-error">{section.error}</div>}
-      <ul className="mirror-shifts">
-        {days.map((day) => (
-          <ShiftRow key={day.date} day={day} />
-        ))}
+      <ul className="mirror-agenda">
+        {days.length > 0 ? (
+          days.map((day) => <ShiftRow key={day.date} day={day} />)
+        ) : (
+          !section.error && (
+            <li className="mirror-agenda__item mirror-agenda__item--empty">
+              <span className="mirror-muted">Keine Schichten im ausgewählten Zeitraum.</span>
+            </li>
+          )
+        )}
       </ul>
     </>
   )
 }
 
+// Shift rows reuse the agenda row markup so both lists look the same.
 function ShiftRow({ day }: { day: Day }) {
   return (
-    <li className={`mirror-shifts__day${day.free ? ' mirror-shifts__day--free' : ''}`}>
-      <span className="mirror-shifts__label">{day.dayLabel}</span>
-      <span className="mirror-shifts__text">
-        {!day.free && (
-          <span className="mirror-agenda__symbol">
-            <CalendarIcon icon={day.icon} />
-          </span>
-        )}
-        <span>{day.free ? 'frei' : day.text}</span>
+    <li className="mirror-agenda__item">
+      <span className="mirror-agenda__symbol">{!day.free && <CalendarIcon icon={day.icon} />}</span>
+      <span className="mirror-agenda__content">
+        <span className={`mirror-agenda__title${day.free ? ' mirror-muted' : ''}`}>{day.title}</span>
+      </span>
+      <span className="mirror-agenda__time">
+        <span className={`mirror-agenda__relative${day.ongoing ? ' mirror-agenda__relative--ongoing' : ''}`}>
+          {day.timeRange ? `${day.dayLabel} ${day.timeRange}` : day.dayLabel}
+        </span>
       </span>
     </li>
   )

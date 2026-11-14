@@ -28,7 +28,7 @@ func calBody(e *testEnv) CalendarSettingsUpdate {
 		},
 		Sections: []CalendarSection{
 			{Id: "termine", Title: "Termine", Type: CalendarSectionType("list"), CalendarIds: []string{"familie"}, MaxEvents: 3, LookAheadDays: 14, ShiftDays: 2, Shifts: []CalendarShift{}},
-			{Id: "plan", Title: "Dienstplan", Type: CalendarSectionType("shifts"), CalendarIds: []string{"dienst"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 4, Shifts: []CalendarShift{
+			{Id: "plan", Title: "Dienstplan", Type: CalendarSectionType("shifts"), CalendarIds: []string{"dienst"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 4, ShowFreeDays: true, Shifts: []CalendarShift{
 				{Id: "sync", Match: "Sync", MatchMode: "contains", Label: "Spätdienst", Start: "14:00", End: "22:00", Icon: IconRef{Kind: Bootstrap, Name: sptr("moon")}},
 			}},
 		},
@@ -235,7 +235,7 @@ func TestCalendarPreviewShowsRuleEffectsOfAnUnsavedDraft(t *testing.T) {
 	if hidden == 0 || renamed == 0 {
 		t.Fatalf("preview lacks rule effects: hidden %d renamed %d of %d", hidden, renamed, len(items))
 	}
-	if prev.Sections[1].Type != "shifts" || prev.Sections[1].Days == nil || prev.Sections[1].Summary == nil {
+	if prev.Sections[1].Type != "shifts" || prev.Sections[1].Days == nil {
 		t.Fatalf("shifts preview = %+v", prev.Sections[1])
 	}
 	// The draft was not stored: the dashboard still shows the unrenamed list.
@@ -280,10 +280,10 @@ func TestDashboardCalendarSections(t *testing.T) {
 		t.Fatalf("shifts = %s", rec.Body)
 	}
 	days := *shifts.Days
-	if days[0].DayLabel != "Heute" || !days[0].Free || days[0].Text != "frei" {
+	if days[0].DayLabel != "Heute" || !days[0].Free || days[0].Title != "frei" || days[0].Ongoing || days[0].TimeRange != nil {
 		t.Errorf("day 0 = %+v", days[0])
 	}
-	if days[3].Text != "Spätdienst 14–22 Uhr" || days[3].Free || days[3].Icon.Kind != Bootstrap || *days[3].Icon.Name != "moon" || days[3].Date.Format("2006-01-02") != "2026-11-17" {
+	if days[3].Title != "Spätdienst" || days[3].TimeRange == nil || *days[3].TimeRange != "14–22" || days[3].Free || days[3].Icon.Kind != Bootstrap || *days[3].Icon.Name != "moon" || days[3].Date.Format("2006-01-02") != "2026-11-17" {
 		t.Errorf("day 3 = %+v", days[3])
 	}
 	if strings.Contains(rec.Body.String(), "secret-token") {
@@ -334,5 +334,36 @@ func TestCalendarUpdateInvalidatesTheFeedCache(t *testing.T) {
 	e.do(http.MethodGet, "/api/v1/dashboard/calendar/termine", nil, opts{})
 	if got := e.feed.calls.Load(); got != before+1 {
 		t.Errorf("feed calls = %d, want %d after the update", got, before+1)
+	}
+}
+
+func TestShowFreeDaysRoundTripsAndChangesTheDashboard(t *testing.T) {
+	e := newTestEnv(t)
+	c := e.setup(t)
+	o := opts{cookie: c.cookie}
+	body := calBody(e)
+	putCalendar(t, e, c, body)
+	if got := decode[CalendarSettings](t, e.do(http.MethodGet, calSettingsPath, nil, o)); !got.Sections[1].ShowFreeDays {
+		t.Fatal("showFreeDays = true was not stored")
+	}
+
+	// Off: only work days, ShiftDays is the row count and no row is free.
+	body.Sections[1].ShowFreeDays = false
+	putCalendar(t, e, c, body)
+	if got := decode[CalendarSettings](t, e.do(http.MethodGet, calSettingsPath, nil, o)); got.Sections[1].ShowFreeDays {
+		t.Fatal("showFreeDays = false was not stored")
+	}
+	rec := e.do(http.MethodGet, "/api/v1/dashboard/calendar/plan", nil, opts{})
+	days := *decode[DashboardCalendarSection](t, rec).Days
+	if len(days) == 0 || len(days) > 4 {
+		t.Fatalf("rows = %d: %s", len(days), rec.Body)
+	}
+	for _, d := range days {
+		if d.Free || d.Title == "frei" {
+			t.Errorf("free row although free days are off: %+v", d)
+		}
+	}
+	if !strings.Contains(rec.Body.String(), `"ongoing"`) {
+		t.Error("answer lacks ongoing")
 	}
 }
