@@ -8,8 +8,11 @@ services:
       - "${MIRROR_PORT:-8080}:8080"
     environment:
       TZ: ${TZ:-Europe/Berlin}
+      MIRROR_CONTROL_DIR: /control
     volumes:
       - mirror-data:/data
+      # Shared with the host-side update service (deploy/host).
+      - ./control:/control
 
   kiosk:
     image: ghcr.io/thazzr/mirrornextgen/kiosk:${MIRROR_TAG:-latest}

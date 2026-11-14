@@ -139,3 +139,42 @@ cd ~/mirror
 docker compose pull
 docker compose up -d
 ```
+
+## 9. Updates per Knopf
+
+> **Hinweis:** Auch dieser Abschnitt wurde ohne Zugriff auf die Hardware geschrieben. Prüfe jeden Schritt am Gerät.
+
+Der Container `mirror` kann sich nicht selbst aktualisieren. Darum gibt es einen kleinen Dienst auf dem Host (systemd). Der Server legt die Datei `control/update-request` ab, der Host-Dienst bemerkt sie und führt `docker compose pull` und `docker compose up -d --remove-orphans` aus. Das Ergebnis steht danach in `control/update-status.json`, die Ausgabe in `control/update.log`.
+
+Einrichten (einmalig, im Ordner mit `compose.yaml`). Kopiere dafür den Ordner `deploy/host/` aus dem Repository neben die `compose.yaml`, z. B. per `scp -r deploy/host <benutzer>@<pi>:~/mirror/`:
+
+```bash
+cd ~/mirror
+sudo ./host/install.sh
+```
+
+Das Skript legt `control/` an (Besitzer UID 65532, der Nutzer im Container), installiert die Units `mirror-update.path` und `mirror-update.service` und aktiviert sie. Du kannst es gefahrlos wiederholen.
+
+Optional zusätzlich ein nächtliches Update (täglich gegen 04:17 Uhr, bis zu 15 Minuten zufällig verschoben):
+
+```bash
+sudo ./host/install.sh --with-timer
+```
+
+Beobachten:
+
+```bash
+systemctl status mirror-update
+journalctl -u mirror-update -e
+cat control/update-status.json
+cat control/update.log
+```
+
+Von Hand auslösen, ohne den Knopf: `touch control/update-request`.
+
+Fallback ohne den Dienst:
+
+```bash
+cd ~/mirror
+docker compose pull && docker compose up -d
+```
