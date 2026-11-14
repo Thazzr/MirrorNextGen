@@ -633,6 +633,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/logbook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent log records
+         * @description Returns the last records the server logged since its start (at most the capacity of the ring buffer), newest first, at or above `minLevel`. Only the admin sees them; attributes never carry secrets because the log has none.
+         */
+        get: operations["getLogbook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State of the update button
+         * @description Tells whether updates by button are set up and how the latest update is going. The state comes from the host's updater script.
+         */
+        get: operations["getSystemUpdate"];
+        put?: never;
+        /**
+         * Ask the host to update the mirror
+         * @description Writes an update request into the control directory; the host's updater pulls the new images and restarts the stack. Answers 409 while a request is pending (not stalled) or an update is running, 503 when no control directory is set up or it cannot be written.
+         */
+        post: operations["requestSystemUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -650,6 +694,46 @@ export interface components {
             commit: string;
             /** @description Build time as ISO 8601 timestamp, empty when unknown. */
             buildTime: string;
+        };
+        /** @description One recorded log record. */
+        LogbookEntry: {
+            /** Format: date-time */
+            time: string;
+            /** @enum {string} */
+            level: "debug" | "info" | "warn" | "error";
+            message: string;
+            /** @description Attributes of the record; groups are flattened to `group.key`. */
+            attrs: components["schemas"]["LogbookAttr"][];
+        };
+        LogbookAttr: {
+            key: string;
+            value: string;
+        };
+        /** @description The recent log records, newest first. */
+        Logbook: {
+            entries: components["schemas"]["LogbookEntry"][];
+            /** @description How many records the logbook keeps at most. */
+            capacity: number;
+        };
+        /** @description State of the update button. */
+        UpdateStatus: {
+            /** @description False when no control directory is set up. */
+            available: boolean;
+            /** @description True while a request waits for the host's updater. */
+            pending: boolean;
+            /** @description True when a request has waited more than two minutes and the host is not running an update, i.e. nobody picks it up. A stalled request does not block a new one. */
+            stalled: boolean;
+            /**
+             * @description Progress reported by the host. `unknown` when the status file cannot be read.
+             * @enum {string}
+             */
+            state: "idle" | "running" | "succeeded" | "failed" | "unknown";
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** @description Text from the host (tail of the update log on failure); admin only. */
+            message?: string;
         };
         /** @description Error body, served as application/problem+json. */
         Problem: {
@@ -2116,6 +2200,83 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    getLogbook: {
+        parameters: {
+            query?: {
+                minLevel?: "debug" | "info" | "warn" | "error";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recorded log entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Logbook"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSystemUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The update state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    requestSystemUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request was written; the body is the update state. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Updates by button are not set up, or the control directory is not writable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
 }

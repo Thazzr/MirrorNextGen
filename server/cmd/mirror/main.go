@@ -25,7 +25,9 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
+	"github.com/thazzr/mirrornextgen/server/internal/logbook"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
+	"github.com/thazzr/mirrornextgen/server/internal/update"
 	"github.com/thazzr/mirrornextgen/server/internal/weather"
 	"github.com/thazzr/mirrornextgen/server/internal/web"
 )
@@ -51,7 +53,10 @@ func main() {
 
 // run is main without process globals; it returns the exit code.
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
-	logger := slog.New(slog.NewJSONHandler(stdout, nil))
+	// Everything still goes to stdout; the logbook keeps the last records for
+	// the admin page.
+	book := logbook.New()
+	logger := slog.New(book.Handler(slog.NewJSONHandler(stdout, nil)))
 
 	cfg, err := config.Load(getenv)
 	if err != nil {
@@ -141,6 +146,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Icons:    iconStore,
 		Display:  displayCtl,
 		Camera:   cameraSvc,
+		Logbook:  book,
+		Update:   update.New(cfg.ControlDir),
+		Now:      time.Now,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,

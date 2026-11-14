@@ -48,6 +48,8 @@ describe('overview tiles of the module registry', () => {
       '/admin/calendar',
       '/admin/icons',
       '/admin/bring',
+      '/admin/logbook',
+      '/admin/system',
       '/admin/account',
     ])
   })

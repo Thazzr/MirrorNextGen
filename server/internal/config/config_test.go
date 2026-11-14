@@ -30,6 +30,7 @@ func TestLoad(t *testing.T) {
 		{"bring override", map[string]string{"MIRROR_BRING_URL": " http://127.0.0.1:9998/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: "http://127.0.0.1:9998/", Go2RTCURL: go2rtcDefault}},
 		{"openweather override", map[string]string{"MIRROR_OPENWEATHER_URL": " http://127.0.0.1:9999/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: "http://127.0.0.1:9999/", BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
 		{"go2rtc override", map[string]string{"MIRROR_GO2RTC_URL": " http://127.0.0.1:1984/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: "http://127.0.0.1:1984/"}},
+		{"control dir", map[string]string{"MIRROR_CONTROL_DIR": " /control "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: go2rtcDefault, ControlDir: "/control"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

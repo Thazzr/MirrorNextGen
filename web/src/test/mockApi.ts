@@ -1,7 +1,7 @@
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer'
 import { vi } from 'vitest'
 
-export type RecordedCall = { method: string; path: string; csrf: string | null; body: unknown; bodyError?: string }
+export type RecordedCall = { method: string; path: string; search: string; csrf: string | null; body: unknown; bodyError?: string }
 export type Handler = Response | ((call: RecordedCall) => Response | Promise<Response>)
 
 export const json = (body: unknown, init?: ResponseInit) => Response.json(body, init)
@@ -45,6 +45,7 @@ export function mockApi(initial: Record<string, Handler> = {}) {
       const call: RecordedCall = {
         method: input.method,
         path: new URL(input.url).pathname,
+        search: new URL(input.url).search,
         csrf: input.headers.get('X-CSRF-Token'),
         body: undefined,
       }

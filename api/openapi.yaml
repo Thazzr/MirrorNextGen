@@ -846,6 +846,82 @@ paths:
                 format: binary
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/logbook:
+    get:
+      operationId: getLogbook
+      summary: Recent log records
+      description: >-
+        Returns the last records the server logged since its start (at most the
+        capacity of the ring buffer), newest first, at or above `minLevel`. Only the
+        admin sees them; attributes never carry secrets because the log has none.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: minLevel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [debug, info, warn, error]
+            default: info
+      responses:
+        "200":
+          description: The recorded log entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Logbook"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/system/update:
+    get:
+      operationId: getSystemUpdate
+      summary: State of the update button
+      description: >-
+        Tells whether updates by button are set up and how the latest update is
+        going. The state comes from the host's updater script.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The update state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: requestSystemUpdate
+      summary: Ask the host to update the mirror
+      description: >-
+        Writes an update request into the control directory; the host's updater
+        pulls the new images and restarts the stack. Answers 409 while a request is
+        pending (not stalled) or an update is running, 503 when no control directory is set
+        up or it cannot be written.
+      security:
+        - sessionCookie: []
+      responses:
+        "202":
+          description: The request was written; the body is the update state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          description: Updates by button are not set up, or the control directory is not writable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
 components:
   securitySchemes:
     sessionCookie:
@@ -915,6 +991,74 @@ components:
         buildTime:
           type: string
           description: Build time as ISO 8601 timestamp, empty when unknown.
+    LogbookEntry:
+      type: object
+      description: One recorded log record.
+      required: [time, level, message, attrs]
+      properties:
+        time:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+        message:
+          type: string
+        attrs:
+          type: array
+          description: Attributes of the record; groups are flattened to `group.key`.
+          items:
+            $ref: "#/components/schemas/LogbookAttr"
+    LogbookAttr:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    Logbook:
+      type: object
+      description: The recent log records, newest first.
+      required: [entries, capacity]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogbookEntry"
+        capacity:
+          type: integer
+          description: How many records the logbook keeps at most.
+    UpdateStatus:
+      type: object
+      description: State of the update button.
+      required: [available, pending, stalled, state]
+      properties:
+        available:
+          type: boolean
+          description: False when no control directory is set up.
+        pending:
+          type: boolean
+          description: True while a request waits for the host's updater.
+        stalled:
+          type: boolean
+          description: >-
+            True when a request has waited more than two minutes and the host is not running an
+            update, i.e. nobody picks it up. A stalled request does not block a new one.
+        state:
+          type: string
+          enum: [idle, running, succeeded, failed, unknown]
+          description: >-
+            Progress reported by the host. `unknown` when the status file cannot be read.
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: Text from the host (tail of the update log on failure); admin only.
     Problem:
       type: object
       description: Error body, served as application/problem+json.

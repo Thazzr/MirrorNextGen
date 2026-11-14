@@ -31,6 +31,9 @@ type Config struct {
 	// Go2RTCURL is the base URL of the internal go2rtc service
 	// (MIRROR_GO2RTC_URL). It must never be reachable from the LAN.
 	Go2RTCURL string
+	// ControlDir is the directory shared with the host's updater
+	// (MIRROR_CONTROL_DIR). Empty means the update button is unavailable.
+	ControlDir string
 }
 
 // Load reads the configuration through getenv (os.Getenv in production).
@@ -42,6 +45,7 @@ func Load(getenv func(string) string) (Config, error) {
 		OpenWeatherURL: valueOr(getenv("MIRROR_OPENWEATHER_URL"), defaultOpenWeatherURL),
 		BringURL:       valueOr(getenv("MIRROR_BRING_URL"), defaultBringURL),
 		Go2RTCURL:      valueOr(getenv("MIRROR_GO2RTC_URL"), defaultGo2RTCURL),
+		ControlDir:     valueOr(getenv("MIRROR_CONTROL_DIR"), ""),
 	}
 	if _, _, err := net.SplitHostPort(cfg.Addr); err != nil {
 		return Config{}, fmt.Errorf("MIRROR_ADDR %q is not a valid host:port address: %w", cfg.Addr, err)

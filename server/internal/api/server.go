@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/bring"
@@ -13,7 +14,9 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/camera"
 	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
+	"github.com/thazzr/mirrornextgen/server/internal/logbook"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
+	"github.com/thazzr/mirrornextgen/server/internal/update"
 	"github.com/thazzr/mirrornextgen/server/internal/weather"
 )
 
@@ -40,6 +43,13 @@ type Deps struct {
 	// Camera registers the stream with go2rtc and proxies the video; nil
 	// switches the camera routes off (tests).
 	Camera *camera.Service
+	// Logbook holds the recent log records; nil serves an empty logbook.
+	Logbook *logbook.Logbook
+	// Update talks to the host's updater; nil means updates by button are
+	// unavailable.
+	Update *update.Service
+	// Now is the clock; nil means time.Now.
+	Now func() time.Time
 }
 
 // Server implements the generated StrictServerInterface.
@@ -55,6 +65,10 @@ type Server struct {
 	icons    *icons.Store
 	display  *display.Controller
 	camera   *camera.Service
+	logbook  *logbook.Logbook
+	update   *update.Service
+	now      func() time.Time
+	logger   *slog.Logger
 	// iconMu serialises icon deletes with calendar updates, so an icon cannot
 	// be deleted while a settings change that references it is being stored.
 	iconMu sync.Mutex
@@ -64,7 +78,15 @@ var _ StrictServerInterface = (*Server)(nil)
 
 // NewServer returns a Server wired to deps.
 func NewServer(deps Deps) *Server {
-	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather, bring: deps.Bring, calendar: deps.Calendar, icons: deps.Icons, display: deps.Display, camera: deps.Camera}
+	now := deps.Now
+	if now == nil {
+		now = time.Now
+	}
+	upd := deps.Update
+	if upd == nil {
+		upd = update.New("")
+	}
+	return &Server{logbook: deps.Logbook, update: upd, now: now, logger: deps.Logger, build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather, bring: deps.Bring, calendar: deps.Calendar, icons: deps.Icons, display: deps.Display, camera: deps.Camera}
 }
 
 // GetHealth answers the liveness check.

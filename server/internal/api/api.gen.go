@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -259,6 +260,57 @@ func (e KioskStateRotation) Valid() bool {
 	}
 }
 
+// Defines values for LogbookEntryLevel.
+const (
+	LogbookEntryLevelDebug LogbookEntryLevel = "debug"
+	LogbookEntryLevelError LogbookEntryLevel = "error"
+	LogbookEntryLevelInfo  LogbookEntryLevel = "info"
+	LogbookEntryLevelWarn  LogbookEntryLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the LogbookEntryLevel enum.
+func (e LogbookEntryLevel) Valid() bool {
+	switch e {
+	case LogbookEntryLevelDebug:
+		return true
+	case LogbookEntryLevelError:
+		return true
+	case LogbookEntryLevelInfo:
+		return true
+	case LogbookEntryLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateStatusState.
+const (
+	Failed    UpdateStatusState = "failed"
+	Idle      UpdateStatusState = "idle"
+	Running   UpdateStatusState = "running"
+	Succeeded UpdateStatusState = "succeeded"
+	Unknown   UpdateStatusState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the UpdateStatusState enum.
+func (e UpdateStatusState) Valid() bool {
+	switch e {
+	case Failed:
+		return true
+	case Idle:
+		return true
+	case Running:
+		return true
+	case Succeeded:
+		return true
+	case Unknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WifiSettingsSecurity.
 const (
 	WifiSettingsSecurityNopass WifiSettingsSecurity = "nopass"
@@ -289,6 +341,30 @@ func (e WifiSettingsUpdateSecurity) Valid() bool {
 	case WifiSettingsUpdateSecurityNopass:
 		return true
 	case WifiSettingsUpdateSecurityWPA:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetLogbookParamsMinLevel.
+const (
+	GetLogbookParamsMinLevelDebug GetLogbookParamsMinLevel = "debug"
+	GetLogbookParamsMinLevelError GetLogbookParamsMinLevel = "error"
+	GetLogbookParamsMinLevelInfo  GetLogbookParamsMinLevel = "info"
+	GetLogbookParamsMinLevelWarn  GetLogbookParamsMinLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the GetLogbookParamsMinLevel enum.
+func (e GetLogbookParamsMinLevel) Valid() bool {
+	switch e {
+	case GetLogbookParamsMinLevelDebug:
+		return true
+	case GetLogbookParamsMinLevelError:
+		return true
+	case GetLogbookParamsMinLevelInfo:
+		return true
+	case GetLogbookParamsMinLevelWarn:
 		return true
 	default:
 		return false
@@ -778,6 +854,31 @@ type Layout struct {
 	TopRight    []string `json:"topRight"`
 }
 
+// Logbook The recent log records, newest first.
+type Logbook struct {
+	// Capacity How many records the logbook keeps at most.
+	Capacity int            `json:"capacity"`
+	Entries  []LogbookEntry `json:"entries"`
+}
+
+// LogbookAttr defines model for LogbookAttr.
+type LogbookAttr struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// LogbookEntry One recorded log record.
+type LogbookEntry struct {
+	// Attrs Attributes of the record; groups are flattened to `group.key`.
+	Attrs   []LogbookAttr     `json:"attrs"`
+	Level   LogbookEntryLevel `json:"level"`
+	Message string            `json:"message"`
+	Time    time.Time         `json:"time"`
+}
+
+// LogbookEntryLevel defines model for LogbookEntry.Level.
+type LogbookEntryLevel string
+
 // ModuleInfo A module that can be placed in the layout.
 type ModuleInfo struct {
 	// Key Module key, for example `clock`.
@@ -869,6 +970,29 @@ type ShiftDay struct {
 	// Text For example `Frühdienst 06–14 Uhr` or `frei`.
 	Text string `json:"text"`
 }
+
+// UpdateStatus State of the update button.
+type UpdateStatus struct {
+	// Available False when no control directory is set up.
+	Available  bool       `json:"available"`
+	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+
+	// Message Text from the host (tail of the update log on failure); admin only.
+	Message *string `json:"message,omitempty"`
+
+	// Pending True while a request waits for the host's updater.
+	Pending bool `json:"pending"`
+
+	// Stalled True when a request has waited more than two minutes and the host is not running an update, i.e. nobody picks it up. A stalled request does not block a new one.
+	Stalled   bool       `json:"stalled"`
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+
+	// State Progress reported by the host. `unknown` when the status file cannot be read.
+	State UpdateStatusState `json:"state"`
+}
+
+// UpdateStatusState Progress reported by the host. `unknown` when the status file cannot be read.
+type UpdateStatusState string
 
 // WeatherData Current weather, chart points and forecast.
 type WeatherData struct {
@@ -986,6 +1110,14 @@ type UploadIconMultipartBody struct {
 	Name *string `json:"name,omitempty"`
 }
 
+// GetLogbookParams defines parameters for GetLogbook.
+type GetLogbookParams struct {
+	MinLevel *GetLogbookParamsMinLevel `form:"minLevel,omitempty" json:"minLevel,omitempty"`
+}
+
+// GetLogbookParamsMinLevel defines parameters for GetLogbook.
+type GetLogbookParamsMinLevel string
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = PasswordRequest
 
@@ -1084,6 +1216,9 @@ type ServerInterface interface {
 	// GetKioskState Target state of the kiosk
 	// (GET /api/v1/kiosk/state)
 	GetKioskState(w http.ResponseWriter, r *http.Request)
+	// GetLogbook Recent log records
+	// (GET /api/v1/logbook)
+	GetLogbook(w http.ResponseWriter, r *http.Request, params GetLogbookParams)
 	// ListModules Available modules
 	// (GET /api/v1/modules)
 	ListModules(w http.ResponseWriter, r *http.Request)
@@ -1135,6 +1270,12 @@ type ServerInterface interface {
 	// UpdateWifiSettings Change the guest Wi-Fi settings
 	// (PUT /api/v1/settings/wifi)
 	UpdateWifiSettings(w http.ResponseWriter, r *http.Request)
+	// GetSystemUpdate State of the update button
+	// (GET /api/v1/system/update)
+	GetSystemUpdate(w http.ResponseWriter, r *http.Request)
+	// RequestSystemUpdate Ask the host to update the mirror
+	// (POST /api/v1/system/update)
+	RequestSystemUpdate(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1462,6 +1603,39 @@ func (siw *ServerInterfaceWrapper) GetKioskState(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetLogbook operation middleware
+func (siw *ServerInterfaceWrapper) GetLogbook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetLogbookParams
+
+	// ------------- Optional query parameter "minLevel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "minLevel", r.URL.Query(), &params.MinLevel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "minLevel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "minLevel", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLogbook(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListModules operation middleware
 func (siw *ServerInterfaceWrapper) ListModules(w http.ResponseWriter, r *http.Request) {
 
@@ -1700,6 +1874,34 @@ func (siw *ServerInterfaceWrapper) UpdateWifiSettings(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetSystemUpdate operation middleware
+func (siw *ServerInterfaceWrapper) GetSystemUpdate(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSystemUpdate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestSystemUpdate operation middleware
+func (siw *ServerInterfaceWrapper) RequestSystemUpdate(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestSystemUpdate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1857,6 +2059,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/icons", wrapper.UploadIcon)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/icons/{id}", wrapper.DeleteIcon)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/icons/{id}/file", wrapper.GetIconFile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/logbook", wrapper.GetLogbook)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/system/update", wrapper.GetSystemUpdate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/system/update", wrapper.RequestSystemUpdate)
 
 	return m
 }
@@ -2748,6 +2953,60 @@ func (response GetKioskState200JSONResponse) VisitGetKioskStateResponse(w http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLogbookRequestObject struct {
+	Params GetLogbookParams
+}
+
+type GetLogbookResponseObject interface {
+	VisitGetLogbookResponse(w http.ResponseWriter) error
+}
+
+type GetLogbook200JSONResponse Logbook
+
+func (response GetLogbook200JSONResponse) VisitGetLogbookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLogbook400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetLogbook400ApplicationProblemPlusJSONResponse) VisitGetLogbookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLogbook401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetLogbook401ApplicationProblemPlusJSONResponse) VisitGetLogbookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3691,6 +3950,126 @@ func (response UpdateWifiSettings403ApplicationProblemPlusJSONResponse) VisitUpd
 	return err
 }
 
+type GetSystemUpdateRequestObject struct {
+}
+
+type GetSystemUpdateResponseObject interface {
+	VisitGetSystemUpdateResponse(w http.ResponseWriter) error
+}
+
+type GetSystemUpdate200JSONResponse UpdateStatus
+
+func (response GetSystemUpdate200JSONResponse) VisitGetSystemUpdateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSystemUpdate401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetSystemUpdate401ApplicationProblemPlusJSONResponse) VisitGetSystemUpdateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestSystemUpdateRequestObject struct {
+}
+
+type RequestSystemUpdateResponseObject interface {
+	VisitRequestSystemUpdateResponse(w http.ResponseWriter) error
+}
+
+type RequestSystemUpdate202JSONResponse UpdateStatus
+
+func (response RequestSystemUpdate202JSONResponse) VisitRequestSystemUpdateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestSystemUpdate401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RequestSystemUpdate401ApplicationProblemPlusJSONResponse) VisitRequestSystemUpdateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestSystemUpdate403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RequestSystemUpdate403ApplicationProblemPlusJSONResponse) VisitRequestSystemUpdateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestSystemUpdate409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response RequestSystemUpdate409ApplicationProblemPlusJSONResponse) VisitRequestSystemUpdateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestSystemUpdate503ApplicationProblemPlusJSONResponse Problem
+
+func (response RequestSystemUpdate503ApplicationProblemPlusJSONResponse) VisitRequestSystemUpdateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Login Sign in
@@ -3753,6 +4132,9 @@ type StrictServerInterface interface {
 	// GetKioskState Target state of the kiosk
 	// (GET /api/v1/kiosk/state)
 	GetKioskState(ctx context.Context, request GetKioskStateRequestObject) (GetKioskStateResponseObject, error)
+	// GetLogbook Recent log records
+	// (GET /api/v1/logbook)
+	GetLogbook(ctx context.Context, request GetLogbookRequestObject) (GetLogbookResponseObject, error)
 	// ListModules Available modules
 	// (GET /api/v1/modules)
 	ListModules(ctx context.Context, request ListModulesRequestObject) (ListModulesResponseObject, error)
@@ -3804,6 +4186,12 @@ type StrictServerInterface interface {
 	// UpdateWifiSettings Change the guest Wi-Fi settings
 	// (PUT /api/v1/settings/wifi)
 	UpdateWifiSettings(ctx context.Context, request UpdateWifiSettingsRequestObject) (UpdateWifiSettingsResponseObject, error)
+	// GetSystemUpdate State of the update button
+	// (GET /api/v1/system/update)
+	GetSystemUpdate(ctx context.Context, request GetSystemUpdateRequestObject) (GetSystemUpdateResponseObject, error)
+	// RequestSystemUpdate Ask the host to update the mirror
+	// (POST /api/v1/system/update)
+	RequestSystemUpdate(ctx context.Context, request RequestSystemUpdateRequestObject) (RequestSystemUpdateResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -4359,6 +4747,32 @@ func (sh *strictHandler) GetKioskState(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetLogbook operation middleware
+func (sh *strictHandler) GetLogbook(w http.ResponseWriter, r *http.Request, params GetLogbookParams) {
+	var request GetLogbookRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLogbook(ctx, request.(GetLogbookRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLogbook")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLogbookResponseObject); ok {
+		if err := validResponse.VisitGetLogbookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListModules operation middleware
 func (sh *strictHandler) ListModules(w http.ResponseWriter, r *http.Request) {
 	var request ListModulesRequestObject
@@ -4816,6 +5230,54 @@ func (sh *strictHandler) UpdateWifiSettings(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateWifiSettingsResponseObject); ok {
 		if err := validResponse.VisitUpdateWifiSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSystemUpdate operation middleware
+func (sh *strictHandler) GetSystemUpdate(w http.ResponseWriter, r *http.Request) {
+	var request GetSystemUpdateRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSystemUpdate(ctx, request.(GetSystemUpdateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSystemUpdate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSystemUpdateResponseObject); ok {
+		if err := validResponse.VisitGetSystemUpdateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestSystemUpdate operation middleware
+func (sh *strictHandler) RequestSystemUpdate(w http.ResponseWriter, r *http.Request) {
+	var request RequestSystemUpdateRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestSystemUpdate(ctx, request.(RequestSystemUpdateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestSystemUpdate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestSystemUpdateResponseObject); ok {
+		if err := validResponse.VisitRequestSystemUpdateResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

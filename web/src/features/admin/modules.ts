@@ -7,6 +7,8 @@ import {
   IconDeviceDesktop,
   IconIcons,
   IconLayoutDashboard,
+  IconNotes,
+  IconServerCog,
   IconShoppingCart,
   IconUserShield,
   IconWifi,
@@ -17,6 +19,7 @@ import { useCameraTileStatus } from '../modules/camera/admin/status.ts'
 import { useBringTileStatus } from '../modules/bring/admin/status.ts'
 import { useWifiTileStatus } from '../modules/wifi/admin/status.ts'
 import { useIconsTileStatus } from './api/iconsStatus.ts'
+import { useLogbookTileStatus, useSystemTileStatus } from './api/systemStatus.ts'
 import { displaySettingsQueryKey, fetchDisplaySettings } from './api/display.ts'
 import { fetchLayout, layoutQueryKey } from './api/layout.ts'
 import { placedKeys } from './pages/layoutEdit.ts'
@@ -130,6 +133,22 @@ export const adminModules: AdminModule[] = [
     path: 'bring',
     load: () => import('../modules/bring/admin/BringPage.tsx').then((m) => ({ default: m.BringPage })),
     useStatus: useBringTileStatus,
+  }),
+  entry({
+    key: 'logbook',
+    title: 'Logbuch',
+    icon: IconNotes,
+    path: 'logbook',
+    load: () => import('./pages/LogbookPage.tsx').then((m) => ({ default: m.LogbookPage })),
+    useStatus: useLogbookTileStatus,
+  }),
+  entry({
+    key: 'system',
+    title: 'System',
+    icon: IconServerCog,
+    path: 'system',
+    load: () => import('./pages/SystemPage.tsx').then((m) => ({ default: m.SystemPage })),
+    useStatus: useSystemTileStatus,
   }),
   entry({
     key: 'account',

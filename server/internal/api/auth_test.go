@@ -22,7 +22,9 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
 	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
+	"github.com/thazzr/mirrornextgen/server/internal/logbook"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
+	"github.com/thazzr/mirrornextgen/server/internal/update"
 )
 
 const (
@@ -73,6 +75,9 @@ type testEnv struct {
 	icons    *icons.Store
 	iconsDir string
 	logs     *syncBuffer
+	book     *logbook.Logbook
+	// controlDir is the update control directory of the default setup.
+	controlDir string
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -82,7 +87,7 @@ func newTestEnv(t *testing.T) *testEnv {
 
 // newTestEnvWithSettingsDir is newTestEnv with a settings directory the
 // caller may have prepared (for example with a settings.json to load).
-func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
+func newTestEnvWithSettingsDir(t *testing.T, settingsDir string, mod ...func(*Deps)) *testEnv {
 	t.Helper()
 	admin, err := auth.Load(t.TempDir())
 	if err != nil {
@@ -119,6 +124,8 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Location: berlin,
 	})
 	camSvc, go2rtc := newTestCamera(t, settingsStore)
+	book := logbook.New()
+	controlDir := t.TempDir()
 	deps := Deps{
 		Build:    BuildInfo{Version: "1.2.3", Commit: "abc123", BuildTime: "2026-01-02T03:04:05Z"},
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -132,6 +139,12 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Icons:    iconStore,
 		Display:  displayCtl,
 		Camera:   camSvc,
+		Logbook:  book,
+		Update:   update.New(controlDir),
+		Now:      clock.now,
+	}
+	for _, m := range mod {
+		m(&deps)
 	}
 	mux := &recordingMux{ServeMux: http.NewServeMux()}
 	lastOp := new(string)
@@ -144,7 +157,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 			return next(ctx, w, r, req)
 		}
 	})
-	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, go2rtc: go2rtc, ow: ow, bring: fb, feed: feed, icons: iconStore, iconsDir: filepath.Join(dataDir, "icons"), logs: logs}
+	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, go2rtc: go2rtc, ow: ow, bring: fb, feed: feed, icons: iconStore, iconsDir: filepath.Join(dataDir, "icons"), logs: logs, book: book, controlDir: controlDir}
 }
 
 type opts struct {
