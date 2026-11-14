@@ -121,6 +121,7 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
   - Layout und Stil folgen SmartMirror2 (`SmartMirror2/smartmirror2.client/src/features/dashboard/`): schwarzer Hintergrund, weiße Schrift, IBM Plex Sans (mitgeliefert über `@fontsource`).
   - Sekundärtexte sind hell genug für das teildurchlässige Spiegelglas.
   - Ein ausgefallener Datenbereich zeigt seine Fehlermeldung an Ort und Stelle.
+- **Das Admin-UI ist ein vollständiger Neuentwurf** (Nutzerentscheidung 2026-11-14): Aus dem Admin-Bereich von SmartMirror2 werden weder Aufbau noch Gestaltung übernommen, nur der fachliche Umfang der Einstellungen. Die Gestaltung legt der Feinplan von Phase 2 mit dem Nutzer fest.
 - **Das Admin-UI** wird am Handy und am Rechner benutzt und muss bis 360 px Breite ohne waagerechtes Scrollen funktionieren.
   - Texte auf Deutsch mit „du“.
   - Jede Seite hat genau eine `h1`, Abschnitte sind `h2`.
