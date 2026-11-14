@@ -7,6 +7,24 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
+## [0.6.0] - 2026-11-14
+
+### Added
+
+- **display**: Nachtruhe schaltet den Monitor nach Zeitplan aus und an
+- **camera**: Kamera-Modul mit go2rtc im internen Netz
+
+### Changed
+
+- **web**: Upload-Tests nutzen Nodes FormData und File
+- **dashboard**: Nachtruhe rendert nur die schwarze Fläche
+- Kamera und Nachtruhe in README und Projektregeln
+
+### Fixed
+
+- **camera**: Kein Warn-Log ohne eingerichtete Kamera
+- **admin**: Neutraler Hinweis bei gespeicherten Geheimnissen
+
 ## [0.5.0] - 2026-11-14
 
 ### Added
