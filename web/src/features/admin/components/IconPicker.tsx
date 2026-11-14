@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Group, Select, type ComboboxItem, type ComboboxItemGroup } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import 'bootstrap-icons/font/bootstrap-icons.css'
+import { MaskIcon } from '../../../shared/MaskIcon.tsx'
 import { fetchIcons, iconFileUrl, iconsQueryKey, type IconRef } from '../api/icons.ts'
 import { BOOTSTRAP_ICONS } from './bootstrapIcons.ts'
 
@@ -16,10 +17,13 @@ function decode(value: string): IconRef {
   return { kind: 'none' }
 }
 
-function Preview({ value }: { value: string }) {
+function Preview({ value, svgIds }: { value: string; svgIds: ReadonlySet<string> }) {
   if (value.startsWith('bootstrap:')) return <i className={`bi bi-${value.slice('bootstrap:'.length)}`} aria-hidden />
-  if (value.startsWith('upload:'))
-    return <img src={iconFileUrl(value.slice('upload:'.length))} alt="" width={18} height={18} style={{ objectFit: 'contain' }} />
+  if (value.startsWith('upload:')) {
+    const id = value.slice('upload:'.length)
+    if (svgIds.has(id)) return <MaskIcon src={iconFileUrl(id)} size={18} />
+    return <img src={iconFileUrl(id)} alt="" width={18} height={18} style={{ objectFit: 'contain' }} />
+  }
   return null
 }
 
@@ -34,6 +38,12 @@ type Props = {
 export function IconPicker({ label, value, onChange, error }: Props) {
   const uploads = useQuery({ queryKey: iconsQueryKey, queryFn: fetchIcons })
   const current = encode(value)
+  // Ids of SVG uploads; the reference itself may carry the type when the list is not loaded yet.
+  const svgIds = useMemo(() => {
+    const ids = new Set((uploads.data ?? []).filter((i) => i.contentType === 'image/svg+xml').map((i) => i.id))
+    if (value.kind === 'upload' && value.file && value.contentType === 'image/svg+xml') ids.add(value.file)
+    return ids
+  }, [uploads.data, value])
 
   const data = useMemo<Array<ComboboxItem | ComboboxItemGroup<ComboboxItem>>>(() => {
     const own: ComboboxItem[] = (uploads.data ?? []).map((i) => ({ value: `upload:${i.id}`, label: i.name }))
@@ -60,11 +70,11 @@ export function IconPicker({ label, value, onChange, error }: Props) {
       searchable
       allowDeselect={false}
       nothingFoundMessage="Kein Symbol gefunden"
-      leftSection={<Preview value={current} />}
+      leftSection={<Preview value={current} svgIds={svgIds} />}
       renderOption={({ option }) => (
         <Group gap="xs" wrap="nowrap">
           <span style={{ display: 'inline-flex', width: 20, justifyContent: 'center' }}>
-            <Preview value={option.value} />
+            <Preview value={option.value} svgIds={svgIds} />
           </span>
           <span>{option.label}</span>
         </Group>

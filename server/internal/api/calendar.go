@@ -10,14 +10,23 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
 )
 
-func iconRefOut(kind, name, file string) IconRef {
+// iconRefOut builds the response form of an icon reference. For an upload the
+// content type comes from the icon store, so the client can tell an SVG (drawn
+// in the text colour) from a PNG; an unknown id leaves it empty.
+func (s *Server) iconRefOut(kind, name, file string) IconRef {
 	if kind == "" {
 		kind = string(None)
 	}
-	return IconRef{Kind: IconRefKind(kind), Name: optional(name), File: optional(file)}
+	ref := IconRef{Kind: IconRefKind(kind), Name: optional(name), File: optional(file)}
+	if kind == string(Upload) && file != "" && s.icons != nil {
+		if ic, ok := s.icons.Get(file); ok {
+			ref.ContentType = optional(ic.ContentType)
+		}
+	}
+	return ref
 }
 
-func toIconRef(r settings.IconRef) IconRef { return iconRefOut(r.Kind, r.Name, r.File) }
+func (s *Server) toIconRef(r settings.IconRef) IconRef { return s.iconRefOut(r.Kind, r.Name, r.File) }
 
 func fromIconRef(r IconRef) settings.IconRef {
 	return settings.IconRef{Kind: string(r.Kind), Name: deref(r.Name), File: deref(r.File)}
@@ -41,7 +50,7 @@ func fromHighlight(h CalendarHighlight) settings.CalendarHighlight {
 	}
 }
 
-func toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
+func (s *Server) toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
 	out := CalendarSettings{
 		RefreshMinutes: c.RefreshMinutes,
 		Calendars:      make([]CalendarSource, 0, len(c.Calendars)),
@@ -51,7 +60,7 @@ func toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
 	for _, cal := range c.Calendars {
 		// The address stays on the server; only a shortened hint leaves it.
 		out.Calendars = append(out.Calendars, CalendarSource{
-			Id: cal.ID, Name: cal.Name, Icon: toIconRef(cal.Icon),
+			Id: cal.ID, Name: cal.Name, Icon: s.toIconRef(cal.Icon),
 			HasUrl: cal.URL != "", UrlHint: settings.URLHint(cal.URL),
 		})
 	}
@@ -65,7 +74,7 @@ func toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
 		for _, sh := range sec.Shifts {
 			o.Shifts = append(o.Shifts, CalendarShift{
 				Id: sh.ID, Match: sh.Match, MatchMode: CalendarShiftMatchMode(sh.MatchMode), Label: sh.Label,
-				Start: sh.Start, End: sh.End, Icon: toIconRef(sh.Icon),
+				Start: sh.Start, End: sh.End, Icon: s.toIconRef(sh.Icon),
 			})
 		}
 		out.Sections = append(out.Sections, o)
@@ -73,7 +82,7 @@ func toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
 	for _, r := range c.Rules {
 		out.Rules = append(out.Rules, CalendarRule{
 			Id: r.ID, CalendarIds: r.CalendarIDs, MatchMode: CalendarRuleMatchMode(r.MatchMode), Text: r.Text,
-			Action: CalendarRuleAction(r.Action), Icon: toIconRef(r.Icon), RenameTo: r.RenameTo,
+			Action: CalendarRuleAction(r.Action), Icon: s.toIconRef(r.Icon), RenameTo: r.RenameTo,
 		})
 	}
 	return out
@@ -144,23 +153,23 @@ func calendarConfig(c settings.CalendarSettings) calendar.Config {
 	return cfg
 }
 
-func calIcon(r calendar.IconRef) IconRef { return iconRefOut(r.Kind, r.Name, r.File) }
+func (s *Server) calIcon(r calendar.IconRef) IconRef { return s.iconRefOut(r.Kind, r.Name, r.File) }
 
-func toShiftDays(days []calendar.ShiftDay) []ShiftDay {
+func (s *Server) toShiftDays(days []calendar.ShiftDay) []ShiftDay {
 	out := make([]ShiftDay, 0, len(days))
 	for _, d := range days {
 		date, err := time.Parse(time.DateOnly, d.Date)
 		if err != nil {
 			continue // the engine formats the date itself; cannot happen
 		}
-		out = append(out, ShiftDay{Date: openapi_types.Date{Time: date}, DayLabel: d.DayLabel, Title: d.Title, TimeRange: optional(d.TimeRange), Icon: calIcon(d.Icon), Free: d.Free, Ongoing: d.Ongoing, HighlightColor: optional(d.HighlightColor)})
+		out = append(out, ShiftDay{Date: openapi_types.Date{Time: date}, DayLabel: d.DayLabel, Title: d.Title, TimeRange: optional(d.TimeRange), Icon: s.calIcon(d.Icon), Free: d.Free, Ongoing: d.Ongoing, HighlightColor: optional(d.HighlightColor)})
 	}
 	return out
 }
 
 // GetCalendarSettings returns the calendar settings without the addresses.
 func (s *Server) GetCalendarSettings(_ context.Context, _ GetCalendarSettingsRequestObject) (GetCalendarSettingsResponseObject, error) {
-	return GetCalendarSettings200JSONResponse(toCalendarSettings(s.settings.Get().Calendar)), nil
+	return GetCalendarSettings200JSONResponse(s.toCalendarSettings(s.settings.Get().Calendar)), nil
 }
 
 // UpdateCalendarSettings stores new calendar settings and drops the cached
@@ -178,7 +187,7 @@ func (s *Server) UpdateCalendarSettings(_ context.Context, request UpdateCalenda
 		return UpdateCalendarSettings400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse(badRequest(errs))}, nil
 	}
 	s.calendar.Invalidate()
-	return UpdateCalendarSettings200JSONResponse(toCalendarSettings(stored)), nil
+	return UpdateCalendarSettings200JSONResponse(s.toCalendarSettings(stored)), nil
 }
 
 // PreviewCalendar evaluates an unsaved draft against the real feeds.
@@ -199,7 +208,7 @@ func (s *Server) PreviewCalendar(ctx context.Context, request PreviewCalendarReq
 		o := CalendarPreviewSection{Id: sec.ID, Title: sec.Title, Type: CalendarPreviewSectionType(sec.Type), Error: optional(sec.Error)}
 		switch {
 		case sec.Type == calendar.TypeShifts && sec.Days != nil:
-			days := toShiftDays(sec.Days)
+			days := s.toShiftDays(sec.Days)
 			o.Days = &days
 		case sec.Type == calendar.TypeList:
 			items := make([]PreviewItem, 0, len(sec.Candidates))
@@ -210,7 +219,7 @@ func (s *Server) PreviewCalendar(ctx context.Context, request PreviewCalendarReq
 				}
 				items = append(items, PreviewItem{
 					Title: p.Title, OriginalTitle: p.OriginalTitle, Location: optional(p.Location), TimeLabel: p.TimeLabel,
-					Relative: p.Relative, Icon: calIcon(p.Icon), AllDay: p.AllDay, Ongoing: p.Ongoing, HighlightColor: optional(p.HighlightColor),
+					Relative: p.Relative, Icon: s.calIcon(p.Icon), AllDay: p.AllDay, Ongoing: p.Ongoing, HighlightColor: optional(p.HighlightColor),
 					Hidden: p.Hidden, Shown: p.Shown, MatchedRules: rules, CalendarId: p.CalendarID, Start: p.Start,
 				})
 			}
@@ -231,7 +240,7 @@ func (s *Server) GetDashboardCalendarSection(ctx context.Context, request GetDas
 	out := GetDashboardCalendarSection200JSONResponse{Id: res.ID, Title: res.Title, Type: DashboardCalendarSectionType(res.Type), Error: optional(res.Error)}
 	if res.Type == calendar.TypeShifts {
 		if res.Days != nil {
-			days := toShiftDays(res.Days)
+			days := s.toShiftDays(res.Days)
 			out.Days = &days
 		}
 		return out, nil
@@ -240,7 +249,7 @@ func (s *Server) GetDashboardCalendarSection(ctx context.Context, request GetDas
 	for _, it := range res.Items {
 		items = append(items, DashboardCalendarItem{
 			Title: it.Title, Location: optional(it.Location), TimeLabel: it.TimeLabel, Relative: it.Relative,
-			Icon: calIcon(it.Icon), AllDay: it.AllDay, Ongoing: it.Ongoing, HighlightColor: optional(it.HighlightColor),
+			Icon: s.calIcon(it.Icon), AllDay: it.AllDay, Ongoing: it.Ongoing, HighlightColor: optional(it.HighlightColor),
 		})
 	}
 	out.Items = &items

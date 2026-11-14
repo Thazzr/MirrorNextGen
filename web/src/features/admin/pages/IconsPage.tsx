@@ -3,6 +3,7 @@ import { Alert, Button, Card, FileInput, Group, SimpleGrid, Skeleton, Stack, Tex
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../../shared/api/client.ts'
+import { MaskIcon } from '../../../shared/MaskIcon.tsx'
 import { DetailHeader } from '../components/DetailHeader.tsx'
 import { deleteIcon, fetchIcons, iconFileUrl, iconsQueryKey, uploadIcon, type Icon } from '../api/icons.ts'
 
@@ -24,7 +25,11 @@ function IconCard({ icon }: { icon: Icon }) {
   return (
     <Card withBorder padding="sm" role="group" aria-label={icon.name}>
       <Stack gap="xs" align="center">
-        <img src={iconFileUrl(icon.id)} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+        {icon.contentType === 'image/svg+xml' ? (
+          <MaskIcon src={iconFileUrl(icon.id)} size={48} />
+        ) : (
+          <img src={iconFileUrl(icon.id)} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+        )}
         <Text size="sm" fw={500} ta="center" style={{ overflowWrap: 'anywhere' }}>
           {icon.name}
         </Text>
