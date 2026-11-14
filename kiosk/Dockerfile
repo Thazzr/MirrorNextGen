@@ -27,5 +27,7 @@ RUN apt-get update \
  && for g in video render; do \
       if getent group "$g" >/dev/null; then usermod -aG "$g" kiosk; fi; \
     done
+# Managed policy: translate bubble, password and sign-in prompts stay off.
+COPY kiosk/chromium-policy.json /etc/chromium/policies/managed/mirror.json
 COPY --from=kioskd /out/kioskd /usr/local/bin/kioskd
 ENTRYPOINT ["/usr/local/bin/kioskd"]

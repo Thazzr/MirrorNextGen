@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/thazzr/mirrornextgen/server/internal/kiosk"
 )
 
 type fakeProc struct {
@@ -172,5 +174,59 @@ func TestRunRejectsBadConfig(t *testing.T) {
 	}
 	if code := run(context.Background(), env, io.Discard); code != 1 {
 		t.Fatalf("exit code %d, want 1", code)
+	}
+}
+
+func TestCursorEnv(t *testing.T) {
+	log := quietLog()
+	dir := filepath.Join(t.TempDir(), "cursors")
+
+	got := cursorEnv(log, kiosk.Config{}, dir)
+	want := []string{"XCURSOR_PATH=" + dir, "XCURSOR_THEME=default", "XCURSOR_SIZE=24"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("default: got %v, want %v", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "default", "cursors", "default")); err != nil {
+		t.Errorf("theme not written: %v", err)
+	}
+
+	otherDir := filepath.Join(t.TempDir(), "cursors")
+	if got := cursorEnv(log, kiosk.Config{ShowCursor: true}, otherDir); len(got) != 0 {
+		t.Errorf("ShowCursor: got %v, want none", got)
+	}
+	if _, err := os.Stat(otherDir); err == nil {
+		t.Error("ShowCursor: theme was written anyway")
+	}
+}
+
+func TestCursorEnvWriteFailureWarnsAndContinues(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, nil))
+	if got := cursorEnv(log, kiosk.Config{}, filepath.Join(file, "sub")); len(got) != 0 {
+		t.Errorf("got %v, want no environment", got)
+	}
+	if !strings.Contains(buf.String(), `"level":"WARN"`) {
+		t.Errorf("no warning logged: %s", buf.String())
+	}
+}
+
+func TestStartProcPassesExtraEnv(t *testing.T) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewJSONHandler(&buf, nil))
+	p, err := startProc(log, "envtest", nil, []string{"XCURSOR_THEME=default"}, "env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-p.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("env did not exit")
+	}
+	if !strings.Contains(buf.String(), "XCURSOR_THEME=default") {
+		t.Errorf("extra env missing from child output: %s", buf.String())
 	}
 }
