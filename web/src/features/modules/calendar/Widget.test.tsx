@@ -70,6 +70,31 @@ describe('calendar widget (list)', () => {
     expect(symbols[2].querySelector('i')).toHaveClass('bi-calendar-event')
   })
 
+  it('draws an uploaded SVG as a mask in the text colour and keeps a PNG as an image', async () => {
+    setup(
+      listSection({
+        items: [
+          item({ title: 'S', icon: { kind: 'upload', file: 'svg1', contentType: 'image/svg+xml' } }),
+          item({ title: 'P', icon: { kind: 'upload', file: 'png1', contentType: 'image/png' } }),
+          item({ title: 'O', icon: { kind: 'upload', file: 'old1' } }),
+        ],
+      }),
+    )
+    const { container } = renderWithProviders('/')
+    await screen.findByText('S')
+    const symbols = [...container.querySelectorAll('.mirror-agenda__symbol')]
+    const mask = symbols[0].querySelector('.mirror-agenda__icon--mask') as HTMLElement
+    expect(symbols[0].querySelector('img')).toBeNull()
+    expect(mask).toHaveAttribute('aria-hidden', 'true')
+    expect(mask.style.maskImage).toContain('/api/v1/icons/svg1/file')
+    expect(mask.style.getPropertyValue('-webkit-mask-image')).toContain('/api/v1/icons/svg1/file')
+    expect(mask.style.backgroundColor).toBe('currentcolor')
+    expect(symbols[1].querySelector('img')).toHaveAttribute('src', '/api/v1/icons/png1/file')
+    expect(symbols[1].querySelector('.mirror-agenda__icon--mask')).toBeNull()
+    // An older server sends no content type: the image stays.
+    expect(symbols[2].querySelector('img')).toHaveAttribute('src', '/api/v1/icons/old1/file')
+  })
+
   it('shows the empty text when there are no events and no error', async () => {
     setup(listSection({ items: [] }))
     renderWithProviders('/')

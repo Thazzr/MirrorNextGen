@@ -1640,6 +1640,9 @@ components:
         file:
           type: string
           description: Id of an uploaded icon, for kind `upload`.
+        contentType:
+          type: string
+          description: Set by the server for kind `upload` in responses (for example `image/svg+xml`, `image/png`); ignored on input.
     Icon:
       type: object
       description: An uploaded icon.

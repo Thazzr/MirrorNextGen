@@ -1066,6 +1066,8 @@ export interface components {
             name?: string;
             /** @description Id of an uploaded icon, for kind `upload`. */
             file?: string;
+            /** @description Set by the server for kind `upload` in responses (for example `image/svg+xml`, `image/png`); ignored on input. */
+            contentType?: string;
         };
         /** @description An uploaded icon. */
         Icon: {

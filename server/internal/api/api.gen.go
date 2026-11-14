@@ -842,6 +842,9 @@ type IconContentType string
 
 // IconRef A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
 type IconRef struct {
+	// ContentType Set by the server for kind `upload` in responses (for example `image/svg+xml`, `image/png`); ignored on input.
+	ContentType *string `json:"contentType,omitempty"`
+
 	// File Id of an uploaded icon, for kind `upload`.
 	File *string     `json:"file,omitempty"`
 	Kind IconRefKind `json:"kind"`

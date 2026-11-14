@@ -56,8 +56,13 @@ describe('icons page', () => {
     const { container } = await openIcons()
     expectSinglePageTitle('Symbole')
     expect(screen.getByRole('group', { name: 'Stern' })).toBeInTheDocument()
+    // A PNG stays an image; an SVG is a mask in the text colour, so it shows on the dark page.
     const imgs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src'))
-    expect(imgs).toEqual(['/api/v1/icons/ic1/file', '/api/v1/icons/ic2/file'])
+    expect(imgs).toEqual(['/api/v1/icons/ic1/file'])
+    const masks = [...container.querySelectorAll<HTMLElement>('span[aria-hidden="true"]')].filter((m) => m.style.maskImage)
+    expect(masks).toHaveLength(1)
+    expect(masks[0].style.maskImage).toContain('/api/v1/icons/ic2/file')
+    expect(within(screen.getByRole('group', { name: 'Stern' })).queryByRole('img', { hidden: true })).toBeNull()
   })
 
   it('says so when there are no icons', async () => {
@@ -165,6 +170,26 @@ describe('IconPicker (in the calendar page)', () => {
     await userEvent.type(picker, 'Geburt')
     expect(list.queryByRole('option', { name: 'Logo', hidden: true })).not.toBeInTheDocument()
     expect(list.getByRole('option', { name: 'Geburtstag', hidden: true })).toBeInTheDocument()
+  })
+
+  it('previews a selected SVG upload as a mask and a PNG upload as an image', async () => {
+    const withIcon = (file: string) => ({ ...calendarSettings, calendars: [{ ...calendarSettings.calendars[0], icon: { kind: 'upload', file } }] })
+    const svg = await openCalendar({ 'GET /api/v1/settings/calendar': () => json(withIcon('ic2')) })
+    await waitFor(() => expect(svg.card.getByRole('combobox', { name: 'Symbol' })).toHaveValue('Stern'))
+    const field = svg.card.getByRole('combobox', { name: 'Symbol' }).closest('.mantine-InputWrapper-root') as HTMLElement
+    const maskOf = () => [...field.querySelectorAll<HTMLElement>('span[aria-hidden="true"]')].filter((m) => m.style.maskImage)
+    expect(maskOf()[0].style.maskImage).toContain('/api/v1/icons/ic2/file')
+    expect(field.querySelector('img')).toBeNull()
+  })
+
+  it('previews a selected PNG upload as an image', async () => {
+    const png = await openCalendar({
+      'GET /api/v1/settings/calendar': () => json({ ...calendarSettings, calendars: [{ ...calendarSettings.calendars[0], icon: { kind: 'upload', file: 'ic1' } }] }),
+    })
+    await waitFor(() => expect(png.card.getByRole('combobox', { name: 'Symbol' })).toHaveValue('Logo'))
+    const field = png.card.getByRole('combobox', { name: 'Symbol' }).closest('.mantine-InputWrapper-root') as HTMLElement
+    expect(field.querySelector('img')).toHaveAttribute('src', '/api/v1/icons/ic1/file')
+    expect([...field.querySelectorAll<HTMLElement>('span')].some((m) => m.style.maskImage)).toBe(false)
   })
 
   it('picking an uploaded icon and a standard icon sends the matching references', async () => {
