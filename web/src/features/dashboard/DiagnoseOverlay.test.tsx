@@ -8,7 +8,13 @@ function setWindowSize(width: number, height: number) {
 }
 
 function stubInfo(response: Response) {
-  vi.stubGlobal('fetch', vi.fn(async () => response))
+  // Only /info is of interest; the dashboard's other requests (layout, kiosk state, widgets) fail quietly.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: Request) =>
+      new URL(input.url).pathname === '/api/v1/info' ? response.clone() : new Response(JSON.stringify({ title: 'nicht gemockt', status: 404 }), { status: 404 }),
+    ),
+  )
 }
 
 describe('DiagnoseOverlay', () => {

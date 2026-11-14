@@ -11,20 +11,37 @@
   position: relative;
 }
 
-.mirror-header { align-items: flex-start; display: flex; flex-wrap: wrap; justify-content: space-between; }
-.mirror-clock { display: flex; flex-direction: column; letter-spacing: .16rem; max-width: 60%; min-width: 60%; }
-.mirror-clock__date { color: rgba(255,255,255,.85); font-size: 2rem; letter-spacing: .32rem; text-transform: uppercase; }
-.mirror-clock__time { align-items: flex-start; display: flex; line-height: 1; }
-.mirror-clock__hour { font-size: 5.5rem; font-weight: 600; letter-spacing: .1rem; }
-.mirror-clock__seconds { color: var(--mirror-muted); font-size: 1.6rem; font-weight: 600; letter-spacing: .35rem; margin-top: clamp(.95rem,.5vw,.5rem); }
-.mirror-clock__meta { color: var(--mirror-muted); font-size: 1.5rem; font-weight: 600; padding-bottom: 2rem; }
+.mirror-header { align-items: flex-start; display: flex; justify-content: space-between; }
+/* The two header columns: 45 % | 55 % like SmartMirror2. */
+.mirror-region--topLeft { flex: 0 0 45%; max-width: 45%; }
+.mirror-region--topRight {
+  align-items: flex-end;
+  display: flex;
+  flex: 0 0 55%;
+  flex-direction: column;
+  margin-left: auto;
+  max-width: 55%;
+  padding-left: clamp(1.75rem,2.5vw,2.75rem);
+  text-align: right;
+}
+.mirror-region--middle { width: 100%; }
+/* Anchored to the bottom corners; the Wi-Fi code keeps its own black backing. */
+.mirror-region--bottomLeft, .mirror-region--bottomRight {
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  position: fixed;
+  z-index: 10;
+}
+.mirror-region--bottomLeft { align-items: flex-start; left: 0; }
+.mirror-region--bottomRight { align-items: flex-end; right: 0; }
 
 .mirror-muted { color: var(--mirror-muted); }
 .mirror-error { color: #ff6b6b; font-size: clamp(.9rem,1vw,1rem); letter-spacing: .08rem; }
 
-/* Overrides that SmartMirror2 applies later in weather-enhancements.css. */
+/* Secondary text stays bright enough for the semi-transparent mirror glass. */
 .mirror-dashboard { --mirror-muted: rgba(255,255,255,.92); }
-.mirror-clock { max-width: 45%; min-width: 45%; }
 
 body.mirror-kiosk, body.mirror-kiosk * { cursor: none !important; }
 
