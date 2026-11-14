@@ -1,0 +1,10 @@
+/* iOS Safari zooms into a focused field whose text is smaller than 16px and never zooms back. Mantine's inputs
+   use 14px, so on phone widths (Mantine's `sm` breakpoint) every text-entry control is raised to 16px. */
+@media (max-width: 48em) {
+  .mantine-Input-input,
+  .mantine-InputWrapper-root input,
+  .mantine-InputWrapper-root textarea {
+    --input-fz: 16px;
+    font-size: 16px;
+  }
+}
