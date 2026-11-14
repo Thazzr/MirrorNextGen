@@ -208,6 +208,127 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/KioskState"
+  /api/v1/settings/weather:
+    get:
+      operationId: getWeatherSettings
+      summary: Weather settings
+      description: >-
+        Returns the weather settings. The API key never leaves the server; `hasApiKey`
+        tells whether one is stored.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored weather settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateWeatherSettings
+      summary: Change the weather settings
+      description: >-
+        Validates and stores the weather settings. An absent or empty `apiKey` keeps the
+        stored key, `clearApiKey` deletes it. Invalid values answer 400 with `errors` keyed
+        by field name (`location`, `apiKey`, `refreshMinutes`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeatherSettingsUpdate"
+      responses:
+        "200":
+          description: The stored weather settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/wifi:
+    get:
+      operationId: getWifiSettings
+      summary: Guest Wi-Fi settings
+      description: >-
+        Returns the guest Wi-Fi settings. The password never leaves the server;
+        `hasPassword` tells whether one is stored.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored Wi-Fi settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WifiSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateWifiSettings
+      summary: Change the guest Wi-Fi settings
+      description: >-
+        Validates and stores the Wi-Fi settings. An absent or empty `password` keeps the
+        stored one, `clearPassword` deletes it. Invalid values answer 400 with `errors`
+        keyed by field name (`ssid`, `security`, `password`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WifiSettingsUpdate"
+      responses:
+        "200":
+          description: The stored Wi-Fi settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WifiSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/dashboard/weather:
+    get:
+      operationId: getDashboardWeather
+      summary: Weather for the dashboard
+      description: >-
+        Returns the current weather, the chart points and the forecast. Public, because the
+        dashboard reads it without a session; it contains no secrets. Failures are reported
+        in the body (`error`), not as an HTTP error, so the other dashboard areas stay visible.
+      responses:
+        "200":
+          description: The weather state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardWeather"
+  /api/v1/dashboard/wifi:
+    get:
+      operationId: getDashboardWifi
+      summary: Guest Wi-Fi QR code for the dashboard
+      description: >-
+        Returns the QR code of the guest Wi-Fi. Public, because the dashboard reads it without
+        a session; the code encodes the Wi-Fi password, which is the purpose of the widget.
+      responses:
+        "200":
+          description: The Wi-Fi QR code state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardWifi"
 components:
   securitySchemes:
     sessionCookie:
@@ -350,3 +471,230 @@ components:
         testPattern:
           type: boolean
           description: Shows the diagnose overlay on the mirror.
+    WeatherSettings:
+      type: object
+      description: Weather settings as the admin UI reads them; the API key is never included.
+      required: [location, hasApiKey, showIcons, refreshMinutes]
+      properties:
+        location:
+          type: string
+          maxLength: 100
+          description: Place name for OpenWeather's geocoder; empty disables the weather.
+        hasApiKey:
+          type: boolean
+          description: True when an OpenWeather API key is stored.
+        showIcons:
+          type: boolean
+          description: Shows the OpenWeather icons next to the conditions.
+        refreshMinutes:
+          type: integer
+          minimum: 10
+          maximum: 1440
+          description: Minutes between two refreshes from OpenWeather.
+    WeatherSettingsUpdate:
+      type: object
+      description: New weather settings.
+      required: [location, showIcons, refreshMinutes]
+      properties:
+        location:
+          type: string
+          maxLength: 100
+        apiKey:
+          type: string
+          maxLength: 200
+          description: New API key; absent or empty keeps the stored key.
+        clearApiKey:
+          type: boolean
+          description: Deletes the stored API key. Not combinable with a new `apiKey`.
+        showIcons:
+          type: boolean
+        refreshMinutes:
+          type: integer
+          minimum: 10
+          maximum: 1440
+    WifiSettings:
+      type: object
+      description: Guest Wi-Fi settings as the admin UI reads them; the password is never included.
+      required: [ssid, security, hasPassword]
+      properties:
+        ssid:
+          type: string
+          description: Network name (at most 32 bytes); empty disables the QR code.
+        security:
+          type: string
+          enum: [WPA, nopass]
+          description: WPA for a password-protected network, nopass for an open one.
+        hasPassword:
+          type: boolean
+          description: True when a Wi-Fi password is stored.
+    WifiSettingsUpdate:
+      type: object
+      description: New guest Wi-Fi settings.
+      required: [ssid, security]
+      properties:
+        ssid:
+          type: string
+        security:
+          type: string
+          enum: [WPA, nopass]
+        password:
+          type: string
+          description: New password (8 to 63 characters for WPA); absent or empty keeps the stored one.
+        clearPassword:
+          type: boolean
+          description: Deletes the stored password. Not combinable with a new `password`.
+    DashboardWeather:
+      type: object
+      description: Weather state for the dashboard.
+      required: [configured, stale]
+      properties:
+        configured:
+          type: boolean
+          description: False while location or API key is missing; the dashboard then hides the weather.
+        stale:
+          type: boolean
+          description: True when the last refresh failed and `data` is older (less than 3 hours).
+        error:
+          type: string
+          description: German message when no data is available.
+        data:
+          $ref: "#/components/schemas/WeatherData"
+    WeatherData:
+      type: object
+      description: Current weather, chart points and forecast.
+      required:
+        - location
+        - updatedAt
+        - temperatureC
+        - feelsLikeC
+        - humidity
+        - condition
+        - showIcons
+        - windKph
+        - precipitationProbability
+        - hourly
+        - forecast
+      properties:
+        location:
+          type: string
+          description: Place name as OpenWeather resolved it.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the data was fetched.
+        temperatureC:
+          type: integer
+        feelsLikeC:
+          type: integer
+        humidity:
+          type: integer
+          description: Relative humidity in percent.
+        condition:
+          type: string
+          description: Current conditions in German, first letter capitalised.
+        iconCode:
+          type: string
+          description: OpenWeather icon code such as 10d.
+        showIcons:
+          type: boolean
+        windKph:
+          type: integer
+        precipitationProbability:
+          type: integer
+          description: Percent.
+        sunrise:
+          type: string
+          format: date-time
+        sunset:
+          type: string
+          format: date-time
+        uvIndex:
+          type: integer
+        alert:
+          type: string
+          description: Short German hint about an upcoming change, absent when there is none.
+        hourly:
+          type: array
+          description: Chart points of the day (every three hours, midnight to midnight).
+          items:
+            $ref: "#/components/schemas/HourlyPoint"
+        forecast:
+          type: array
+          description: The next three days, starting tomorrow.
+          items:
+            $ref: "#/components/schemas/ForecastDay"
+    HourlyPoint:
+      type: object
+      description: One point of the day chart.
+      required: [time, temperatureC, feelsLikeC, condition, precipitationProbability, windKph, gustKph, precipitationMm]
+      properties:
+        time:
+          type: string
+          format: date-time
+        temperatureC:
+          type: integer
+        feelsLikeC:
+          type: integer
+        condition:
+          type: string
+        iconCode:
+          type: string
+        precipitationProbability:
+          type: integer
+          description: Percent.
+        windKph:
+          type: integer
+        gustKph:
+          type: integer
+        precipitationMm:
+          type: number
+          format: double
+    ForecastDay:
+      type: object
+      description: Forecast of one day.
+      required: [date, condition, lowC, highC, precipitationProbability, windKph, precipitationMm]
+      properties:
+        date:
+          type: string
+          format: date
+        condition:
+          type: string
+        iconCode:
+          type: string
+        lowC:
+          type: integer
+        highC:
+          type: integer
+        precipitationProbability:
+          type: integer
+          description: Percent.
+        windKph:
+          type: integer
+        precipitationMm:
+          type: number
+          format: double
+    DashboardWifi:
+      type: object
+      description: Guest Wi-Fi QR code state for the dashboard.
+      required: [configured]
+      properties:
+        configured:
+          type: boolean
+          description: False while no SSID is set.
+        ssid:
+          type: string
+        qr:
+          $ref: "#/components/schemas/QrCode"
+    QrCode:
+      type: object
+      description: A QR code as modules; the quiet zone is not included, the client draws it.
+      required: [size, rows]
+      properties:
+        size:
+          type: integer
+          description: Modules per side.
+        rows:
+          type: array
+          description: "`size` strings of `size` characters, 1 for a dark and 0 for a light module."
+          items:
+            type: string

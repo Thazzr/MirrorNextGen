@@ -11,8 +11,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for DisplaySettingsRotation.
@@ -78,10 +80,71 @@ func (e KioskStateRotation) Valid() bool {
 	}
 }
 
+// Defines values for WifiSettingsSecurity.
+const (
+	WifiSettingsSecurityNopass WifiSettingsSecurity = "nopass"
+	WifiSettingsSecurityWPA    WifiSettingsSecurity = "WPA"
+)
+
+// Valid indicates whether the value is a known member of the WifiSettingsSecurity enum.
+func (e WifiSettingsSecurity) Valid() bool {
+	switch e {
+	case WifiSettingsSecurityNopass:
+		return true
+	case WifiSettingsSecurityWPA:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WifiSettingsUpdateSecurity.
+const (
+	WifiSettingsUpdateSecurityNopass WifiSettingsUpdateSecurity = "nopass"
+	WifiSettingsUpdateSecurityWPA    WifiSettingsUpdateSecurity = "WPA"
+)
+
+// Valid indicates whether the value is a known member of the WifiSettingsUpdateSecurity enum.
+func (e WifiSettingsUpdateSecurity) Valid() bool {
+	switch e {
+	case WifiSettingsUpdateSecurityNopass:
+		return true
+	case WifiSettingsUpdateSecurityWPA:
+		return true
+	default:
+		return false
+	}
+}
+
 // ChangePasswordRequest Current and new admin password.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
+}
+
+// DashboardWeather Weather state for the dashboard.
+type DashboardWeather struct {
+	// Configured False while location or API key is missing; the dashboard then hides the weather.
+	Configured bool `json:"configured"`
+
+	// Data Current weather, chart points and forecast.
+	Data *WeatherData `json:"data,omitempty"`
+
+	// Error German message when no data is available.
+	Error *string `json:"error,omitempty"`
+
+	// Stale True when the last refresh failed and `data` is older (less than 3 hours).
+	Stale bool `json:"stale"`
+}
+
+// DashboardWifi Guest Wi-Fi QR code state for the dashboard.
+type DashboardWifi struct {
+	// Configured False while no SSID is set.
+	Configured bool `json:"configured"`
+
+	// Qr A QR code as modules; the quiet zone is not included, the client draws it.
+	Qr   *QrCode `json:"qr,omitempty"`
+	Ssid *string `json:"ssid,omitempty"`
 }
 
 // DisplaySettings Settings of the mirror's screen.
@@ -99,6 +162,20 @@ type DisplaySettings struct {
 // DisplaySettingsRotation Rotation in degrees clockwise.
 type DisplaySettingsRotation int
 
+// ForecastDay Forecast of one day.
+type ForecastDay struct {
+	Condition       string             `json:"condition"`
+	Date            openapi_types.Date `json:"date"`
+	HighC           int                `json:"highC"`
+	IconCode        *string            `json:"iconCode,omitempty"`
+	LowC            int                `json:"lowC"`
+	PrecipitationMm float64            `json:"precipitationMm"`
+
+	// PrecipitationProbability Percent.
+	PrecipitationProbability int `json:"precipitationProbability"`
+	WindKph                  int `json:"windKph"`
+}
+
 // Health Result of the liveness check.
 type Health struct {
 	Status HealthStatus `json:"status"`
@@ -106,6 +183,21 @@ type Health struct {
 
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
+
+// HourlyPoint One point of the day chart.
+type HourlyPoint struct {
+	Condition       string  `json:"condition"`
+	FeelsLikeC      int     `json:"feelsLikeC"`
+	GustKph         int     `json:"gustKph"`
+	IconCode        *string `json:"iconCode,omitempty"`
+	PrecipitationMm float64 `json:"precipitationMm"`
+
+	// PrecipitationProbability Percent.
+	PrecipitationProbability int       `json:"precipitationProbability"`
+	TemperatureC             int       `json:"temperatureC"`
+	Time                     time.Time `json:"time"`
+	WindKph                  int       `json:"windKph"`
+}
 
 // Info Build information of the server binary.
 type Info struct {
@@ -154,6 +246,15 @@ type Problem struct {
 	Title string `json:"title"`
 }
 
+// QrCode A QR code as modules; the quiet zone is not included, the client draws it.
+type QrCode struct {
+	// Rows `size` strings of `size` characters, 1 for a dark and 0 for a light module.
+	Rows []string `json:"rows"`
+
+	// Size Modules per side.
+	Size int `json:"size"`
+}
+
 // Session State of the caller's admin session.
 type Session struct {
 	// Authenticated True when the caller has a valid session.
@@ -165,6 +266,99 @@ type Session struct {
 	// SetupRequired True while no admin password is set.
 	SetupRequired bool `json:"setupRequired"`
 }
+
+// WeatherData Current weather, chart points and forecast.
+type WeatherData struct {
+	// Alert Short German hint about an upcoming change, absent when there is none.
+	Alert *string `json:"alert,omitempty"`
+
+	// Condition Current conditions in German, first letter capitalised.
+	Condition  string `json:"condition"`
+	FeelsLikeC int    `json:"feelsLikeC"`
+
+	// Forecast The next three days, starting tomorrow.
+	Forecast []ForecastDay `json:"forecast"`
+
+	// Hourly Chart points of the day (every three hours, midnight to midnight).
+	Hourly []HourlyPoint `json:"hourly"`
+
+	// Humidity Relative humidity in percent.
+	Humidity int `json:"humidity"`
+
+	// IconCode OpenWeather icon code such as 10d.
+	IconCode *string `json:"iconCode,omitempty"`
+
+	// Location Place name as OpenWeather resolved it.
+	Location string `json:"location"`
+
+	// PrecipitationProbability Percent.
+	PrecipitationProbability int        `json:"precipitationProbability"`
+	ShowIcons                bool       `json:"showIcons"`
+	Sunrise                  *time.Time `json:"sunrise,omitempty"`
+	Sunset                   *time.Time `json:"sunset,omitempty"`
+	TemperatureC             int        `json:"temperatureC"`
+
+	// UpdatedAt When the data was fetched.
+	UpdatedAt time.Time `json:"updatedAt"`
+	UvIndex   *int      `json:"uvIndex,omitempty"`
+	WindKph   int       `json:"windKph"`
+}
+
+// WeatherSettings Weather settings as the admin UI reads them; the API key is never included.
+type WeatherSettings struct {
+	// HasApiKey True when an OpenWeather API key is stored.
+	HasApiKey bool `json:"hasApiKey"`
+
+	// Location Place name for OpenWeather's geocoder; empty disables the weather.
+	Location string `json:"location"`
+
+	// RefreshMinutes Minutes between two refreshes from OpenWeather.
+	RefreshMinutes int `json:"refreshMinutes"`
+
+	// ShowIcons Shows the OpenWeather icons next to the conditions.
+	ShowIcons bool `json:"showIcons"`
+}
+
+// WeatherSettingsUpdate New weather settings.
+type WeatherSettingsUpdate struct {
+	// ApiKey New API key; absent or empty keeps the stored key.
+	ApiKey *string `json:"apiKey,omitempty"`
+
+	// ClearApiKey Deletes the stored API key. Not combinable with a new `apiKey`.
+	ClearApiKey    *bool  `json:"clearApiKey,omitempty"`
+	Location       string `json:"location"`
+	RefreshMinutes int    `json:"refreshMinutes"`
+	ShowIcons      bool   `json:"showIcons"`
+}
+
+// WifiSettings Guest Wi-Fi settings as the admin UI reads them; the password is never included.
+type WifiSettings struct {
+	// HasPassword True when a Wi-Fi password is stored.
+	HasPassword bool `json:"hasPassword"`
+
+	// Security WPA for a password-protected network, nopass for an open one.
+	Security WifiSettingsSecurity `json:"security"`
+
+	// Ssid Network name (at most 32 bytes); empty disables the QR code.
+	Ssid string `json:"ssid"`
+}
+
+// WifiSettingsSecurity WPA for a password-protected network, nopass for an open one.
+type WifiSettingsSecurity string
+
+// WifiSettingsUpdate New guest Wi-Fi settings.
+type WifiSettingsUpdate struct {
+	// ClearPassword Deletes the stored password. Not combinable with a new `password`.
+	ClearPassword *bool `json:"clearPassword,omitempty"`
+
+	// Password New password (8 to 63 characters for WPA); absent or empty keeps the stored one.
+	Password *string                    `json:"password,omitempty"`
+	Security WifiSettingsUpdateSecurity `json:"security"`
+	Ssid     string                     `json:"ssid"`
+}
+
+// WifiSettingsUpdateSecurity defines model for WifiSettingsUpdate.Security.
+type WifiSettingsUpdateSecurity string
 
 // BadRequest Error body, served as application/problem+json.
 type BadRequest = Problem
@@ -190,6 +384,12 @@ type SetupAdminJSONRequestBody = PasswordRequest
 // UpdateDisplaySettingsJSONRequestBody defines body for UpdateDisplaySettings for application/json ContentType.
 type UpdateDisplaySettingsJSONRequestBody = DisplaySettings
 
+// UpdateWeatherSettingsJSONRequestBody defines body for UpdateWeatherSettings for application/json ContentType.
+type UpdateWeatherSettingsJSONRequestBody = WeatherSettingsUpdate
+
+// UpdateWifiSettingsJSONRequestBody defines body for UpdateWifiSettings for application/json ContentType.
+type UpdateWifiSettingsJSONRequestBody = WifiSettingsUpdate
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Login Sign in
@@ -207,6 +407,12 @@ type ServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(w http.ResponseWriter, r *http.Request)
+	// GetDashboardWeather Weather for the dashboard
+	// (GET /api/v1/dashboard/weather)
+	GetDashboardWeather(w http.ResponseWriter, r *http.Request)
+	// GetDashboardWifi Guest Wi-Fi QR code for the dashboard
+	// (GET /api/v1/dashboard/wifi)
+	GetDashboardWifi(w http.ResponseWriter, r *http.Request)
 	// GetHealth Liveness check
 	// (GET /api/v1/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -222,6 +428,18 @@ type ServerInterface interface {
 	// UpdateDisplaySettings Change the display settings
 	// (PUT /api/v1/settings/display)
 	UpdateDisplaySettings(w http.ResponseWriter, r *http.Request)
+	// GetWeatherSettings Weather settings
+	// (GET /api/v1/settings/weather)
+	GetWeatherSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateWeatherSettings Change the weather settings
+	// (PUT /api/v1/settings/weather)
+	UpdateWeatherSettings(w http.ResponseWriter, r *http.Request)
+	// GetWifiSettings Guest Wi-Fi settings
+	// (GET /api/v1/settings/wifi)
+	GetWifiSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateWifiSettings Change the guest Wi-Fi settings
+	// (PUT /api/v1/settings/wifi)
+	UpdateWifiSettings(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -303,6 +521,34 @@ func (siw *ServerInterfaceWrapper) SetupAdmin(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetDashboardWeather operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardWeather(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardWeather(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardWifi operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardWifi(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardWifi(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -364,6 +610,62 @@ func (siw *ServerInterfaceWrapper) UpdateDisplaySettings(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateDisplaySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWeatherSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetWeatherSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWeatherSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateWeatherSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateWeatherSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateWeatherSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWifiSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetWifiSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWifiSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateWifiSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateWifiSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateWifiSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -503,6 +805,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/display", wrapper.GetDisplaySettings)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/display", wrapper.UpdateDisplaySettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/kiosk/state", wrapper.GetKioskState)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/weather", wrapper.GetWeatherSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/weather", wrapper.UpdateWeatherSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/wifi", wrapper.GetWifiSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/wifi", wrapper.UpdateWifiSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/weather", wrapper.GetDashboardWeather)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/wifi", wrapper.GetDashboardWifi)
 
 	return m
 }
@@ -823,6 +1131,48 @@ func (response SetupAdmin409ApplicationProblemPlusJSONResponse) VisitSetupAdminR
 	return err
 }
 
+type GetDashboardWeatherRequestObject struct {
+}
+
+type GetDashboardWeatherResponseObject interface {
+	VisitGetDashboardWeatherResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardWeather200JSONResponse DashboardWeather
+
+func (response GetDashboardWeather200JSONResponse) VisitGetDashboardWeatherResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDashboardWifiRequestObject struct {
+}
+
+type GetDashboardWifiResponseObject interface {
+	VisitGetDashboardWifiResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardWifi200JSONResponse DashboardWifi
+
+func (response GetDashboardWifi200JSONResponse) VisitGetDashboardWifiResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -993,6 +1343,220 @@ func (response UpdateDisplaySettings403ApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
+type GetWeatherSettingsRequestObject struct {
+}
+
+type GetWeatherSettingsResponseObject interface {
+	VisitGetWeatherSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetWeatherSettings200JSONResponse WeatherSettings
+
+func (response GetWeatherSettings200JSONResponse) VisitGetWeatherSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWeatherSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetWeatherSettings401ApplicationProblemPlusJSONResponse) VisitGetWeatherSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWeatherSettingsRequestObject struct {
+	Body *UpdateWeatherSettingsJSONRequestBody
+}
+
+type UpdateWeatherSettingsResponseObject interface {
+	VisitUpdateWeatherSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateWeatherSettings200JSONResponse WeatherSettings
+
+func (response UpdateWeatherSettings200JSONResponse) VisitUpdateWeatherSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWeatherSettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateWeatherSettings400ApplicationProblemPlusJSONResponse) VisitUpdateWeatherSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWeatherSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateWeatherSettings401ApplicationProblemPlusJSONResponse) VisitUpdateWeatherSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWeatherSettings403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateWeatherSettings403ApplicationProblemPlusJSONResponse) VisitUpdateWeatherSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWifiSettingsRequestObject struct {
+}
+
+type GetWifiSettingsResponseObject interface {
+	VisitGetWifiSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetWifiSettings200JSONResponse WifiSettings
+
+func (response GetWifiSettings200JSONResponse) VisitGetWifiSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWifiSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetWifiSettings401ApplicationProblemPlusJSONResponse) VisitGetWifiSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWifiSettingsRequestObject struct {
+	Body *UpdateWifiSettingsJSONRequestBody
+}
+
+type UpdateWifiSettingsResponseObject interface {
+	VisitUpdateWifiSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateWifiSettings200JSONResponse WifiSettings
+
+func (response UpdateWifiSettings200JSONResponse) VisitUpdateWifiSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWifiSettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateWifiSettings400ApplicationProblemPlusJSONResponse) VisitUpdateWifiSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWifiSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateWifiSettings401ApplicationProblemPlusJSONResponse) VisitUpdateWifiSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWifiSettings403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateWifiSettings403ApplicationProblemPlusJSONResponse) VisitUpdateWifiSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Login Sign in
@@ -1010,6 +1574,12 @@ type StrictServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(ctx context.Context, request SetupAdminRequestObject) (SetupAdminResponseObject, error)
+	// GetDashboardWeather Weather for the dashboard
+	// (GET /api/v1/dashboard/weather)
+	GetDashboardWeather(ctx context.Context, request GetDashboardWeatherRequestObject) (GetDashboardWeatherResponseObject, error)
+	// GetDashboardWifi Guest Wi-Fi QR code for the dashboard
+	// (GET /api/v1/dashboard/wifi)
+	GetDashboardWifi(ctx context.Context, request GetDashboardWifiRequestObject) (GetDashboardWifiResponseObject, error)
 	// GetHealth Liveness check
 	// (GET /api/v1/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -1025,6 +1595,18 @@ type StrictServerInterface interface {
 	// UpdateDisplaySettings Change the display settings
 	// (PUT /api/v1/settings/display)
 	UpdateDisplaySettings(ctx context.Context, request UpdateDisplaySettingsRequestObject) (UpdateDisplaySettingsResponseObject, error)
+	// GetWeatherSettings Weather settings
+	// (GET /api/v1/settings/weather)
+	GetWeatherSettings(ctx context.Context, request GetWeatherSettingsRequestObject) (GetWeatherSettingsResponseObject, error)
+	// UpdateWeatherSettings Change the weather settings
+	// (PUT /api/v1/settings/weather)
+	UpdateWeatherSettings(ctx context.Context, request UpdateWeatherSettingsRequestObject) (UpdateWeatherSettingsResponseObject, error)
+	// GetWifiSettings Guest Wi-Fi settings
+	// (GET /api/v1/settings/wifi)
+	GetWifiSettings(ctx context.Context, request GetWifiSettingsRequestObject) (GetWifiSettingsResponseObject, error)
+	// UpdateWifiSettings Change the guest Wi-Fi settings
+	// (PUT /api/v1/settings/wifi)
+	UpdateWifiSettings(ctx context.Context, request UpdateWifiSettingsRequestObject) (UpdateWifiSettingsResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1207,6 +1789,54 @@ func (sh *strictHandler) SetupAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetDashboardWeather operation middleware
+func (sh *strictHandler) GetDashboardWeather(w http.ResponseWriter, r *http.Request) {
+	var request GetDashboardWeatherRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardWeather(ctx, request.(GetDashboardWeatherRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardWeather")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardWeatherResponseObject); ok {
+		if err := validResponse.VisitGetDashboardWeatherResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDashboardWifi operation middleware
+func (sh *strictHandler) GetDashboardWifi(w http.ResponseWriter, r *http.Request) {
+	var request GetDashboardWifiRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardWifi(ctx, request.(GetDashboardWifiRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardWifi")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardWifiResponseObject); ok {
+		if err := validResponse.VisitGetDashboardWifiResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthRequestObject
@@ -1327,6 +1957,116 @@ func (sh *strictHandler) UpdateDisplaySettings(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateDisplaySettingsResponseObject); ok {
 		if err := validResponse.VisitUpdateDisplaySettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWeatherSettings operation middleware
+func (sh *strictHandler) GetWeatherSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetWeatherSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWeatherSettings(ctx, request.(GetWeatherSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWeatherSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWeatherSettingsResponseObject); ok {
+		if err := validResponse.VisitGetWeatherSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateWeatherSettings operation middleware
+func (sh *strictHandler) UpdateWeatherSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateWeatherSettingsRequestObject
+
+	var body UpdateWeatherSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWeatherSettings(ctx, request.(UpdateWeatherSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWeatherSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateWeatherSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateWeatherSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWifiSettings operation middleware
+func (sh *strictHandler) GetWifiSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetWifiSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWifiSettings(ctx, request.(GetWifiSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWifiSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWifiSettingsResponseObject); ok {
+		if err := validResponse.VisitGetWifiSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateWifiSettings operation middleware
+func (sh *strictHandler) UpdateWifiSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateWifiSettingsRequestObject
+
+	var body UpdateWifiSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWifiSettings(ctx, request.(UpdateWifiSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWifiSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateWifiSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateWifiSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -7,6 +7,7 @@ tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 require (
 	github.com/oapi-codegen/runtime v1.9.0
 	golang.org/x/crypto v0.59.0
+	rsc.io/qr v0.2.0
 )
 
 require (

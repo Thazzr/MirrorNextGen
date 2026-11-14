@@ -62,7 +62,10 @@ func load(dir string, logger *slog.Logger, now func() time.Time) (*Store, error)
 
 // parse decodes data; a non-empty reason means the content is unusable.
 func parse(data []byte) (Settings, string) {
-	var st Settings
+	// Decode on top of the defaults so a file written before a section
+	// existed keeps working and the new sections get their defaults.
+	st := Defaults()
+	st.SchemaVersion = 0 // a file without a version must not inherit one
 	dec := json.NewDecoder(bytes.NewReader(data))
 	if err := dec.Decode(&st); err != nil {
 		return Settings{}, "invalid JSON: " + err.Error()
@@ -88,26 +91,66 @@ func (s *Store) Get() Settings {
 // the stored state is returned unchanged. The in-memory copy changes only
 // after the file is safely written.
 func (s *Store) UpdateDisplay(d DisplaySettings) (DisplaySettings, map[string]string, error) {
+	cur, errs, err := s.update("display", func(next *Settings) map[string]string {
+		next.Display = d
+		return nil
+	})
+	return cur.Display, errs, err
+}
+
+// UpdateWeather merges u into the weather section (see WeatherUpdate for the
+// secret rules), validates and stores it.
+func (s *Store) UpdateWeather(u WeatherUpdate) (WeatherSettings, map[string]string, error) {
+	cur, errs, err := s.update("weather", func(next *Settings) map[string]string {
+		w, errs := u.apply(next.Weather)
+		next.Weather = w
+		return errs
+	})
+	return cur.Weather, errs, err
+}
+
+// UpdateWifi merges u into the Wi-Fi section (see WifiUpdate for the secret
+// rules), validates and stores it.
+func (s *Store) UpdateWifi(u WifiUpdate) (WifiSettings, map[string]string, error) {
+	cur, errs, err := s.update("wifi", func(next *Settings) map[string]string {
+		w, errs := u.apply(next.Wifi)
+		next.Wifi = w
+		return errs
+	})
+	return cur.Wifi, errs, err
+}
+
+// update applies mutate to a copy of the settings, validates it and writes
+// it. It returns the state after the call (unchanged on field errors or I/O
+// failure) and field errors with the section prefix removed.
+func (s *Store) update(section string, mutate func(next *Settings) map[string]string) (Settings, map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	next := s.cur
-	next.Display = d
+	if errs := mutate(&next); errs != nil {
+		return s.cur, errs, nil
+	}
 	if errs := next.Validate(); errs != nil {
-		fieldErrs := make(map[string]string, len(errs))
+		fieldErrs := map[string]string{}
 		for path, msg := range errs {
-			fieldErrs[trimSection(path)] = msg
+			// Only the edited section can be blamed for this request.
+			if strings.HasPrefix(path, section+".") {
+				fieldErrs[trimSection(path)] = msg
+			}
 		}
-		return s.cur.Display, fieldErrs, nil
+		if len(fieldErrs) > 0 {
+			return s.cur, fieldErrs, nil
+		}
 	}
 	data, err := json.MarshalIndent(next, "", "  ")
 	if err != nil {
-		return s.cur.Display, nil, fmt.Errorf("encode settings: %w", err)
+		return s.cur, nil, fmt.Errorf("encode settings: %w", err)
 	}
 	if err := fsutil.WriteFileAtomic(s.path, append(data, '\n'), 0o600); err != nil {
-		return s.cur.Display, nil, fmt.Errorf("write %s: %w", s.path, err)
+		return s.cur, nil, fmt.Errorf("write %s: %w", s.path, err)
 	}
 	s.cur = next
-	return next.Display, nil, nil
+	return next, nil, nil
 }
 
 func trimSection(path string) string {

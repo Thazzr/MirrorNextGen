@@ -62,6 +62,7 @@ type testEnv struct {
 	// lastOp is the operation ID of the latest request that reached the
 	// middleware chain (set by an extra, outermost middleware).
 	lastOp *string
+	ow     *fakeOW
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -75,6 +76,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatal(err)
 	}
 	clock := &testClock{t: time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)}
+	weatherSvc, ow := newTestWeather(t, settingsStore, clock.now)
 	deps := Deps{
 		Build:    BuildInfo{Version: "1.2.3", Commit: "abc123", BuildTime: "2026-01-02T03:04:05Z"},
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -82,6 +84,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		Sessions: auth.NewSessions(clock.now),
 		Throttle: auth.NewThrottle(clock.now),
 		Settings: settingsStore,
+		Weather:  weatherSvc,
 	}
 	mux := &recordingMux{ServeMux: http.NewServeMux()}
 	lastOp := new(string)
@@ -94,7 +97,7 @@ func newTestEnv(t *testing.T) *testEnv {
 			return next(ctx, w, r, req)
 		}
 	})
-	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp}
+	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, ow: ow}
 }
 
 type opts struct {

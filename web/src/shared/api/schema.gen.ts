@@ -188,6 +188,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/weather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Weather settings
+         * @description Returns the weather settings. The API key never leaves the server; `hasApiKey` tells whether one is stored.
+         */
+        get: operations["getWeatherSettings"];
+        /**
+         * Change the weather settings
+         * @description Validates and stores the weather settings. An absent or empty `apiKey` keeps the stored key, `clearApiKey` deletes it. Invalid values answer 400 with `errors` keyed by field name (`location`, `apiKey`, `refreshMinutes`); nothing is stored then.
+         */
+        put: operations["updateWeatherSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/wifi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Guest Wi-Fi settings
+         * @description Returns the guest Wi-Fi settings. The password never leaves the server; `hasPassword` tells whether one is stored.
+         */
+        get: operations["getWifiSettings"];
+        /**
+         * Change the guest Wi-Fi settings
+         * @description Validates and stores the Wi-Fi settings. An absent or empty `password` keeps the stored one, `clearPassword` deletes it. Invalid values answer 400 with `errors` keyed by field name (`ssid`, `security`, `password`); nothing is stored then.
+         */
+        put: operations["updateWifiSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/weather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Weather for the dashboard
+         * @description Returns the current weather, the chart points and the forecast. Public, because the dashboard reads it without a session; it contains no secrets. Failures are reported in the body (`error`), not as an HTTP error, so the other dashboard areas stay visible.
+         */
+        get: operations["getDashboardWeather"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/wifi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Guest Wi-Fi QR code for the dashboard
+         * @description Returns the QR code of the guest Wi-Fi. Public, because the dashboard reads it without a session; the code encodes the Wi-Fi password, which is the purpose of the widget.
+         */
+        get: operations["getDashboardWifi"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -260,6 +348,135 @@ export interface components {
             output: string;
             /** @description Shows the diagnose overlay on the mirror. */
             testPattern: boolean;
+        };
+        /** @description Weather settings as the admin UI reads them; the API key is never included. */
+        WeatherSettings: {
+            /** @description Place name for OpenWeather's geocoder; empty disables the weather. */
+            location: string;
+            /** @description True when an OpenWeather API key is stored. */
+            hasApiKey: boolean;
+            /** @description Shows the OpenWeather icons next to the conditions. */
+            showIcons: boolean;
+            /** @description Minutes between two refreshes from OpenWeather. */
+            refreshMinutes: number;
+        };
+        /** @description New weather settings. */
+        WeatherSettingsUpdate: {
+            location: string;
+            /** @description New API key; absent or empty keeps the stored key. */
+            apiKey?: string;
+            /** @description Deletes the stored API key. Not combinable with a new `apiKey`. */
+            clearApiKey?: boolean;
+            showIcons: boolean;
+            refreshMinutes: number;
+        };
+        /** @description Guest Wi-Fi settings as the admin UI reads them; the password is never included. */
+        WifiSettings: {
+            /** @description Network name (at most 32 bytes); empty disables the QR code. */
+            ssid: string;
+            /**
+             * @description WPA for a password-protected network, nopass for an open one.
+             * @enum {string}
+             */
+            security: "WPA" | "nopass";
+            /** @description True when a Wi-Fi password is stored. */
+            hasPassword: boolean;
+        };
+        /** @description New guest Wi-Fi settings. */
+        WifiSettingsUpdate: {
+            ssid: string;
+            /** @enum {string} */
+            security: "WPA" | "nopass";
+            /** @description New password (8 to 63 characters for WPA); absent or empty keeps the stored one. */
+            password?: string;
+            /** @description Deletes the stored password. Not combinable with a new `password`. */
+            clearPassword?: boolean;
+        };
+        /** @description Weather state for the dashboard. */
+        DashboardWeather: {
+            /** @description False while location or API key is missing; the dashboard then hides the weather. */
+            configured: boolean;
+            /** @description True when the last refresh failed and `data` is older (less than 3 hours). */
+            stale: boolean;
+            /** @description German message when no data is available. */
+            error?: string;
+            data?: components["schemas"]["WeatherData"];
+        };
+        /** @description Current weather, chart points and forecast. */
+        WeatherData: {
+            /** @description Place name as OpenWeather resolved it. */
+            location: string;
+            /**
+             * Format: date-time
+             * @description When the data was fetched.
+             */
+            updatedAt: string;
+            temperatureC: number;
+            feelsLikeC: number;
+            /** @description Relative humidity in percent. */
+            humidity: number;
+            /** @description Current conditions in German, first letter capitalised. */
+            condition: string;
+            /** @description OpenWeather icon code such as 10d. */
+            iconCode?: string;
+            showIcons: boolean;
+            windKph: number;
+            /** @description Percent. */
+            precipitationProbability: number;
+            /** Format: date-time */
+            sunrise?: string;
+            /** Format: date-time */
+            sunset?: string;
+            uvIndex?: number;
+            /** @description Short German hint about an upcoming change, absent when there is none. */
+            alert?: string;
+            /** @description Chart points of the day (every three hours, midnight to midnight). */
+            hourly: components["schemas"]["HourlyPoint"][];
+            /** @description The next three days, starting tomorrow. */
+            forecast: components["schemas"]["ForecastDay"][];
+        };
+        /** @description One point of the day chart. */
+        HourlyPoint: {
+            /** Format: date-time */
+            time: string;
+            temperatureC: number;
+            feelsLikeC: number;
+            condition: string;
+            iconCode?: string;
+            /** @description Percent. */
+            precipitationProbability: number;
+            windKph: number;
+            gustKph: number;
+            /** Format: double */
+            precipitationMm: number;
+        };
+        /** @description Forecast of one day. */
+        ForecastDay: {
+            /** Format: date */
+            date: string;
+            condition: string;
+            iconCode?: string;
+            lowC: number;
+            highC: number;
+            /** @description Percent. */
+            precipitationProbability: number;
+            windKph: number;
+            /** Format: double */
+            precipitationMm: number;
+        };
+        /** @description Guest Wi-Fi QR code state for the dashboard. */
+        DashboardWifi: {
+            /** @description False while no SSID is set. */
+            configured: boolean;
+            ssid?: string;
+            qr?: components["schemas"]["QrCode"];
+        };
+        /** @description A QR code as modules; the quiet zone is not included, the client draws it. */
+        QrCode: {
+            /** @description Modules per side. */
+            size: number;
+            /** @description `size` strings of `size` characters, 1 for a dark and 0 for a light module. */
+            rows: string[];
         };
     };
     responses: {
@@ -546,6 +763,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KioskState"];
+                };
+            };
+        };
+    };
+    getWeatherSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored weather settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateWeatherSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeatherSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The stored weather settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getWifiSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored Wi-Fi settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WifiSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateWifiSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WifiSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The stored Wi-Fi settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WifiSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDashboardWeather: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The weather state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardWeather"];
+                };
+            };
+        };
+    };
+    getDashboardWifi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Wi-Fi QR code state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardWifi"];
                 };
             };
         };

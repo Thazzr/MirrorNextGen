@@ -1,0 +1,29 @@
+{
+ "lat": 52.517,
+ "lon": 13.3889,
+ "timezone": "Europe/Berlin",
+ "timezone_offset": 3600,
+ "data": [
+  {
+   "dt": 1794643200,
+   "sunrise": 1794637980,
+   "sunset": 1794671520,
+   "temp": 4.7,
+   "feels_like": 2.9,
+   "pressure": 1014,
+   "humidity": 90,
+   "dew_point": 3.2,
+   "clouds": 0,
+   "wind_speed": 1.5,
+   "wind_deg": 200,
+   "weather": [
+    {
+     "id": 800,
+     "main": "x",
+     "description": "Klarer Himmel",
+     "icon": "01n"
+    }
+   ]
+  }
+ ]
+}

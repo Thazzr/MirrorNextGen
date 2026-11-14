@@ -21,6 +21,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/config"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
+	"github.com/thazzr/mirrornextgen/server/internal/weather"
 	"github.com/thazzr/mirrornextgen/server/internal/web"
 )
 
@@ -71,6 +72,17 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		logger.Error("cannot load settings", "dataDir", cfg.DataDir, "error", err)
 		return 1
 	}
+	weatherSvc := weather.New(weather.Options{
+		HTTPClient: &http.Client{Timeout: 15 * time.Second},
+		BaseURL:    cfg.OpenWeatherURL,
+		Config: func() weather.Config {
+			w := settingsStore.Get().Weather
+			return weather.Config{Location: w.Location, APIKey: w.APIKey, ShowIcons: w.ShowIcons, RefreshMinutes: w.RefreshMinutes}
+		},
+		Now:      time.Now,
+		Location: time.Local,
+		Logger:   logger,
+	})
 	deps := api.Deps{
 		Build:    api.BuildInfo{Version: version, Commit: commit, BuildTime: buildTime},
 		Logger:   logger,
@@ -78,6 +90,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Sessions: auth.NewSessions(time.Now),
 		Throttle: auth.NewThrottle(time.Now),
 		Settings: settingsStore,
+		Weather:  weatherSvc,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,

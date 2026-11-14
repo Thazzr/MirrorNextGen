@@ -14,6 +14,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/api"
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
+	"github.com/thazzr/mirrornextgen/server/internal/weather"
 )
 
 const indexHTML = "<!doctype html><title>SPA</title>"
@@ -35,6 +36,7 @@ func newHandler(t *testing.T, files fstest.MapFS) http.Handler {
 		Sessions: auth.NewSessions(time.Now),
 		Throttle: auth.NewThrottle(time.Now),
 		Settings: st,
+		Weather:  weather.New(weather.Options{Config: func() weather.Config { return weather.Config{} }}),
 	}, files)
 }
 

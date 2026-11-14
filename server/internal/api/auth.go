@@ -40,6 +40,12 @@ var publicOperations = map[string]bool{
 	// Read by the kiosk container and the dashboard without a session; the
 	// state (rotation, output, test pattern) contains no secrets.
 	"GetKioskState": true,
+	// The dashboard reads weather and the guest Wi-Fi QR code without a
+	// session. The weather carries no secrets (the API key stays on the
+	// server); the QR code encodes the guest Wi-Fi password, which is the
+	// purpose of that widget.
+	"GetDashboardWeather": true,
+	"GetDashboardWifi":    true,
 }
 
 type ctxKey struct{}

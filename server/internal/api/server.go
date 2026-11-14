@@ -8,6 +8,7 @@ import (
 
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
+	"github.com/thazzr/mirrornextgen/server/internal/weather"
 )
 
 // BuildInfo describes the running binary; main fills it from -ldflags.
@@ -25,6 +26,7 @@ type Deps struct {
 	Sessions *auth.Sessions
 	Throttle *auth.Throttle
 	Settings *settings.Store
+	Weather  *weather.Service
 }
 
 // Server implements the generated StrictServerInterface.
@@ -34,13 +36,14 @@ type Server struct {
 	sessions *auth.Sessions
 	throttle *auth.Throttle
 	settings *settings.Store
+	weather  *weather.Service
 }
 
 var _ StrictServerInterface = (*Server)(nil)
 
 // NewServer returns a Server wired to deps.
 func NewServer(deps Deps) *Server {
-	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings}
+	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather}
 }
 
 // GetHealth answers the liveness check.

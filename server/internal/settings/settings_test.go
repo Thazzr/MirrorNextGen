@@ -40,7 +40,9 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := Settings{SchemaVersion: 1, Display: tt.d}.Validate()
+			st := Defaults()
+			st.Display = tt.d
+			errs := st.Validate()
 			if tt.wantField == "" {
 				if errs != nil {
 					t.Fatalf("errs = %v", errs)
