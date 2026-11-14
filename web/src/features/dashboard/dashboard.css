@@ -1,0 +1,29 @@
+.mirror-dashboard {
+  --mirror-accent: #f6b73c;
+  --mirror-muted: rgba(255, 255, 255, .65);
+  box-sizing: border-box;
+  color: #fff;
+  cursor: none;
+  margin-inline: auto;
+  max-width: 1440px;
+  min-height: 100vh;
+  padding: 0;
+  position: relative;
+}
+
+.mirror-header { align-items: flex-start; display: flex; flex-wrap: wrap; justify-content: space-between; }
+.mirror-clock { display: flex; flex-direction: column; letter-spacing: .16rem; max-width: 60%; min-width: 60%; }
+.mirror-clock__date { color: rgba(255,255,255,.85); font-size: 2rem; letter-spacing: .32rem; text-transform: uppercase; }
+.mirror-clock__time { align-items: flex-start; display: flex; line-height: 1; }
+.mirror-clock__hour { font-size: 5.5rem; font-weight: 600; letter-spacing: .1rem; }
+.mirror-clock__seconds { color: var(--mirror-muted); font-size: 1.6rem; font-weight: 600; letter-spacing: .35rem; margin-top: clamp(.95rem,.5vw,.5rem); }
+.mirror-clock__meta { color: var(--mirror-muted); font-size: 1.5rem; font-weight: 600; padding-bottom: 2rem; }
+
+.mirror-muted { color: var(--mirror-muted); }
+.mirror-error { color: #ff6b6b; font-size: clamp(.9rem,1vw,1rem); letter-spacing: .08rem; }
+
+/* Overrides that SmartMirror2 applies later in weather-enhancements.css. */
+.mirror-dashboard { --mirror-muted: rgba(255,255,255,.92); }
+.mirror-clock { max-width: 45%; min-width: 45%; }
+
+body.mirror-kiosk, body.mirror-kiosk * { cursor: none !important; }

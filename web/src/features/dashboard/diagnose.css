@@ -1,0 +1,44 @@
+.diagnose {
+  background: transparent;
+  border: 2px solid #fff;
+  color: #fff;
+  inset: 0;
+  position: fixed;
+  z-index: 100;
+}
+
+.diagnose__corner { background: #fff; height: 48px; position: absolute; width: 48px; }
+.diagnose__corner--tl { left: 0; top: 0; }
+.diagnose__corner--tr { right: 0; top: 0; }
+.diagnose__corner--bl { bottom: 0; left: 0; }
+.diagnose__corner--br { bottom: 0; right: 0; }
+
+.diagnose__top {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  font-size: 3rem;
+  font-weight: 600;
+  left: 50%;
+  line-height: 1;
+  position: absolute;
+  top: 64px;
+  transform: translateX(-50%);
+}
+.diagnose__arrow { font-size: 10rem; }
+
+.diagnose__panel {
+  background: #000;
+  border: 2px solid #fff;
+  font-size: 2.5rem;
+  left: 50%;
+  max-width: 90%;
+  padding: 2rem 3rem;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.diagnose__panel h2 { font-size: 3.5rem; font-weight: 700; margin-bottom: 1.5rem; text-align: center; }
+.diagnose__panel dl { column-gap: 2.5rem; display: grid; grid-template-columns: auto auto; margin: 0; row-gap: .75rem; }
+.diagnose__panel dt { color: rgba(255,255,255,.75); }
+.diagnose__panel dd { font-weight: 600; margin: 0; }
