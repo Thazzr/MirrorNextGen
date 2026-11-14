@@ -54,6 +54,12 @@ function changedAreas(values: FormValues, saved: CameraSettings): string[] {
   return areas
 }
 
+// UniFi Protect hands out rtsps:// links on port 7441, often with ?enableSrtp.
+function isUnifiRtsps(address: string): boolean {
+  const a = address.trim().toLowerCase()
+  return a.startsWith('rtsps://') && (a.includes(':7441') || a.includes('enablesrtp'))
+}
+
 const errorText = (error: Error) => (error instanceof ApiError ? (error.detail ?? error.message) : error.message)
 
 export function CameraPage() {
@@ -157,7 +163,9 @@ function CameraForm({ saved }: { saved: CameraSettings }) {
     })
   }
 
-  const hint = 'Nur RTSP und RTSPS. Die Adresse bleibt auf dem Spiegel.'
+  const hint =
+    'Nur RTSP, RTSPS und RTSPX. Für UniFi Protect: rtspx:// statt rtsps:// – ohne Zertifikatsprüfung, weil UniFi ein eigenes Zertifikat nutzt. Die Adresse bleibt auf dem Spiegel.'
+  const looksLikeUnifi = isUnifiRtsps(form.values.streamUrl)
   return (
     <>
       <Stack gap="xl">
@@ -183,6 +191,11 @@ function CameraForm({ saved }: { saved: CameraSettings }) {
             removeLabel="Stream-Adresse entfernen"
             error={form.errors.streamUrl as string | undefined}
           />
+          {looksLikeUnifi && (
+            <Text size="sm" c="yellow" role="note">
+              Sieht nach UniFi Protect aus: Ersetze rtsps:// durch rtspx://.
+            </Text>
+          )}
         </Stack>
 
         <Stack gap="xs" component="section" aria-labelledby="camera-picture">

@@ -88,7 +88,7 @@ Die Verwaltung liegt unter `/admin` und funktioniert am Handy wie am Rechner.
 - **Nachtruhe (unter „Anzeige“):** Aus- und Einschaltzeit, auch über Mitternacht, in der Zeitzone aus `TZ`. Der Kiosk schaltet den Monitor per `wlr-randr` aus, das Dashboard zeigt in der Zeit nur Schwarz und arbeitet nicht. Ein Knopf schaltet den Monitor zum Test 10 Sekunden aus.
 - **Logbuch:** die letzten 500 Meldungen des Servers seit dem Start, filterbar nach Warnungen und Fehlern. Die Kachel zählt Warnungen und Fehler.
 - **System:** installierte Version und **Update per Knopf**. Der Server legt nur eine Anfrage-Datei in `MIRROR_CONTROL_DIR` ab, ein systemd-Dienst auf dem Host (`deploy/host/`) holt die neuen Images und startet neu. Einrichtung in [`deploy/INSTALL.md`](deploy/INSTALL.md), Abschnitt „Updates per Knopf“.
-- **Kamera:** Eine RTSP- oder RTSPS-Adresse (sie bleibt auf dem Server). Der Dienst `camera` (go2rtc) gibt das Video ohne Umkodierung weiter, der Server reicht es per WebSocket an das Dashboard durch. Helligkeit, Kontrast, Sättigung und Schwarzweiß stellst du in der Verwaltung ein.
+- **Kamera:** Eine RTSP-, RTSPS- oder RTSPX-Adresse (sie bleibt auf dem Server). Für UniFi Protect `rtspx://` statt `rtsps://` verwenden; `?enableSrtp` entfernt der Spiegel selbst. Der Dienst `camera` (go2rtc) gibt das Video ohne Umkodierung weiter, der Server reicht es per WebSocket an das Dashboard durch. Helligkeit, Kontrast, Sättigung und Schwarzweiß stellst du in der Verwaltung ein.
 
 ### API ändern
 

@@ -13,6 +13,9 @@ afterEach(() => vi.unstubAllGlobals())
 
 const empty = { enabled: false, title: 'Kamera', hasStreamUrl: false, streamUrlHint: '', brightness: 100, contrast: 100, saturation: 100, grayscale: false }
 const stored = { ...empty, enabled: true, title: 'Haustür', hasStreamUrl: true, streamUrlHint: 'rtsp://192.168.1.20', brightness: 120 }
+const unifiHint =
+  'Nur RTSP, RTSPS und RTSPX. Für UniFi Protect: rtspx:// statt rtsps:// – ohne Zertifikatsprüfung, weil UniFi ein eigenes Zertifikat nutzt. Die Adresse bleibt auf dem Spiegel.'
+const unifiNote = 'Sieht nach UniFi Protect aus: Ersetze rtsps:// durch rtspx://.'
 const placeholder = 'rtsp://benutzer:passwort@192.168.1.20:554/stream1'
 
 function arrange(put?: Handler, settings: object = stored) {
@@ -50,7 +53,7 @@ describe('camera page', () => {
     const field = screen.getByLabelText('Stream-Adresse')
     expect(field).toHaveValue('')
     expect(field).toHaveAttribute('placeholder', 'Gespeichert – leer lassen zum Behalten')
-    expect(screen.getByText(/Gespeichert für rtsp:\/\/192\.168\.1\.20\. Nur RTSP und RTSPS\. Die Adresse bleibt auf dem Spiegel\./)).toBeInTheDocument()
+    expect(screen.getByText(/Gespeichert für rtsp:\/\/192\.168\.1\.20\. Nur RTSP, RTSPS und RTSPX\. Für UniFi Protect: rtspx:\/\/ statt rtsps:\/\/ – ohne Zertifikatsprüfung, weil UniFi ein eigenes Zertifikat nutzt\. Die Adresse bleibt auf dem Spiegel\./)).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Helligkeit' })).toHaveAttribute('aria-valuenow', '120')
     expect(screen.getByRole('slider', { name: 'Kontrast' })).toHaveAttribute('aria-valuenow', '100')
     expect(screen.getByRole('slider', { name: 'Sättigung' })).toHaveAttribute('aria-valuenow', '100')
@@ -61,7 +64,7 @@ describe('camera page', () => {
     arrange(undefined, empty)
     await open()
     expect(screen.getByLabelText('Stream-Adresse')).toHaveAttribute('placeholder', placeholder)
-    expect(screen.getByText('Nur RTSP und RTSPS. Die Adresse bleibt auf dem Spiegel.')).toBeInTheDocument()
+    expect(screen.getByText(unifiHint)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Stream-Adresse entfernen' })).not.toBeInTheDocument()
   })
 
@@ -96,6 +99,39 @@ describe('camera page', () => {
       grayscale: false,
     })
     await waitFor(() => expect(bar()).not.toBeInTheDocument())
+  })
+
+  it('notes UniFi Protect addresses while typing, but not other ones', async () => {
+    arrange(undefined, empty)
+    await open()
+    const field = screen.getByLabelText('Stream-Adresse')
+    expect(screen.queryByText(unifiNote)).not.toBeInTheDocument()
+    await userEvent.type(field, 'rtsp://192.168.1.20:554/stream1')
+    expect(screen.queryByText(unifiNote)).not.toBeInTheDocument()
+    await userEvent.clear(field)
+    await userEvent.type(field, 'rtsps://10.10.1.1:7441/abc?enableSrtp')
+    expect(screen.getByText(unifiNote)).toBeInTheDocument()
+    await userEvent.clear(field)
+    await userEvent.type(field, 'rtspx://10.10.1.1:7441/abc')
+    expect(screen.queryByText(unifiNote)).not.toBeInTheDocument()
+    await userEvent.clear(field)
+    await userEvent.type(field, 'rtsps://cam.example.org/live')
+    expect(screen.queryByText(unifiNote)).not.toBeInTheDocument()
+    await userEvent.clear(field)
+    await userEvent.type(field, 'rtsps://cam.example.org/live?enableSrtp')
+    expect(screen.getByText(unifiNote)).toBeInTheDocument()
+    await userEvent.clear(field)
+    await userEvent.type(field, 'rtsps://10.10.1.1:7441/abc')
+    expect(screen.getByText(unifiNote)).toBeInTheDocument()
+  })
+
+  it('sends an rtspx address unchanged', async () => {
+    const api = arrange((call) => json({ ...stored, ...(call.body as object) }), empty)
+    await open()
+    await userEvent.type(screen.getByLabelText('Stream-Adresse'), 'rtspx://10.10.1.1:7441/TlgX1QMh0tjJdn17?enableSrtp')
+    await save()
+    await waitFor(() => expect(putsOf(api)).toHaveLength(1))
+    expect((putsOf(api)[0].body as { streamUrl: string }).streamUrl).toBe('rtspx://10.10.1.1:7441/TlgX1QMh0tjJdn17?enableSrtp')
   })
 
   it('does not send the stored address when only the picture changed', async () => {

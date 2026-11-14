@@ -103,7 +103,7 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
   - `kioskd` schaltet mit `--off`/`--on`, setzt nach `--on` die Drehung neu und bleibt beim zuletzt geschalteten Ausgang, auch wenn er ausgeschaltet als `enabled: false` erscheint.
   - Das Dashboard rendert bei `powerOn: false` nur eine schwarze Fläche (Rückfall für Monitore, die das Abschalten ignorieren, und keine Arbeit in der Nacht).
 - **Interne Dienste bleiben intern.** go2rtc und andere Hilfsdienste werden nicht ins LAN veröffentlicht. Was der Browser davon braucht, reicht `mirror` gezielt durch.
-  - go2rtcs API hat keine Anmeldung und kann Befehle ausführen (`exec:`-Quellen). Der Server registriert deshalb nur `rtsp://`/`rtsps://`-Adressen unter einem festen Namen.
+  - go2rtcs API hat keine Anmeldung und kann Befehle ausführen (`exec:`-Quellen). Der Server registriert deshalb nur `rtsp://`-, `rtsps://`- und `rtspx://`-Adressen (RTSPS ohne Zertifikatsprüfung, für UniFi Protect) unter einem festen Namen. Den Parameter `enableSrtp` aus UniFi-Links nimmt er vor der Übergabe heraus, gespeichert bleibt die Adresse unverändert.
   - go2rtcs eigener RTSP-Server ist in `deploy/compose.yaml` abgeschaltet.
   - Die Stream-Adresse enthält meist Zugangsdaten: Sie ist ein Geheimnis und erscheint in keinem Fehler und keinem Log.
 - **Zeitzone:** `TZ` wird einmal in `deploy/.env` gesetzt (Standard `Europe/Berlin`) und gilt für alle Container. Das Go-Binary bettet `time/tzdata` ein, damit es auch im distroless-Image funktioniert.

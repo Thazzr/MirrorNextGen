@@ -7,6 +7,16 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
+## [0.7.2] - 2026-11-14
+
+### Changed
+
+- Rtspx:// für UniFi Protect in README und Projektregeln
+
+### Fixed
+
+- **camera**: UniFi-Protect-Streams über rtspx:// abspielen
+
 ## [0.7.1] - 2026-11-14
 
 ### Fixed
