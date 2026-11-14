@@ -77,7 +77,12 @@ export function DashboardPage() {
     return () => document.body.classList.remove('mirror-kiosk')
   }, [])
 
-  const page = (
+  // Only an explicit false switches off: a failed request or an older server
+  // without the field must never black out the mirror.
+  const blackout = kioskState.data?.powerOn === false
+
+  // At night nothing is rendered but the black layer, so no widget polls and the camera stream closes.
+  const page = blackout ? null : (
     <main className="mirror-dashboard">
       <h1 className="visually-hidden">Spiegel</h1>
       {(known.topLeft.length > 0 || known.topRight.length > 0) && (
@@ -97,9 +102,6 @@ export function DashboardPage() {
       )}
     </main>
   )
-  // Only an explicit false switches off: a failed request or an older server
-  // without the field must never black out the mirror.
-  const blackout = kioskState.data?.powerOn === false
   return (
     <>
       {browserMode ? <RotatedViewport style={browser.style}>{page}</RotatedViewport> : page}

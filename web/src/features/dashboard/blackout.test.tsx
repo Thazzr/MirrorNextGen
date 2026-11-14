@@ -1,7 +1,14 @@
 import { screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { json, mockApi } from '../../test/mockApi.ts'
+import { layoutOf } from '../../test/dashboardFixtures.ts'
 import { renderWithProviders } from '../../test/renderWithProviders.tsx'
+
+class FakeWebSocket {
+  addEventListener() {}
+  send() {}
+  close() {}
+}
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -60,5 +67,28 @@ describe('night schedule black layer', () => {
     powerOn = true
     await queryClient.invalidateQueries({ queryKey: ['kiosk', 'state'] })
     await waitFor(() => expect(screen.queryByTestId('blackout')).not.toBeInTheDocument())
+  })
+
+  it('renders no widget at night and brings them back when the monitor is switched on', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket)
+    let powerOn = false
+    mockApi({
+      'GET /api/v1/kiosk/state': () => json({ rotation: 0, output: '', testPattern: false, powerOn }),
+      'GET /api/v1/dashboard/layout': () => json(layoutOf({ topLeft: ['clock'], topRight: ['camera'] })),
+      'GET /api/v1/dashboard/camera': () =>
+        json({ configured: true, title: 'Haustür', brightness: 100, contrast: 100, saturation: 100, grayscale: false }),
+    })
+    const { queryClient, container } = renderWithProviders('/')
+    await screen.findByTestId('blackout')
+    await new Promise((r) => setTimeout(r, 30))
+    expect(container.querySelector('main')).toBeNull()
+    expect(container.querySelector('.mirror-clock')).toBeNull()
+    expect(document.querySelector('video-rtc')).toBeNull()
+
+    powerOn = true
+    await queryClient.invalidateQueries({ queryKey: ['kiosk', 'state'] })
+    await waitFor(() => expect(container.querySelector('.mirror-clock')).not.toBeNull())
+    await waitFor(() => expect(document.querySelector('video-rtc')).not.toBeNull())
+    expect(screen.queryByTestId('blackout')).not.toBeInTheDocument()
   })
 })
