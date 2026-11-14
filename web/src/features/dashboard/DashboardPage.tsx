@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { api, unwrap } from '../../shared/api/client.ts'
-import { widgets, type Region as RegionName } from '../modules/widgets.ts'
+import { resolveWidget, type Region as RegionName } from '../modules/widgets.ts'
 import { DiagnoseOverlay } from './DiagnoseOverlay.tsx'
 import { RotatedViewport } from './RotatedViewport.tsx'
 import { normalizeRotation, useBrowserRotation } from './useBrowserRotation.ts'
@@ -21,9 +21,9 @@ const defaultLayout = {
 
 const layoutInterval = 30_000
 
-/** The only place that drops keys without a widget (hasOwn: "toString" is no module). */
+/** The only place that drops keys without a widget ("toString" is no module, "calendar:<id>" is). */
 function knownKeys(keys: string[]) {
-  return keys.filter((key) => Object.hasOwn(widgets, key))
+  return keys.filter((key) => resolveWidget(key) !== undefined)
 }
 
 /** The widgets of one region in order; `keys` are already known ones, an empty region renders nothing. */
@@ -32,8 +32,13 @@ function Region({ name, keys }: { name: RegionName; keys: string[] }) {
   return (
     <div className={`mirror-region mirror-region--${name}`} data-region={name}>
       {keys.map((key) => {
-        const Widget = widgets[key]
-        return <Widget key={key} region={name} />
+        const found = resolveWidget(key)
+        if (!found) return null
+        return found.instanceId === undefined ? (
+          <found.Widget key={key} region={name} />
+        ) : (
+          <found.Widget key={key} region={name} instanceId={found.instanceId} />
+        )
       })}
     </div>
   )

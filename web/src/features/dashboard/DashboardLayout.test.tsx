@@ -42,14 +42,14 @@ describe('dashboard regions', () => {
   })
 
   it('skips unknown keys silently', async () => {
-    setup(layoutOf({ topLeft: ['calendar:familie', 'toString', 'clock'] }))
+    setup(layoutOf({ topLeft: ['calendarx', 'toString', 'clock'] }))
     const { container } = renderWithProviders('/')
     await waitFor(() => expect(region(container, 'topLeft')?.children).toHaveLength(1))
     expect(region(container, 'topLeft')?.querySelector('.mirror-clock')).not.toBeNull()
   })
 
   it('filters unknown keys in every region', async () => {
-    setup(layoutOf({ middle: ['calendar:x', 'toString', 'clock'], bottomLeft: ['constructor'], bottomRight: ['unbekannt', 'wifi'] }))
+    setup(layoutOf({ middle: ['calendarx', 'toString', 'clock'], bottomLeft: ['constructor'], bottomRight: ['unbekannt', 'wifi'] }))
     const { container } = renderWithProviders('/')
     expect(await screen.findByRole('img', { name: 'WLAN Gast' })).toBeInTheDocument()
     await waitFor(() => expect(region(container, 'middle')?.children).toHaveLength(1))
