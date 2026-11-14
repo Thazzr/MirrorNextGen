@@ -1,42 +1,34 @@
 export type ChartPoint = { x: number; y: number }
 
-export const chartLeft = 80
-export const chartWidth = 850
-
-export function chartX(index: number, pointCount: number) {
-  return chartLeft + (index * chartWidth) / (pointCount - 1 || 1)
+/** Horizontal geometry of the chart in CSS pixels: scale labels on the left, a small margin on the right. */
+export function chartLayout(width: number) {
+  const left = width * 0.08
+  return { left, plotWidth: width * 0.85 }
 }
 
-export function chartXPercent(index: number, pointCount: number) {
-  return chartX(index, pointCount) / 10
+export function chartX(index: number, pointCount: number, width: number) {
+  const { left, plotWidth } = chartLayout(width)
+  return left + (index * plotWidth) / (pointCount - 1 || 1)
 }
 
-/** Cubic Bezier path through the points that never overshoots between neighbours (monotone cubic interpolation). */
-export function buildMonotonePath(points: ChartPoint[]): string {
+export function chartXPercent(index: number, pointCount: number, width: number) {
+  return (chartX(index, pointCount, width) / width) * 100
+}
+
+/**
+ * One continuous path through all points: uniform Catmull-Rom (tension 0.5) converted to cubic Beziers, so the
+ * tangent is shared by both neighbouring segments. Control-point y values are clamped to `bounds` so an overshoot
+ * can never leave the plot area.
+ */
+export function buildSmoothPath(points: ChartPoint[], bounds?: { minY: number; maxY: number }): string {
   if (points.length < 2) return ''
-  const slopes = points.slice(0, -1).map((point, index) => (points[index + 1].y - point.y) / (points[index + 1].x - point.x || 1))
-  const tangents = points.map((_, index) =>
-    index === 0
-      ? slopes[0]
-      : index === points.length - 1
-        ? slopes[slopes.length - 1]
-        : slopes[index - 1] * slopes[index] <= 0
-          ? 0
-          : (slopes[index - 1] + slopes[index]) / 2,
-  )
-  for (let index = 0; index < slopes.length; index++) {
-    const first = tangents[index] / slopes[index]
-    const second = tangents[index + 1] / slopes[index]
-    const length = first * first + second * second
-    if (length > 9) {
-      const scale = 3 / Math.sqrt(length)
-      tangents[index] = scale * first * slopes[index]
-      tangents[index + 1] = scale * second * slopes[index]
-    }
-  }
+  const clampY = (y: number) => (bounds ? Math.min(bounds.maxY, Math.max(bounds.minY, y)) : y)
   return points.slice(1).reduce((path, current, index) => {
     const previous = points[index]
-    const width = current.x - previous.x
-    return `${path} C ${previous.x + width / 3},${previous.y + (tangents[index] * width) / 3} ${current.x - width / 3},${current.y - (tangents[index + 1] * width) / 3} ${current.x},${current.y}`
+    const before = points[index - 1] ?? previous
+    const after = points[index + 2] ?? current
+    const first = { x: previous.x + (current.x - before.x) / 6, y: clampY(previous.y + (current.y - before.y) / 6) }
+    const second = { x: current.x - (after.x - previous.x) / 6, y: clampY(current.y - (after.y - previous.y) / 6) }
+    return `${path} C ${first.x},${first.y} ${second.x},${second.y} ${current.x},${current.y}`
   }, `M ${points[0].x},${points[0].y}`)
 }
