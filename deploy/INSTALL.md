@@ -144,6 +144,9 @@ Notiere Abweichungen, besonders den Namen des Ausgangs (z. B. `HDMI-A-1`) und we
 - Ignoriert der Monitor das Abschalten, bleibt das Bild trotzdem schwarz: Das Dashboard legt dann eine schwarze Fläche über alles. Die Hintergrundbeleuchtung läuft in diesem Fall weiter.
 - Die Zeiten gelten in der Zeitzone aus `TZ` in `.env`.
 
+**Meldungen des Servers ansehen**
+- Admin → **Logbuch** zeigt die letzten 500 Meldungen des Servers seit dem letzten Start (Kalender-, Wetter- und Bring!-Abrufe, Kamera, Updates). Die Meldungen des Kiosks stehen in `docker compose logs kiosk`.
+
 **Login-Prompt oder Konsolentext sichtbar, Anzeige hängt am Umschalten der Konsole**
 - Prüfe, dass `getty@tty1` abgeschaltet ist: `systemctl status getty@tty1`.
 - Prüfe die Zeile in `/boot/firmware/cmdline.txt` (siehe Abschnitt 2).
@@ -187,7 +190,13 @@ cat control/update-status.json
 cat control/update.log
 ```
 
-Von Hand auslösen, ohne den Knopf: `touch control/update-request`.
+Auslösen: In der Verwaltung unter **System → Jetzt aktualisieren**. Die Seite zeigt den Fortschritt, während des Neustarts „Der Spiegel startet neu …“ und danach die neue Version. Von Hand, ohne den Knopf: `touch control/update-request`.
+
+Meldungen auf der Seite „System“:
+- **„Updates per Knopf sind auf diesem Spiegel nicht eingerichtet.“** – `MIRROR_CONTROL_DIR` fehlt am Dienst `mirror` (in `compose.yaml` ist es gesetzt).
+- **„Der Spiegel kann nicht in das Steuerverzeichnis schreiben.“** – `control/` fehlt oder gehört nicht UID 65532. `sudo ./host/install.sh` ausführen, danach `docker compose up -d`.
+- **„Der Update-Dienst hat die Anfrage nicht übernommen.“** – Die Anfrage liegt seit über 2 Minuten unbearbeitet in `control/`. Prüfe `systemctl status mirror-update.path`; ist die Unit nicht aktiv, `sudo ./host/install.sh` ausführen. Ein neuer Klick auf den Knopf ersetzt die alte Anfrage.
+- **„Update fehlgeschlagen …“** – darunter stehen die letzten Zeilen von `control/update.log`.
 
 Fallback ohne den Dienst:
 

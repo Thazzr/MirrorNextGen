@@ -2,11 +2,11 @@
 
 Der Nachfolger von SmartMirror2: ein schlanker Smart Mirror für einen **Raspberry Pi 5** mit **Ubuntu 26.04 LTS Server** (ohne Desktop). Alles läuft in Docker. Das Dashboard erscheint im Vollbild auf einem WQHD-Monitor im Hochformat (1440×2560). Die Drehung lässt sich in der App einstellen.
 
-> **Stand: Phase 6 (Kamera, Nachtruhe) abgeschlossen, Phase 7 (Logbuch, Update-Knopf) in Arbeit.**
-> - **Verwaltung unter `/admin`:** Anordnung, Anzeige (mit Nachtruhe), Wetter, Kamera, WLAN-QR-Code, Kalender (Kalender, Bereiche, Regeln, Vorschau), Symbole, Bring!-Einkaufsliste und Konto.
+> **Stand: Phase 7 (Logbuch, Update-Knopf) abgeschlossen – funktional vollständig, die Abnahme am Pi steht aus.**
+> - **Verwaltung unter `/admin`:** Anordnung, Anzeige (mit Nachtruhe), Wetter, Kamera, WLAN-QR-Code, Kalender (Kalender, Bereiche, Regeln, Vorschau), Symbole, Bring!-Einkaufsliste, Logbuch, System (Version, Update per Knopf) und Konto.
 > - **Dashboard:** Es zeigt die Module Uhr, Wetter, Kamera, Kalender-Bereiche, Schichten, Bring! und WLAN-QR-Code in der eingestellten Anordnung, im Look von SmartMirror2.
 > - **Kiosk-Container:** Er zeigt das Dashboard per Cage und Chromium im Vollbild, dreht es zur Laufzeit und schaltet den Monitor zur Nachtruhe aus. Die Abnahme am Pi steht noch aus (siehe [`deploy/INSTALL.md`](deploy/INSTALL.md)).
-> - **Noch offen:** Logbuch und Update-Knopf in der Verwaltung. Der Host-Dienst für den Update-Knopf ist schon da (siehe [Roadmap](#roadmap)).
+> - **Noch offen:** die Abnahme am Gerät nach [`deploy/INSTALL.md`](deploy/INSTALL.md) (Anzeige, Drehung, Nachtruhe, Kamera, Update-Dienst).
 
 ## Architektur
 
@@ -26,7 +26,7 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker (docker compose up -d)
 | Pfad | Inhalt |
 |---|---|
 | `api/` | OpenAPI-Vertrag |
-| `server/` | Go-Modul: `cmd/mirror` (Server), `cmd/kioskd` (Kiosk-Agent), `internal/{api,auth,bring,calendar,camera,config,display,fsutil,httpserver,icons,kiosk,modules,settings,weather,web,wifi}` |
+| `server/` | Go-Modul: `cmd/mirror` (Server), `cmd/kioskd` (Kiosk-Agent), `internal/{api,auth,bring,calendar,camera,config,display,fsutil,httpserver,icons,kiosk,logbook,modules,settings,update,weather,web,wifi}` |
 | `web/` | React-App (`src/app`, `src/shared`, `src/features/{dashboard,admin,modules}`); je Modul ein Ordner mit Widget und Admin-Seite; die Verwaltung (Mantine) lädt als eigener Chunk; `src/vendor/go2rtc` ist der Player von go2rtc (MIT) |
 | `kiosk/` | Dockerfile des Kiosk-Images (Cage, Chromium, kioskd) |
 | `deploy/` | `compose.yaml`, `.env.example`, `INSTALL.md` (Installation auf dem Pi) und `host/` (Update-Dienst für den Host) |
@@ -64,7 +64,7 @@ Oberfläche mit Hot Reload entwickeln: den Server wie oben starten, dann `npm --
 | `MIRROR_DATA_DIR` | `/data` | Verzeichnis für Einstellungen und Daten |
 | `MIRROR_OPENWEATHER_URL` | `https://api.openweathermap.org/` | Basis-URL von OpenWeather (nur für Tests mit einem nachgebauten Server) |
 | `MIRROR_BRING_URL` | `https://api.getbring.com/rest/v2/` | Basis-URL von Bring! (nur für Tests) |
-| `MIRROR_CONTROL_DIR` | – | Gemeinsames Verzeichnis mit dem Host-Update-Dienst (im Container `/control`) |
+| `MIRROR_CONTROL_DIR` | – | Gemeinsames Verzeichnis mit dem Host-Update-Dienst (im Container `/control`); leer = kein Update per Knopf |
 | `MIRROR_GO2RTC_URL` | `http://camera:1984/` | API von go2rtc im internen Netz |
 | `TZ` | – | Zeitzone des Spiegels (Nachtruhe, Kalender); Standard in `deploy/.env` ist `Europe/Berlin` |
 
@@ -86,6 +86,8 @@ Die Verwaltung liegt unter `/admin` und funktioniert am Handy wie am Rechner.
 - **Symbole:** eigene SVG- oder PNG-Dateien bis 256 KB. SVGs werden auf aktive Inhalte geprüft.
 - **Bring!:** Anmeldung mit E-Mail und Passwort deines Bring!-Kontos; die Liste wählst du aus. Am Spiegel erscheinen bis zu 18 Einträge.
 - **Nachtruhe (unter „Anzeige“):** Aus- und Einschaltzeit, auch über Mitternacht, in der Zeitzone aus `TZ`. Der Kiosk schaltet den Monitor per `wlr-randr` aus, das Dashboard zeigt in der Zeit nur Schwarz und arbeitet nicht. Ein Knopf schaltet den Monitor zum Test 10 Sekunden aus.
+- **Logbuch:** die letzten 500 Meldungen des Servers seit dem Start, filterbar nach Warnungen und Fehlern. Die Kachel zählt Warnungen und Fehler.
+- **System:** installierte Version und **Update per Knopf**. Der Server legt nur eine Anfrage-Datei in `MIRROR_CONTROL_DIR` ab, ein systemd-Dienst auf dem Host (`deploy/host/`) holt die neuen Images und startet neu. Einrichtung in [`deploy/INSTALL.md`](deploy/INSTALL.md), Abschnitt „Updates per Knopf“.
 - **Kamera:** Eine RTSP- oder RTSPS-Adresse (sie bleibt auf dem Server). Der Dienst `camera` (go2rtc) gibt das Video ohne Umkodierung weiter, der Server reicht es per WebSocket an das Dashboard durch. Helligkeit, Kontrast, Sättigung und Schwarzweiß stellst du in der Verwaltung ein.
 
 ### API ändern

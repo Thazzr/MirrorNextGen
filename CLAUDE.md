@@ -97,6 +97,7 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
   - Geheimnisse erscheinen nicht im Log.
   - Einzige bewusste Ausnahme: das Gast-WLAN-Passwort steckt im QR-Code des WLAN-Moduls, denn ihn anzuzeigen ist der Zweck des Moduls. Der öffentliche Endpunkt liefert nur die QR-Matrix, nie das Passwort als Text.
 - **Keine frei konfigurierbaren Befehle.** Der Server führt keine Shell-Befehle aus Einstellungen aus. Monitor an/aus, Drehung und Updates sind feste, im Code benannte Funktionen. Prozesse werden nur mit fester Argumentliste gestartet (`exec.Command(name, args...)`), nie über eine Shell.
+- **Updates per Knopf laufen auf dem Host, nicht im Container.** Der Server schreibt nur `update-request` atomar in `MIRROR_CONTROL_DIR` und liest `update-status.json` (`internal/update`); `deploy/host/mirror-update.sh` (systemd-`.path`-Unit) führt `docker compose pull` und `up -d` aus. Der `mirror`-Container bekommt dafür weder Docker-Socket noch Rechte.
 - **Drehung und Monitor-Schaltung gehören dem Kiosk-Agenten.** `kioskd` liest den Sollzustand vom Server (`GET /api/v1/kiosk/state`, mit `rotation` und `powerOn`) und setzt ihn per `wlr-randr` am Compositor. Der `mirror`-Container braucht dafür keine Rechte.
   - Die Nachtruhe berechnet der Server (`internal/display`, reine Funktionen mit `now`, Aus-Zeit inklusive, Ein-Zeit exklusive).
   - `kioskd` schaltet mit `--off`/`--on`, setzt nach `--on` die Drehung neu und bleibt beim zuletzt geschalteten Ausgang, auch wenn er ausgeschaltet als `enabled: false` erscheint.
@@ -152,7 +153,7 @@ Nutzerentscheidung 2026-11-14: Der Spiegel besteht aus **internen Modulen**, und
   - Handler in `internal/api` sind nur Orchestrierung.
 - **Fehler** werden mit `fmt.Errorf("…: %w", err)` eingewickelt. Erwartbare Fachfehler sind eigene Fehlerwerte oder -typen, keine Panics. Für Fremddienste (Wetter, Kalender, Bring!) gilt: Der Ausfall eines Dienstes darf das Dashboard nicht leeren. Der betroffene Bereich trägt dann eine Fehlermeldung, die anderen bleiben sichtbar.
 - **Nebenläufigkeit:** Caches und geteilter Zustand sind mit `sync.Mutex` geschützt. Jede Goroutine hat einen Besitzer und endet mit dem `context`. Tests laufen in der CI mit `-race`.
-- **Logging** mit `slog`, strukturiert, auf Englisch, ohne Geheimnisse.
+- **Logging** mit `slog`, strukturiert, auf Englisch, ohne Geheimnisse. Die letzten 500 Einträge zeigt das Logbuch der Verwaltung (`internal/logbook`). Was geloggt wird, sieht also jeder Admin im Browser.
 - **Formatierung:** `gofmt`. `go vet` muss sauber sein.
 
 ## Frontend-Regeln (`web/`)
