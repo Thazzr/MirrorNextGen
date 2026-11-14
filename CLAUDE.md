@@ -94,6 +94,7 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
 - **Geheimnisse verlassen den Server nie.**
   - API-Keys, Passwörter und Tokens werden nie an den Client ausgeliefert. Die Oberfläche bekommt nur „ist gesetzt“ (`hasX: true`), ein leer gesendetes Geheimnis behält den gespeicherten Wert.
   - Geheimnisse erscheinen nicht im Log.
+  - Einzige bewusste Ausnahme: das Gast-WLAN-Passwort steckt im QR-Code des WLAN-Moduls, denn ihn anzuzeigen ist der Zweck des Moduls. Der öffentliche Endpunkt liefert nur die QR-Matrix, nie das Passwort als Text.
 - **Keine frei konfigurierbaren Befehle.** Der Server führt keine Shell-Befehle aus Einstellungen aus. Monitor an/aus, Drehung und Updates sind feste, im Code benannte Funktionen. Prozesse werden nur mit fester Argumentliste gestartet (`exec.Command(name, args...)`), nie über eine Shell.
 - **Drehung und Monitor-Schaltung gehören dem Kiosk-Agenten.** `kioskd` liest den Sollzustand vom Server (`GET /api/v1/kiosk/state`) und setzt ihn per `wlr-randr` am Compositor. Der `mirror`-Container braucht dafür keine Rechte.
 - **Interne Dienste bleiben intern.** go2rtc und andere Hilfsdienste werden nicht ins LAN veröffentlicht. Was der Browser davon braucht, reicht `mirror` gezielt durch.
@@ -126,7 +127,7 @@ Nutzerentscheidung 2026-11-14: Der Spiegel besteht aus **internen Modulen**, und
   - `bottomLeft`: Bring!;
   - `bottomRight`: WLAN.
 - **Dashboard:** Es lädt die Anordnung öffentlich (`GET /api/v1/dashboard/layout`) und zeigt je Region die Widgets in Reihenfolge. Ein unbekannter Schlüssel wird übersprungen. Jedes Widget lädt seine Daten selbst und zeigt Fehler an Ort und Stelle.
-- **Admin:** Eine Seite „Anordnung“ stellt die Regionen als Spiegel-Skizze dar. Sie fügt Module hinzu und entfernt sie, verschiebt sie zwischen Regionen und ändert die Reihenfolge, per Knöpfen (am Handy) bzw. Ziehen. Gespeichert wird über die Leiste „Ungespeicherte Änderungen“.
+- **Admin:** Eine Seite „Anordnung“ stellt die Regionen als Spiegel-Skizze dar. Sie fügt Module hinzu und entfernt sie, verschiebt sie zwischen Regionen und ändert die Reihenfolge, per Knöpfen (bedienbar am Handy und per Tastatur; Ziehen kann später dazukommen). Gespeichert wird über die Leiste „Ungespeicherte Änderungen“.
 - **Neues Modul anlegen:**
   1. Einstellungsabschnitt mit Validierung;
   2. Endpunkte im Vertrag und `npm run generate`;
