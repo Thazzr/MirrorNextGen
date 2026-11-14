@@ -121,7 +121,12 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
   - Layout und Stil folgen SmartMirror2 (`SmartMirror2/smartmirror2.client/src/features/dashboard/`): schwarzer Hintergrund, weiße Schrift, IBM Plex Sans (mitgeliefert über `@fontsource`).
   - Sekundärtexte sind hell genug für das teildurchlässige Spiegelglas.
   - Ein ausgefallener Datenbereich zeigt seine Fehlermeldung an Ort und Stelle.
-- **Das Admin-UI ist ein vollständiger Neuentwurf** (Nutzerentscheidung 2026-11-14): Aus dem Admin-Bereich von SmartMirror2 werden weder Aufbau noch Gestaltung übernommen, nur der fachliche Umfang der Einstellungen. Die Gestaltung legt der Feinplan von Phase 2 mit dem Nutzer fest.
+- **Das Admin-UI ist ein vollständiger Neuentwurf** (Nutzerentscheidung 2026-11-14): Aus dem Admin-Bereich von SmartMirror2 werden weder Aufbau noch Gestaltung übernommen, nur der fachliche Umfang der Einstellungen. Festgelegt im Feinplan von Phase 2 (Nutzerentscheidung 2026-11-14):
+  - **Bibliothek:** Mantine (`@mantine/core`, `hooks`, `form`, `notifications`), Symbole aus `@tabler/icons-react`. Bootstrap-Icons bleiben dem Dashboard vorbehalten.
+  - **Immer dunkel** (`forceColorScheme="dark"`), Schrift IBM Plex Sans wie am Spiegel, Akzentfarbe Gelb (`primaryColor: 'yellow'`, `autoContrast: true`, angelehnt an den Spiegel-Akzent `#f6b73c`).
+  - **Aufbau:** Die Übersicht `/admin` zeigt je Bereich eine Kachel mit ihrem Zustand (z. B. „Drehung 90° · Testbild aus“). Die ganze Kachel ist ein Link auf die Detailseite (`/admin/<bereich>`), und jede Detailseite führt mit „← Übersicht“ zurück. Kacheln gibt es nur für fertige Bereiche, keine Platzhalter.
+  - **Speichern:** Auf einer Detailseite erscheint mit der ersten Änderung eine Leiste „Ungespeicherte Änderungen“. Sie nennt, was geändert ist, und bietet „Verwerfen“ und „Speichern“. Verlässt man die Seite mit offenen Änderungen, fragt ein Dialog nach (`useBlocker` des Data-Routers, dazu `beforeunload`). Eine Seite hat keinen ausgegrauten Speichern-Knopf. Ein Fehler beim Speichern lässt die Eingaben stehen und zeigt die Feldfehler des Servers an den Feldern.
+  - **Mantine erreicht das Dashboard nie:** Der Admin-Bereich wird per `React.lazy` als eigener Chunk geladen, und nur dieser importiert Mantine-CSS und -JS. Mantines globale Stile (Body, Schrift, Zeilenhöhe) würden sonst das Dashboard verändern. Das Gate prüft das nicht; beim Review sieht man es am Build-Output.
 - **Das Admin-UI** wird am Handy und am Rechner benutzt und muss bis 360 px Breite ohne waagerechtes Scrollen funktionieren.
   - Texte auf Deutsch mit „du“.
   - Jede Seite hat genau eine `h1`, Abschnitte sind `h2`.
