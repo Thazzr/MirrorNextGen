@@ -340,6 +340,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/bring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bring! settings
+         * @description Returns the Bring! shopping list settings. The password never leaves the server; `hasPassword` tells whether one is stored.
+         */
+        get: operations["getBringSettings"];
+        /**
+         * Change the Bring! settings
+         * @description Validates and stores the Bring! settings. An absent or empty `password` keeps the stored one, `clearPassword` deletes it. Invalid values answer 400 with `errors` keyed by field name (`email`, `password`, `listUuid`, `maxItems`, `refreshMinutes`); nothing is stored then.
+         */
+        put: operations["updateBringSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/bring/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shopping lists of the Bring! account
+         * @description Asks Bring! for the lists of the account whose e-mail and password are stored, so the admin UI can offer them in a picker. Answers 409 while no e-mail and password are stored, 400 when Bring! refuses the login and 502 when Bring! cannot be reached; the problem's `detail` is a German text for the user.
+         */
+        get: operations["getBringLists"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/bring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bring! shopping list for the dashboard
+         * @description Returns the open items of the Bring! list. Public, because the dashboard reads it without a session; it contains item names and specifications of the household's own list but no credentials. Failures are reported in the body (`error`), not as an HTTP error, so the other dashboard areas stay visible.
+         */
+        get: operations["getDashboardBring"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/calendar": {
         parameters: {
             query?: never;
@@ -580,6 +644,54 @@ export interface components {
             password?: string;
             /** @description Deletes the stored password. Not combinable with a new `password`. */
             clearPassword?: boolean;
+        };
+        /** @description Bring! settings as the admin UI reads them; the password is never included. */
+        BringSettings: {
+            /** @description E-mail address of the Bring! account. */
+            email: string;
+            /** @description True when a Bring! password is stored. */
+            hasPassword: boolean;
+            /** @description UUID of the list to show; empty means the default list of the account. */
+            listUuid: string;
+            /** @description Most items shown on the dashboard. */
+            maxItems: number;
+            /** @description Minutes between two refreshes from Bring!. */
+            refreshMinutes: number;
+        };
+        /** @description New Bring! settings. */
+        BringSettingsUpdate: {
+            email: string;
+            /** @description New password; absent or empty keeps the stored one. */
+            password?: string;
+            /** @description Deletes the stored password. Not combinable with a new `password`. */
+            clearPassword?: boolean;
+            /** @description UUID of the list to show; empty means the default list of the account. */
+            listUuid: string;
+            maxItems: number;
+            refreshMinutes: number;
+        };
+        /** @description One shopping list of the Bring! account. */
+        BringList: {
+            uuid: string;
+            name: string;
+        };
+        /** @description Shopping list state for the dashboard. */
+        DashboardBring: {
+            /** @description False while e-mail or password is missing; the dashboard then hides the list. */
+            configured: boolean;
+            /** @description True when the last refresh failed and `items` are older (less than 3 hours). */
+            stale: boolean;
+            /** @description German message when no items are available. */
+            error?: string;
+            items: components["schemas"]["BringItem"][];
+        };
+        /** @description One open item of the shopping list. */
+        BringItem: {
+            name: string;
+            /** @description Amount or note such as "2 Stück"; absent when there is none. */
+            specification?: string;
+            /** @description Address of Bring!'s picture for the item; empty when none can be derived. */
+            iconUrl: string;
         };
         /** @description Placement of the modules on the five dashboard regions. Each region is an ordered list of module keys (at most 12); a key may appear only once in the whole layout. */
         Layout: {
@@ -1372,6 +1484,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardWifi"];
+                };
+            };
+        };
+    };
+    getBringSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored Bring! settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BringSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateBringSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BringSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The stored Bring! settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BringSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBringLists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The lists of the account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BringList"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            /** @description Bring! could not be reached or answered with an error. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getDashboardBring: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shopping list state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardBring"];
                 };
             };
         };

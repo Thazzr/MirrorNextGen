@@ -12,6 +12,7 @@ const (
 	defaultDataDir = "/data"
 
 	defaultOpenWeatherURL = "https://api.openweathermap.org/"
+	defaultBringURL       = "https://api.getbring.com/rest/v2/"
 )
 
 // Config holds the runtime configuration of the server.
@@ -23,6 +24,9 @@ type Config struct {
 	// OpenWeatherURL is the base URL of the OpenWeather API
 	// (MIRROR_OPENWEATHER_URL); only tests and smoke runs change it.
 	OpenWeatherURL string
+	// BringURL is the base URL of the Bring! API (MIRROR_BRING_URL); only
+	// tests and smoke runs change it.
+	BringURL string
 }
 
 // Load reads the configuration through getenv (os.Getenv in production).
@@ -32,6 +36,7 @@ func Load(getenv func(string) string) (Config, error) {
 		DataDir: valueOr(getenv("MIRROR_DATA_DIR"), defaultDataDir),
 
 		OpenWeatherURL: valueOr(getenv("MIRROR_OPENWEATHER_URL"), defaultOpenWeatherURL),
+		BringURL:       valueOr(getenv("MIRROR_BRING_URL"), defaultBringURL),
 	}
 	if _, _, err := net.SplitHostPort(cfg.Addr); err != nil {
 		return Config{}, fmt.Errorf("MIRROR_ADDR %q is not a valid host:port address: %w", cfg.Addr, err)

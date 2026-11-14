@@ -405,6 +405,101 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardWifi"
+  /api/v1/settings/bring:
+    get:
+      operationId: getBringSettings
+      summary: Bring! settings
+      description: >-
+        Returns the Bring! shopping list settings. The password never leaves the server;
+        `hasPassword` tells whether one is stored.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored Bring! settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BringSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateBringSettings
+      summary: Change the Bring! settings
+      description: >-
+        Validates and stores the Bring! settings. An absent or empty `password` keeps the
+        stored one, `clearPassword` deletes it. Invalid values answer 400 with `errors` keyed
+        by field name (`email`, `password`, `listUuid`, `maxItems`, `refreshMinutes`); nothing
+        is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BringSettingsUpdate"
+      responses:
+        "200":
+          description: The stored Bring! settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BringSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/bring/lists:
+    get:
+      operationId: getBringLists
+      summary: Shopping lists of the Bring! account
+      description: >-
+        Asks Bring! for the lists of the account whose e-mail and password are stored, so the
+        admin UI can offer them in a picker. Answers 409 while no e-mail and password are
+        stored, 400 when Bring! refuses the login and 502 when Bring! cannot be reached; the
+        problem's `detail` is a German text for the user.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The lists of the account.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BringList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          description: Bring! could not be reached or answered with an error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/dashboard/bring:
+    get:
+      operationId: getDashboardBring
+      summary: Bring! shopping list for the dashboard
+      description: >-
+        Returns the open items of the Bring! list. Public, because the dashboard reads it
+        without a session; it contains item names and specifications of the household's own
+        list but no credentials. Failures are reported in the body (`error`), not as an HTTP
+        error, so the other dashboard areas stay visible.
+      responses:
+        "200":
+          description: The shopping list state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardBring"
   /api/v1/settings/calendar:
     get:
       operationId: getCalendarSettings
@@ -840,6 +935,97 @@ components:
         clearPassword:
           type: boolean
           description: Deletes the stored password. Not combinable with a new `password`.
+    BringSettings:
+      type: object
+      description: Bring! settings as the admin UI reads them; the password is never included.
+      required: [email, hasPassword, listUuid, maxItems, refreshMinutes]
+      properties:
+        email:
+          type: string
+          maxLength: 200
+          description: E-mail address of the Bring! account.
+        hasPassword:
+          type: boolean
+          description: True when a Bring! password is stored.
+        listUuid:
+          type: string
+          description: UUID of the list to show; empty means the default list of the account.
+        maxItems:
+          type: integer
+          minimum: 1
+          maximum: 18
+          description: Most items shown on the dashboard.
+        refreshMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: Minutes between two refreshes from Bring!.
+    BringSettingsUpdate:
+      type: object
+      description: New Bring! settings.
+      required: [email, listUuid, maxItems, refreshMinutes]
+      properties:
+        email:
+          type: string
+          maxLength: 200
+        password:
+          type: string
+          maxLength: 200
+          description: New password; absent or empty keeps the stored one.
+        clearPassword:
+          type: boolean
+          description: Deletes the stored password. Not combinable with a new `password`.
+        listUuid:
+          type: string
+          description: UUID of the list to show; empty means the default list of the account.
+        maxItems:
+          type: integer
+          minimum: 1
+          maximum: 18
+        refreshMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+    BringList:
+      type: object
+      description: One shopping list of the Bring! account.
+      required: [uuid, name]
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+    DashboardBring:
+      type: object
+      description: Shopping list state for the dashboard.
+      required: [configured, stale, items]
+      properties:
+        configured:
+          type: boolean
+          description: False while e-mail or password is missing; the dashboard then hides the list.
+        stale:
+          type: boolean
+          description: True when the last refresh failed and `items` are older (less than 3 hours).
+        error:
+          type: string
+          description: German message when no items are available.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BringItem"
+    BringItem:
+      type: object
+      description: One open item of the shopping list.
+      required: [name, iconUrl]
+      properties:
+        name:
+          type: string
+        specification:
+          type: string
+          description: Amount or note such as "2 Stück"; absent when there is none.
+        iconUrl:
+          type: string
+          description: Address of Bring!'s picture for the item; empty when none can be derived.
     Layout:
       type: object
       description: >-

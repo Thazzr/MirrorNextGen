@@ -27,6 +27,11 @@ const (
 	msgSecurity       = "Erlaubt sind WPA oder offen."
 	msgWifiPassword   = "Das WLAN-Passwort muss 8 bis 63 Zeichen haben."
 	msgMaxModules     = "Höchstens 12 Module je Region."
+	msgBringEmail     = "Höchstens 200 Zeichen."
+	msgBringPassword  = "Höchstens 200 Zeichen."
+	msgBringList      = "Höchstens 100 Zeichen."
+	msgBringMaxItems  = "Erlaubt sind 1 bis 18 Einträge."
+	msgBringRefresh   = "Erlaubt sind 1 bis 1440 Minuten."
 	msgSecretConflict = "Sende entweder einen neuen Wert oder lösche den gespeicherten, nicht beides."
 )
 
@@ -66,6 +71,16 @@ type WifiSettings struct {
 	SSID     string `json:"ssid"`
 	Security string `json:"security"`
 	Password string `json:"password"`
+}
+
+// BringSettings configure the Bring! shopping list. The password is a secret.
+type BringSettings struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	// ListUUID picks a list; "" means the default list of the account.
+	ListUUID       string `json:"listUuid"`
+	MaxItems       int    `json:"maxItems"`
+	RefreshMinutes int    `json:"refreshMinutes"`
 }
 
 // maxModulesPerRegion bounds a layout region; the dashboard has no room for more.
@@ -133,7 +148,7 @@ func DefaultLayout() Layout {
 		TopLeft:     []string{"clock"},
 		TopRight:    []string{"weather"},
 		Middle:      []string{},
-		BottomLeft:  []string{},
+		BottomLeft:  []string{"bring"},
 		BottomRight: []string{"wifi"},
 	}
 }
@@ -146,6 +161,7 @@ type Settings struct {
 	Display       DisplaySettings  `json:"display"`
 	Weather       WeatherSettings  `json:"weather"`
 	Wifi          WifiSettings     `json:"wifi"`
+	Bring         BringSettings    `json:"bring"`
 	Calendar      CalendarSettings `json:"calendar"`
 	Layout        Layout           `json:"layout"`
 }
@@ -170,7 +186,7 @@ func (s Settings) ModuleAvailable(key string) bool {
 // Equal reports whether both settings hold the same content.
 func (s Settings) Equal(o Settings) bool {
 	return s.SchemaVersion == o.SchemaVersion && s.Display == o.Display &&
-		s.Weather == o.Weather && s.Wifi == o.Wifi && s.Calendar.equal(o.Calendar) && s.Layout.Equal(o.Layout)
+		s.Weather == o.Weather && s.Wifi == o.Wifi && s.Bring == o.Bring && s.Calendar.equal(o.Calendar) && s.Layout.Equal(o.Layout)
 }
 
 // clone deep-copies the parts of s that are slices.
@@ -215,6 +231,7 @@ func Defaults() Settings {
 		SchemaVersion: SchemaVersion,
 		Weather:       WeatherSettings{ShowIcons: true, RefreshMinutes: 15},
 		Wifi:          WifiSettings{Security: SecurityWPA},
+		Bring:         BringSettings{MaxItems: 18, RefreshMinutes: 5},
 		Calendar:      defaultCalendar(),
 		Layout:        DefaultLayout(),
 	}
@@ -257,6 +274,22 @@ func (s Settings) validate(iconExists func(string) bool) map[string]string {
 	pwLen := utf8.RuneCountInString(f.Password)
 	if pwLen > 63 || (f.SSID != "" && f.Security == SecurityWPA && pwLen < 8) {
 		errs["wifi.password"] = msgWifiPassword
+	}
+	b := s.Bring
+	if utf8.RuneCountInString(b.Email) > 200 {
+		errs["bring.email"] = msgBringEmail
+	}
+	if utf8.RuneCountInString(b.Password) > 200 {
+		errs["bring.password"] = msgBringPassword
+	}
+	if utf8.RuneCountInString(b.ListUUID) > 100 {
+		errs["bring.listUuid"] = msgBringList
+	}
+	if b.MaxItems < 1 || b.MaxItems > 18 {
+		errs["bring.maxItems"] = msgBringMaxItems
+	}
+	if b.RefreshMinutes < 1 || b.RefreshMinutes > 1440 {
+		errs["bring.refreshMinutes"] = msgBringRefresh
 	}
 	s.Calendar.validate(errs, iconExists)
 	s.validateLayout(errs)
@@ -308,6 +341,37 @@ func (u WeatherUpdate) apply(cur WeatherSettings) (WeatherSettings, map[string]s
 
 func (u WifiUpdate) apply(cur WifiSettings) (WifiSettings, map[string]string) {
 	next := WifiSettings{SSID: u.SSID, Security: u.Security, Password: cur.Password}
+	switch {
+	case u.ClearPassword && u.Password != "":
+		return cur, map[string]string{"password": msgSecretConflict}
+	case u.ClearPassword:
+		next.Password = ""
+	case u.Password != "":
+		next.Password = u.Password
+	}
+	return next, nil
+}
+
+// BringUpdate is a change of the Bring! section. An empty Password keeps the
+// stored one; ClearPassword deletes it.
+type BringUpdate struct {
+	Email          string
+	Password       string
+	ClearPassword  bool
+	ListUUID       string
+	MaxItems       int
+	RefreshMinutes int
+}
+
+func (u BringUpdate) apply(cur BringSettings) (BringSettings, map[string]string) {
+	next := BringSettings{
+		Email:          strings.TrimSpace(u.Email),
+		Password:       cur.Password,
+		ListUUID:       strings.TrimSpace(u.ListUUID),
+		MaxItems:       u.MaxItems,
+		RefreshMinutes: u.RefreshMinutes,
+	}
+	// The password is not trimmed: spaces may be part of it.
 	switch {
 	case u.ClearPassword && u.Password != "":
 		return cur, map[string]string{"password": msgSecretConflict}

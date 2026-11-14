@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
+	"github.com/thazzr/mirrornextgen/server/internal/bring"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
@@ -30,6 +31,7 @@ type Deps struct {
 	Throttle *auth.Throttle
 	Settings *settings.Store
 	Weather  *weather.Service
+	Bring    *bring.Service
 	Calendar *calendar.Service
 	Icons    *icons.Store
 }
@@ -42,6 +44,7 @@ type Server struct {
 	throttle *auth.Throttle
 	settings *settings.Store
 	weather  *weather.Service
+	bring    *bring.Service
 	calendar *calendar.Service
 	icons    *icons.Store
 	// iconMu serialises icon deletes with calendar updates, so an icon cannot
@@ -53,7 +56,7 @@ var _ StrictServerInterface = (*Server)(nil)
 
 // NewServer returns a Server wired to deps.
 func NewServer(deps Deps) *Server {
-	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather, calendar: deps.Calendar, icons: deps.Icons}
+	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather, bring: deps.Bring, calendar: deps.Calendar, icons: deps.Icons}
 }
 
 // GetHealth answers the liveness check.

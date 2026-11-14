@@ -59,6 +59,7 @@ var directory = []definition{
 	{key: "weather", name: "Wetter"},
 	{instances: calendarInstances},
 	{key: "wifi", name: "WLAN-QR-Code"},
+	{key: "bring", name: "Bring!-Einkaufsliste"},
 }
 
 // Available returns all modules that currently exist, in directory order.

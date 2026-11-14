@@ -15,7 +15,7 @@ const defaultLayout = {
   topLeft: ['clock'],
   topRight: ['weather'],
   middle: [],
-  bottomLeft: [],
+  bottomLeft: ['bring'],
   bottomRight: ['wifi'],
 } satisfies Record<RegionName, string[]>
 

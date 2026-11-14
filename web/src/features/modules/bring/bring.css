@@ -1,0 +1,65 @@
+/* Port of SmartMirror2's shopping list; the region already anchors it to the bottom left. */
+.mirror-bring {
+  background: transparent;
+  box-sizing: border-box;
+  max-width: min(720px, 60vw);
+  padding: clamp(.7rem, 1.7vw, 1rem);
+  pointer-events: none;
+  width: min(720px, 60vw);
+}
+/* column-reverse: the first row of items sits at the bottom edge. */
+.mirror-bring__rows { display: flex; flex-direction: column-reverse; gap: clamp(.55rem, .8vw, .65rem); width: 100%; }
+.mirror-bring__list {
+  display: grid;
+  font-size: clamp(.9rem, 1.05vw, 1.05rem);
+  gap: clamp(.55rem, .8vw, .65rem);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  letter-spacing: .06rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+.mirror-bring__item {
+  align-items: center;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  gap: .35rem;
+  justify-content: space-between;
+  min-width: 0;
+  overflow: hidden;
+  padding: .6rem .5rem;
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+}
+.mirror-bring__icon-slot { align-items: center; display: flex; height: clamp(64px, 5vw, 76px); justify-content: center; text-align: center; width: 100%; }
+/* Bring!'s pictures are coloured; the mirror wants them white. */
+.mirror-bring__icon {
+  display: block;
+  filter: brightness(0) invert(1);
+  height: clamp(48px, 4.6vw, 64px);
+  object-fit: contain;
+  transform: scale(1.4);
+  transform-origin: center;
+  width: clamp(48px, 4.6vw, 64px);
+}
+.mirror-bring__emoji { display: block; font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1; transform: scale(1.4); transform-origin: center; }
+.mirror-bring__fallback {
+  align-items: center;
+  display: flex;
+  font-size: clamp(2.4rem, 4vw, 3.6rem);
+  font-weight: 700;
+  height: 100%;
+  justify-content: center;
+  line-height: 1;
+  text-transform: uppercase;
+  width: 100%;
+}
+.mirror-bring__label { align-items: center; display: flex; flex-direction: column; gap: .15rem; line-height: 1.2; min-width: 0; text-align: center; width: 100%; }
+.mirror-bring__name, .mirror-bring__specification { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mirror-bring__specification { color: var(--mirror-muted); font-size: clamp(.78rem, .95vw, .9rem); font-weight: 600; }

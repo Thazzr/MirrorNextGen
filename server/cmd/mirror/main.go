@@ -18,6 +18,7 @@ import (
 
 	"github.com/thazzr/mirrornextgen/server/internal/api"
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
+	"github.com/thazzr/mirrornextgen/server/internal/bring"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
 	"github.com/thazzr/mirrornextgen/server/internal/config"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
@@ -85,6 +86,16 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Location: time.Local,
 		Logger:   logger,
 	})
+	bringSvc := bring.New(bring.Options{
+		HTTPClient: &http.Client{Timeout: 15 * time.Second},
+		BaseURL:    cfg.BringURL,
+		Config: func() bring.Config {
+			b := settingsStore.Get().Bring
+			return bring.Config{Email: b.Email, Password: b.Password, ListUUID: b.ListUUID, MaxItems: b.MaxItems, RefreshMinutes: b.RefreshMinutes}
+		},
+		Now:    time.Now,
+		Logger: logger,
+	})
 	iconStore, err := icons.Load(cfg.DataDir)
 	if err != nil {
 		logger.Error("cannot load icons", "dataDir", cfg.DataDir, "error", err)
@@ -105,6 +116,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Throttle: auth.NewThrottle(time.Now),
 		Settings: settingsStore,
 		Weather:  weatherSvc,
+		Bring:    bringSvc,
 		Calendar: calendarSvc,
 		Icons:    iconStore,
 	}

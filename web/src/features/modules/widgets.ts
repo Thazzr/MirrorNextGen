@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { BringWidget } from './bring/Widget.tsx'
 import { ClockWidget } from './clock/Widget.tsx'
 import { WeatherWidget } from './weather/Widget.tsx'
 import { WifiWidget } from './wifi/Widget.tsx'
@@ -12,4 +13,5 @@ export const widgets: Record<string, ComponentType<WidgetProps>> = {
   clock: ClockWidget,
   weather: WeatherWidget,
   wifi: WifiWidget,
+  bring: BringWidget,
 }

@@ -210,6 +210,17 @@ func (s *Store) UpdateWifi(u WifiUpdate) (WifiSettings, map[string]string, error
 	return cur.Wifi, errs, err
 }
 
+// UpdateBring merges u into the Bring! section (see BringUpdate for the
+// secret rules), validates and stores it.
+func (s *Store) UpdateBring(u BringUpdate) (BringSettings, map[string]string, error) {
+	cur, errs, err := s.update("bring", func(next *Settings) map[string]string {
+		b, errs := u.apply(next.Bring)
+		next.Bring = b
+		return errs
+	})
+	return cur.Bring, errs, err
+}
+
 // update applies mutate to a copy of the settings, validates it and writes
 // it. It returns the state after the call (unchanged on field errors or I/O
 // failure) and field errors with the section prefix removed.

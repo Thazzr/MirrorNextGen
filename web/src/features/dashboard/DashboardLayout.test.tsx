@@ -77,6 +77,8 @@ describe('dashboard regions', () => {
     const { container } = renderWithProviders('/')
     expect(region(container, 'topLeft')?.querySelector('.mirror-clock')).not.toBeNull()
     expect(region(container, 'topRight')).not.toBeNull()
+    // The built-in fallback holds the Bring! list at the bottom left, like the server default.
+    expect(region(container, 'bottomLeft')).not.toBeNull()
     expect(await screen.findByRole('img', { name: 'WLAN Gast' })).toBeInTheDocument()
     expect(region(container, 'bottomRight')?.querySelector('.mirror-wifi')).not.toBeNull()
   })

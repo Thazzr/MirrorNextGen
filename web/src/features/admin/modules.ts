@@ -1,7 +1,8 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { IconCloud, IconDeviceDesktop, IconLayoutDashboard, IconUserShield, IconWifi } from '@tabler/icons-react'
+import { IconCloud, IconDeviceDesktop, IconLayoutDashboard, IconShoppingCart, IconUserShield, IconWifi } from '@tabler/icons-react'
 import { useWeatherTileStatus } from '../modules/weather/admin/status.ts'
+import { useBringTileStatus } from '../modules/bring/admin/status.ts'
 import { useWifiTileStatus } from '../modules/wifi/admin/status.ts'
 import { displaySettingsQueryKey, fetchDisplaySettings } from './api/display.ts'
 import { fetchLayout, layoutQueryKey } from './api/layout.ts'
@@ -82,6 +83,14 @@ export const adminModules: AdminModule[] = [
     path: 'wifi',
     load: () => import('../modules/wifi/admin/WifiPage.tsx').then((m) => ({ default: m.WifiPage })),
     useStatus: useWifiTileStatus,
+  }),
+  entry({
+    key: 'bring',
+    title: 'Bring!-Einkaufsliste',
+    icon: IconShoppingCart,
+    path: 'bring',
+    load: () => import('../modules/bring/admin/BringPage.tsx').then((m) => ({ default: m.BringPage })),
+    useStatus: useBringTileStatus,
   }),
   entry({
     key: 'account',

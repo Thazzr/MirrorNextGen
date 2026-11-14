@@ -46,6 +46,10 @@ var publicOperations = map[string]bool{
 	// purpose of that widget.
 	"GetDashboardWeather": true,
 	"GetDashboardWifi":    true,
+	// The dashboard reads the Bring! shopping list without a session. It
+	// carries item names and amounts of the household's own list, never the
+	// account's e-mail or password.
+	"GetDashboardBring": true,
 	// The dashboard reads the layout without a session; it contains only
 	// module keys, filtered to the modules that exist.
 	"GetDashboardLayout": true,

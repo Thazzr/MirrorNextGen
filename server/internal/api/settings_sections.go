@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
+	"github.com/thazzr/mirrornextgen/server/internal/bring"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
 )
 
@@ -79,4 +81,54 @@ func (s *Server) UpdateWifiSettings(_ context.Context, request UpdateWifiSetting
 		return UpdateWifiSettings400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse(badRequest(errs))}, nil
 	}
 	return UpdateWifiSettings200JSONResponse(toWifiSettings(stored)), nil
+}
+
+func toBringSettings(b settings.BringSettings) BringSettings {
+	// The password itself stays on the server; only its presence is reported.
+	return BringSettings{Email: b.Email, HasPassword: b.Password != "", ListUuid: b.ListUUID, MaxItems: b.MaxItems, RefreshMinutes: b.RefreshMinutes}
+}
+
+// GetBringSettings returns the Bring! settings without the password.
+func (s *Server) GetBringSettings(_ context.Context, _ GetBringSettingsRequestObject) (GetBringSettingsResponseObject, error) {
+	return GetBringSettings200JSONResponse(toBringSettings(s.settings.Get().Bring)), nil
+}
+
+// UpdateBringSettings stores new Bring! settings and drops the cached list so
+// the next dashboard poll uses them.
+func (s *Server) UpdateBringSettings(_ context.Context, request UpdateBringSettingsRequestObject) (UpdateBringSettingsResponseObject, error) {
+	b := request.Body
+	stored, errs, err := s.settings.UpdateBring(settings.BringUpdate{
+		Email:          b.Email,
+		Password:       deref(b.Password),
+		ClearPassword:  deref(b.ClearPassword),
+		ListUUID:       b.ListUuid,
+		MaxItems:       b.MaxItems,
+		RefreshMinutes: b.RefreshMinutes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if errs != nil {
+		return UpdateBringSettings400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse(badRequest(errs))}, nil
+	}
+	s.bring.Invalidate()
+	return UpdateBringSettings200JSONResponse(toBringSettings(stored)), nil
+}
+
+// GetBringLists asks Bring! for the lists of the stored account.
+func (s *Server) GetBringLists(ctx context.Context, _ GetBringListsRequestObject) (GetBringListsResponseObject, error) {
+	lists, err := s.bring.Lists(ctx)
+	switch {
+	case errors.Is(err, bring.ErrNotConfigured):
+		return GetBringLists409ApplicationProblemPlusJSONResponse{ConflictApplicationProblemPlusJSONResponse(problem(http.StatusConflict, "Bitte speichere zuerst E-Mail und Passwort."))}, nil
+	case errors.Is(err, bring.ErrLoginFailed):
+		return GetBringLists400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse(problem(http.StatusBadRequest, bring.MsgLoginFailed))}, nil
+	case err != nil:
+		return GetBringLists502ApplicationProblemPlusJSONResponse(problem(http.StatusBadGateway, bring.MsgListsFailed)), nil
+	}
+	out := make(GetBringLists200JSONResponse, 0, len(lists))
+	for _, l := range lists {
+		out = append(out, BringList{Uuid: l.UUID, Name: l.Name})
+	}
+	return out, nil
 }

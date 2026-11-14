@@ -307,6 +307,7 @@ func TestCalendarModulesAreListedWithNames(t *testing.T) {
 		{Key: "calendar:termine", Name: "Kalender: Termine"},
 		{Key: "calendar:schichten", Name: "Schichten: Dienstplan"},
 		{Key: "wifi", Name: "WLAN-QR-Code"},
+		{Key: "bring", Name: "Bring!-Einkaufsliste"},
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("Available = %v", got)

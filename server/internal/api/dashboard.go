@@ -93,3 +93,16 @@ func (s *Server) GetDashboardWifi(_ context.Context, _ GetDashboardWifiRequestOb
 	ssid := w.SSID
 	return GetDashboardWifi200JSONResponse{Configured: true, Ssid: &ssid, Qr: &QrCode{Size: m.Size, Rows: m.Rows}}, nil
 }
+
+// GetDashboardBring returns the cached shopping list; a failure travels in the
+// body so the other dashboard areas stay visible.
+func (s *Server) GetDashboardBring(ctx context.Context, _ GetDashboardBringRequestObject) (GetDashboardBringResponseObject, error) {
+	res := s.bring.Get(ctx)
+	out := GetDashboardBring200JSONResponse{Configured: res.Configured, Stale: res.Stale, Error: optional(res.Error), Items: []BringItem{}}
+	if res.Data != nil {
+		for _, it := range res.Data.Items {
+			out.Items = append(out.Items, BringItem{Name: it.Name, Specification: optional(it.Specification), IconUrl: it.IconURL})
+		}
+	}
+	return out, nil
+}

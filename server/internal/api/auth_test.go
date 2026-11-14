@@ -66,6 +66,7 @@ type testEnv struct {
 	// middleware chain (set by an extra, outermost middleware).
 	lastOp   *string
 	ow       *fakeOW
+	bring    *fakeBring
 	feed     *fakeFeed
 	icons    *icons.Store
 	iconsDir string
@@ -93,6 +94,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 	weatherSvc, ow := newTestWeather(t, settingsStore, clock.now)
 	feed := newFakeFeed(t)
 	logs := &syncBuffer{}
+	bringSvc, fb := newTestBring(t, settingsStore, clock.now, logs)
 	dataDir := t.TempDir()
 	iconStore, err := icons.Load(dataDir)
 	if err != nil {
@@ -117,6 +119,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Throttle: auth.NewThrottle(clock.now),
 		Settings: settingsStore,
 		Weather:  weatherSvc,
+		Bring:    bringSvc,
 		Calendar: calSvc,
 		Icons:    iconStore,
 	}
@@ -131,7 +134,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 			return next(ctx, w, r, req)
 		}
 	})
-	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, ow: ow, feed: feed, icons: iconStore, iconsDir: filepath.Join(dataDir, "icons"), logs: logs}
+	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, ow: ow, bring: fb, feed: feed, icons: iconStore, iconsDir: filepath.Join(dataDir, "icons"), logs: logs}
 }
 
 type opts struct {

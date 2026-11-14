@@ -274,6 +274,55 @@ func (e WifiSettingsUpdateSecurity) Valid() bool {
 	}
 }
 
+// BringItem One open item of the shopping list.
+type BringItem struct {
+	// IconUrl Address of Bring!'s picture for the item; empty when none can be derived.
+	IconUrl string `json:"iconUrl"`
+	Name    string `json:"name"`
+
+	// Specification Amount or note such as "2 Stück"; absent when there is none.
+	Specification *string `json:"specification,omitempty"`
+}
+
+// BringList One shopping list of the Bring! account.
+type BringList struct {
+	Name string `json:"name"`
+	Uuid string `json:"uuid"`
+}
+
+// BringSettings Bring! settings as the admin UI reads them; the password is never included.
+type BringSettings struct {
+	// Email E-mail address of the Bring! account.
+	Email string `json:"email"`
+
+	// HasPassword True when a Bring! password is stored.
+	HasPassword bool `json:"hasPassword"`
+
+	// ListUuid UUID of the list to show; empty means the default list of the account.
+	ListUuid string `json:"listUuid"`
+
+	// MaxItems Most items shown on the dashboard.
+	MaxItems int `json:"maxItems"`
+
+	// RefreshMinutes Minutes between two refreshes from Bring!.
+	RefreshMinutes int `json:"refreshMinutes"`
+}
+
+// BringSettingsUpdate New Bring! settings.
+type BringSettingsUpdate struct {
+	// ClearPassword Deletes the stored password. Not combinable with a new `password`.
+	ClearPassword *bool  `json:"clearPassword,omitempty"`
+	Email         string `json:"email"`
+
+	// ListUuid UUID of the list to show; empty means the default list of the account.
+	ListUuid string `json:"listUuid"`
+	MaxItems int    `json:"maxItems"`
+
+	// Password New password; absent or empty keeps the stored one.
+	Password       *string `json:"password,omitempty"`
+	RefreshMinutes int     `json:"refreshMinutes"`
+}
+
 // CalendarError defines model for CalendarError.
 type CalendarError struct {
 	CalendarId string `json:"calendarId"`
@@ -429,6 +478,19 @@ type CalendarSourceUpdate struct {
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
+}
+
+// DashboardBring Shopping list state for the dashboard.
+type DashboardBring struct {
+	// Configured False while e-mail or password is missing; the dashboard then hides the list.
+	Configured bool `json:"configured"`
+
+	// Error German message when no items are available.
+	Error *string     `json:"error,omitempty"`
+	Items []BringItem `json:"items"`
+
+	// Stale True when the last refresh failed and `items` are older (less than 3 hours).
+	Stale bool `json:"stale"`
 }
 
 // DashboardCalendarItem defines model for DashboardCalendarItem.
@@ -821,6 +883,9 @@ type SetupAdminJSONRequestBody = PasswordRequest
 // UploadIconMultipartRequestBody defines body for UploadIcon for multipart/form-data ContentType.
 type UploadIconMultipartRequestBody UploadIconMultipartBody
 
+// UpdateBringSettingsJSONRequestBody defines body for UpdateBringSettings for application/json ContentType.
+type UpdateBringSettingsJSONRequestBody = BringSettingsUpdate
+
 // UpdateCalendarSettingsJSONRequestBody defines body for UpdateCalendarSettings for application/json ContentType.
 type UpdateCalendarSettingsJSONRequestBody = CalendarSettingsUpdate
 
@@ -856,6 +921,9 @@ type ServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(w http.ResponseWriter, r *http.Request)
+	// GetDashboardBring Bring! shopping list for the dashboard
+	// (GET /api/v1/dashboard/bring)
+	GetDashboardBring(w http.ResponseWriter, r *http.Request)
 	// GetDashboardCalendarSection Calendar section for the dashboard
 	// (GET /api/v1/dashboard/calendar/{sectionId})
 	GetDashboardCalendarSection(w http.ResponseWriter, r *http.Request, sectionId string)
@@ -892,6 +960,15 @@ type ServerInterface interface {
 	// ListModules Available modules
 	// (GET /api/v1/modules)
 	ListModules(w http.ResponseWriter, r *http.Request)
+	// GetBringSettings Bring! settings
+	// (GET /api/v1/settings/bring)
+	GetBringSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateBringSettings Change the Bring! settings
+	// (PUT /api/v1/settings/bring)
+	UpdateBringSettings(w http.ResponseWriter, r *http.Request)
+	// GetBringLists Shopping lists of the Bring! account
+	// (GET /api/v1/settings/bring/lists)
+	GetBringLists(w http.ResponseWriter, r *http.Request)
 	// GetCalendarSettings Calendar settings
 	// (GET /api/v1/settings/calendar)
 	GetCalendarSettings(w http.ResponseWriter, r *http.Request)
@@ -997,6 +1074,20 @@ func (siw *ServerInterfaceWrapper) SetupAdmin(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetupAdmin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardBring operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardBring(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardBring(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1201,6 +1292,48 @@ func (siw *ServerInterfaceWrapper) ListModules(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListModules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBringSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetBringSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBringSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBringSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBringSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBringSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBringLists operation middleware
+func (siw *ServerInterfaceWrapper) GetBringLists(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBringLists(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1504,6 +1637,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/layout", wrapper.GetDashboardLayout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/weather", wrapper.GetDashboardWeather)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/wifi", wrapper.GetDashboardWifi)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/bring", wrapper.GetBringSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/bring", wrapper.UpdateBringSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/bring/lists", wrapper.GetBringLists)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/bring", wrapper.GetDashboardBring)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/calendar", wrapper.GetCalendarSettings)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/calendar", wrapper.UpdateCalendarSettings)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/settings/calendar/preview", wrapper.PreviewCalendar)
@@ -1830,6 +1967,27 @@ func (response SetupAdmin409ApplicationProblemPlusJSONResponse) VisitSetupAdminR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDashboardBringRequestObject struct {
+}
+
+type GetDashboardBringResponseObject interface {
+	VisitGetDashboardBringResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardBring200JSONResponse DashboardBring
+
+func (response GetDashboardBring200JSONResponse) VisitGetDashboardBringResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2308,6 +2466,196 @@ func (response ListModules401ApplicationProblemPlusJSONResponse) VisitListModule
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBringSettingsRequestObject struct {
+}
+
+type GetBringSettingsResponseObject interface {
+	VisitGetBringSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetBringSettings200JSONResponse BringSettings
+
+func (response GetBringSettings200JSONResponse) VisitGetBringSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBringSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetBringSettings401ApplicationProblemPlusJSONResponse) VisitGetBringSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBringSettingsRequestObject struct {
+	Body *UpdateBringSettingsJSONRequestBody
+}
+
+type UpdateBringSettingsResponseObject interface {
+	VisitUpdateBringSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateBringSettings200JSONResponse BringSettings
+
+func (response UpdateBringSettings200JSONResponse) VisitUpdateBringSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBringSettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateBringSettings400ApplicationProblemPlusJSONResponse) VisitUpdateBringSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBringSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateBringSettings401ApplicationProblemPlusJSONResponse) VisitUpdateBringSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBringSettings403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateBringSettings403ApplicationProblemPlusJSONResponse) VisitUpdateBringSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBringListsRequestObject struct {
+}
+
+type GetBringListsResponseObject interface {
+	VisitGetBringListsResponse(w http.ResponseWriter) error
+}
+
+type GetBringLists200JSONResponse []BringList
+
+func (response GetBringLists200JSONResponse) VisitGetBringListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBringLists400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response GetBringLists400ApplicationProblemPlusJSONResponse) VisitGetBringListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBringLists401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetBringLists401ApplicationProblemPlusJSONResponse) VisitGetBringListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBringLists409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response GetBringLists409ApplicationProblemPlusJSONResponse) VisitGetBringListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBringLists502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetBringLists502ApplicationProblemPlusJSONResponse) VisitGetBringListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2934,6 +3282,9 @@ type StrictServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(ctx context.Context, request SetupAdminRequestObject) (SetupAdminResponseObject, error)
+	// GetDashboardBring Bring! shopping list for the dashboard
+	// (GET /api/v1/dashboard/bring)
+	GetDashboardBring(ctx context.Context, request GetDashboardBringRequestObject) (GetDashboardBringResponseObject, error)
 	// GetDashboardCalendarSection Calendar section for the dashboard
 	// (GET /api/v1/dashboard/calendar/{sectionId})
 	GetDashboardCalendarSection(ctx context.Context, request GetDashboardCalendarSectionRequestObject) (GetDashboardCalendarSectionResponseObject, error)
@@ -2970,6 +3321,15 @@ type StrictServerInterface interface {
 	// ListModules Available modules
 	// (GET /api/v1/modules)
 	ListModules(ctx context.Context, request ListModulesRequestObject) (ListModulesResponseObject, error)
+	// GetBringSettings Bring! settings
+	// (GET /api/v1/settings/bring)
+	GetBringSettings(ctx context.Context, request GetBringSettingsRequestObject) (GetBringSettingsResponseObject, error)
+	// UpdateBringSettings Change the Bring! settings
+	// (PUT /api/v1/settings/bring)
+	UpdateBringSettings(ctx context.Context, request UpdateBringSettingsRequestObject) (UpdateBringSettingsResponseObject, error)
+	// GetBringLists Shopping lists of the Bring! account
+	// (GET /api/v1/settings/bring/lists)
+	GetBringLists(ctx context.Context, request GetBringListsRequestObject) (GetBringListsResponseObject, error)
 	// GetCalendarSettings Calendar settings
 	// (GET /api/v1/settings/calendar)
 	GetCalendarSettings(ctx context.Context, request GetCalendarSettingsRequestObject) (GetCalendarSettingsResponseObject, error)
@@ -3178,6 +3538,30 @@ func (sh *strictHandler) SetupAdmin(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetupAdminResponseObject); ok {
 		if err := validResponse.VisitSetupAdminResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDashboardBring operation middleware
+func (sh *strictHandler) GetDashboardBring(w http.ResponseWriter, r *http.Request) {
+	var request GetDashboardBringRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardBring(ctx, request.(GetDashboardBringRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardBring")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardBringResponseObject); ok {
+		if err := validResponse.VisitGetDashboardBringResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3479,6 +3863,85 @@ func (sh *strictHandler) ListModules(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListModulesResponseObject); ok {
 		if err := validResponse.VisitListModulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetBringSettings operation middleware
+func (sh *strictHandler) GetBringSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetBringSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBringSettings(ctx, request.(GetBringSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBringSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBringSettingsResponseObject); ok {
+		if err := validResponse.VisitGetBringSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateBringSettings operation middleware
+func (sh *strictHandler) UpdateBringSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateBringSettingsRequestObject
+
+	var body UpdateBringSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateBringSettings(ctx, request.(UpdateBringSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateBringSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateBringSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateBringSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetBringLists operation middleware
+func (sh *strictHandler) GetBringLists(w http.ResponseWriter, r *http.Request) {
+	var request GetBringListsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBringLists(ctx, request.(GetBringListsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBringLists")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBringListsResponseObject); ok {
+		if err := validResponse.VisitGetBringListsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

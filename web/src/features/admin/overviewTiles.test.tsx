@@ -18,6 +18,7 @@ function arrange(over: Record<string, Handler> = {}) {
     'GET /api/v1/dashboard/weather': () =>
       json({ configured: true, stale: false, data: { location: 'Berlin', temperatureC: 12, condition: 'Leichter Regen' } }),
     'GET /api/v1/dashboard/wifi': () => json({ configured: true, ssid: 'Gäste' }),
+    'GET /api/v1/dashboard/bring': () => json({ configured: true, stale: false, items: [{ name: 'Milch', iconUrl: '' }, { name: 'Brot', iconUrl: '' }] }),
     ...over,
   })
 }
@@ -37,6 +38,7 @@ describe('overview tiles of the module registry', () => {
       '/admin/display',
       '/admin/weather',
       '/admin/wifi',
+      '/admin/bring',
       '/admin/account',
     ])
   })
@@ -83,5 +85,30 @@ describe('overview tiles of the module registry', () => {
     renderWithProviders('/admin')
     expect(await within(await tile(/^Anordnung/)).findByText('Status nicht verfügbar')).toBeInTheDocument()
     expect(await within(await tile(/^Wetter/)).findByText('Berlin · 12°')).toBeInTheDocument()
+  })
+
+  it('shows the number of shopping list entries, singular and plural', async () => {
+    arrange()
+    renderWithProviders('/admin')
+    expect(await within(await tile(/^Bring!-Einkaufsliste/)).findByText('2 Einträge')).toBeInTheDocument()
+  })
+
+  it('says "1 Eintrag" for a single entry', async () => {
+    arrange({ 'GET /api/v1/dashboard/bring': () => json({ configured: true, stale: false, items: [{ name: 'Milch', iconUrl: '' }] }) })
+    renderWithProviders('/admin')
+    expect(await within(await tile(/^Bring!-Einkaufsliste/)).findByText('1 Eintrag')).toBeInTheDocument()
+  })
+
+  it('says "Nicht eingerichtet" for an unconfigured shopping list and shows its error', async () => {
+    arrange({ 'GET /api/v1/dashboard/bring': () => json({ configured: false, stale: false, items: [] }) })
+    const first = renderWithProviders('/admin')
+    expect(await within(await tile(/^Bring!-Einkaufsliste/)).findByText('Nicht eingerichtet')).toBeInTheDocument()
+    first.unmount()
+
+    arrange({
+      'GET /api/v1/dashboard/bring': () => json({ configured: true, stale: false, error: 'Anmeldung bei Bring! fehlgeschlagen.', items: [] }),
+    })
+    renderWithProviders('/admin')
+    expect(await within(await tile(/^Bring!-Einkaufsliste/)).findByText('Fehler: Anmeldung bei Bring! fehlgeschlagen.')).toBeInTheDocument()
   })
 })

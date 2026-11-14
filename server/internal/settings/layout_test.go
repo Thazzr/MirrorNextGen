@@ -21,7 +21,7 @@ func keys(n int) []string {
 func TestDefaultLayout(t *testing.T) {
 	want := Layout{
 		TopLeft: []string{"clock"}, TopRight: []string{"weather"}, Middle: []string{},
-		BottomLeft: []string{}, BottomRight: []string{"wifi"},
+		BottomLeft: []string{"bring"}, BottomRight: []string{"wifi"},
 	}
 	if got := Defaults().Layout; !reflect.DeepEqual(got, want) {
 		t.Errorf("default layout = %+v", got)
