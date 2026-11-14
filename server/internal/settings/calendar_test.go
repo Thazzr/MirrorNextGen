@@ -304,6 +304,7 @@ func TestCalendarModulesAreListedWithNames(t *testing.T) {
 	want := []modules.Info{
 		{Key: "clock", Name: "Uhr"},
 		{Key: "weather", Name: "Wetter"},
+		{Key: "camera", Name: "Kamera"},
 		{Key: "calendar:termine", Name: "Kalender: Termine"},
 		{Key: "calendar:schichten", Name: "Schichten: Dienstplan"},
 		{Key: "wifi", Name: "WLAN-QR-Code"},

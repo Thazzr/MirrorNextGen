@@ -495,6 +495,49 @@ type CalendarSourceUpdate struct {
 	Url *string `json:"url,omitempty"`
 }
 
+// CameraSettings Camera settings as the admin UI reads them; the stream address is never included.
+type CameraSettings struct {
+	// Brightness Brightness in percent; 100 leaves the picture unchanged.
+	Brightness int `json:"brightness"`
+
+	// Contrast Contrast in percent; 100 leaves the picture unchanged.
+	Contrast int `json:"contrast"`
+
+	// Enabled Shows the camera on the dashboard (needs a stream address).
+	Enabled bool `json:"enabled"`
+
+	// Grayscale Shows the picture in black and white.
+	Grayscale bool `json:"grayscale"`
+
+	// HasStreamUrl True when a stream address is stored.
+	HasStreamUrl bool `json:"hasStreamUrl"`
+
+	// Saturation Saturation in percent; 100 leaves the picture unchanged.
+	Saturation int `json:"saturation"`
+
+	// StreamUrlHint Scheme and host of the stored address, for example `rtsp://192.168.1.20`; empty when none is stored.
+	StreamUrlHint string `json:"streamUrlHint"`
+
+	// Title Heading above the video; may be empty.
+	Title string `json:"title"`
+}
+
+// CameraSettingsUpdate New camera settings.
+type CameraSettingsUpdate struct {
+	Brightness int `json:"brightness"`
+
+	// ClearStreamUrl Deletes the stored address. Not combinable with a new `streamUrl`.
+	ClearStreamUrl *bool `json:"clearStreamUrl,omitempty"`
+	Contrast       int   `json:"contrast"`
+	Enabled        bool  `json:"enabled"`
+	Grayscale      bool  `json:"grayscale"`
+	Saturation     int   `json:"saturation"`
+
+	// StreamUrl New stream address (`rtsp://` or `rtsps://`); absent or empty keeps the stored one.
+	StreamUrl *string `json:"streamUrl,omitempty"`
+	Title     string  `json:"title"`
+}
+
 // ChangePasswordRequest Current and new admin password.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
@@ -544,6 +587,18 @@ type DashboardCalendarSection struct {
 
 // DashboardCalendarSectionType defines model for DashboardCalendarSection.Type.
 type DashboardCalendarSectionType string
+
+// DashboardCamera Camera display state for the dashboard.
+type DashboardCamera struct {
+	Brightness int `json:"brightness"`
+
+	// Configured True when the camera is enabled and a stream address is stored; the dashboard hides the module otherwise.
+	Configured bool   `json:"configured"`
+	Contrast   int    `json:"contrast"`
+	Grayscale  bool   `json:"grayscale"`
+	Saturation int    `json:"saturation"`
+	Title      string `json:"title"`
+}
 
 // DashboardWeather Weather state for the dashboard.
 type DashboardWeather struct {
@@ -952,6 +1007,9 @@ type UpdateCalendarSettingsJSONRequestBody = CalendarSettingsUpdate
 // PreviewCalendarJSONRequestBody defines body for PreviewCalendar for application/json ContentType.
 type PreviewCalendarJSONRequestBody = CalendarSettingsUpdate
 
+// UpdateCameraSettingsJSONRequestBody defines body for UpdateCameraSettings for application/json ContentType.
+type UpdateCameraSettingsJSONRequestBody = CameraSettingsUpdate
+
 // UpdateDisplaySettingsJSONRequestBody defines body for UpdateDisplaySettings for application/json ContentType.
 type UpdateDisplaySettingsJSONRequestBody = DisplaySettings
 
@@ -987,6 +1045,9 @@ type ServerInterface interface {
 	// GetDashboardCalendarSection Calendar section for the dashboard
 	// (GET /api/v1/dashboard/calendar/{sectionId})
 	GetDashboardCalendarSection(w http.ResponseWriter, r *http.Request, sectionId string)
+	// GetDashboardCamera Camera module for the dashboard
+	// (GET /api/v1/dashboard/camera)
+	GetDashboardCamera(w http.ResponseWriter, r *http.Request)
 	// GetDashboardLayout Layout for the dashboard
 	// (GET /api/v1/dashboard/layout)
 	GetDashboardLayout(w http.ResponseWriter, r *http.Request)
@@ -1044,6 +1105,12 @@ type ServerInterface interface {
 	// PreviewCalendar Preview an unsaved calendar draft
 	// (POST /api/v1/settings/calendar/preview)
 	PreviewCalendar(w http.ResponseWriter, r *http.Request)
+	// GetCameraSettings Camera settings
+	// (GET /api/v1/settings/camera)
+	GetCameraSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateCameraSettings Change the camera settings
+	// (PUT /api/v1/settings/camera)
+	UpdateCameraSettings(w http.ResponseWriter, r *http.Request)
 	// GetDisplaySettings Display settings
 	// (GET /api/v1/settings/display)
 	GetDisplaySettings(w http.ResponseWriter, r *http.Request)
@@ -1180,6 +1247,20 @@ func (siw *ServerInterfaceWrapper) GetDashboardCalendarSection(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDashboardCalendarSection(w, r, sectionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardCamera operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardCamera(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardCamera(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1479,6 +1560,34 @@ func (siw *ServerInterfaceWrapper) PreviewCalendar(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetCameraSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetCameraSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCameraSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCameraSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCameraSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCameraSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDisplaySettings operation middleware
 func (siw *ServerInterfaceWrapper) GetDisplaySettings(w http.ResponseWriter, r *http.Request) {
 
@@ -1737,6 +1846,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/bring", wrapper.UpdateBringSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/bring/lists", wrapper.GetBringLists)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/bring", wrapper.GetDashboardBring)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/camera", wrapper.GetCameraSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/camera", wrapper.UpdateCameraSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/camera", wrapper.GetDashboardCamera)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/calendar", wrapper.GetCalendarSettings)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/calendar", wrapper.UpdateCalendarSettings)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/settings/calendar/preview", wrapper.PreviewCalendar)
@@ -2122,6 +2234,27 @@ func (response GetDashboardCalendarSection404ApplicationProblemPlusJSONResponse)
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDashboardCameraRequestObject struct {
+}
+
+type GetDashboardCameraResponseObject interface {
+	VisitGetDashboardCameraResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardCamera200JSONResponse DashboardCamera
+
+func (response GetDashboardCamera200JSONResponse) VisitGetDashboardCameraResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3023,6 +3156,113 @@ func (response PreviewCalendar403ApplicationProblemPlusJSONResponse) VisitPrevie
 	return err
 }
 
+type GetCameraSettingsRequestObject struct {
+}
+
+type GetCameraSettingsResponseObject interface {
+	VisitGetCameraSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetCameraSettings200JSONResponse CameraSettings
+
+func (response GetCameraSettings200JSONResponse) VisitGetCameraSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCameraSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetCameraSettings401ApplicationProblemPlusJSONResponse) VisitGetCameraSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCameraSettingsRequestObject struct {
+	Body *UpdateCameraSettingsJSONRequestBody
+}
+
+type UpdateCameraSettingsResponseObject interface {
+	VisitUpdateCameraSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateCameraSettings200JSONResponse CameraSettings
+
+func (response UpdateCameraSettings200JSONResponse) VisitUpdateCameraSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCameraSettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateCameraSettings400ApplicationProblemPlusJSONResponse) VisitUpdateCameraSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCameraSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateCameraSettings401ApplicationProblemPlusJSONResponse) VisitUpdateCameraSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCameraSettings403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateCameraSettings403ApplicationProblemPlusJSONResponse) VisitUpdateCameraSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetDisplaySettingsRequestObject struct {
 }
 
@@ -3474,6 +3714,9 @@ type StrictServerInterface interface {
 	// GetDashboardCalendarSection Calendar section for the dashboard
 	// (GET /api/v1/dashboard/calendar/{sectionId})
 	GetDashboardCalendarSection(ctx context.Context, request GetDashboardCalendarSectionRequestObject) (GetDashboardCalendarSectionResponseObject, error)
+	// GetDashboardCamera Camera module for the dashboard
+	// (GET /api/v1/dashboard/camera)
+	GetDashboardCamera(ctx context.Context, request GetDashboardCameraRequestObject) (GetDashboardCameraResponseObject, error)
 	// GetDashboardLayout Layout for the dashboard
 	// (GET /api/v1/dashboard/layout)
 	GetDashboardLayout(ctx context.Context, request GetDashboardLayoutRequestObject) (GetDashboardLayoutResponseObject, error)
@@ -3531,6 +3774,12 @@ type StrictServerInterface interface {
 	// PreviewCalendar Preview an unsaved calendar draft
 	// (POST /api/v1/settings/calendar/preview)
 	PreviewCalendar(ctx context.Context, request PreviewCalendarRequestObject) (PreviewCalendarResponseObject, error)
+	// GetCameraSettings Camera settings
+	// (GET /api/v1/settings/camera)
+	GetCameraSettings(ctx context.Context, request GetCameraSettingsRequestObject) (GetCameraSettingsResponseObject, error)
+	// UpdateCameraSettings Change the camera settings
+	// (PUT /api/v1/settings/camera)
+	UpdateCameraSettings(ctx context.Context, request UpdateCameraSettingsRequestObject) (UpdateCameraSettingsResponseObject, error)
 	// GetDisplaySettings Display settings
 	// (GET /api/v1/settings/display)
 	GetDisplaySettings(ctx context.Context, request GetDisplaySettingsRequestObject) (GetDisplaySettingsResponseObject, error)
@@ -3780,6 +4029,30 @@ func (sh *strictHandler) GetDashboardCalendarSection(w http.ResponseWriter, r *h
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDashboardCalendarSectionResponseObject); ok {
 		if err := validResponse.VisitGetDashboardCalendarSectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDashboardCamera operation middleware
+func (sh *strictHandler) GetDashboardCamera(w http.ResponseWriter, r *http.Request) {
+	var request GetDashboardCameraRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardCamera(ctx, request.(GetDashboardCameraRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardCamera")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardCameraResponseObject); ok {
+		if err := validResponse.VisitGetDashboardCameraResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4268,6 +4541,61 @@ func (sh *strictHandler) PreviewCalendar(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewCalendarResponseObject); ok {
 		if err := validResponse.VisitPreviewCalendarResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCameraSettings operation middleware
+func (sh *strictHandler) GetCameraSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetCameraSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCameraSettings(ctx, request.(GetCameraSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCameraSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCameraSettingsResponseObject); ok {
+		if err := validResponse.VisitGetCameraSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateCameraSettings operation middleware
+func (sh *strictHandler) UpdateCameraSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateCameraSettingsRequestObject
+
+	var body UpdateCameraSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCameraSettings(ctx, request.(UpdateCameraSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCameraSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateCameraSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateCameraSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

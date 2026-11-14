@@ -221,6 +221,17 @@ func (s *Store) UpdateBring(u BringUpdate) (BringSettings, map[string]string, er
 	return cur.Bring, errs, err
 }
 
+// UpdateCamera merges u into the camera section (see CameraUpdate for the
+// secret rules), validates and stores it.
+func (s *Store) UpdateCamera(u CameraUpdate) (CameraSettings, map[string]string, error) {
+	cur, errs, err := s.update("camera", func(next *Settings) map[string]string {
+		c, errs := u.apply(next.Camera)
+		next.Camera = c
+		return errs
+	})
+	return cur.Camera, errs, err
+}
+
 // update applies mutate to a copy of the settings, validates it and writes
 // it. It returns the state after the call (unchanged on field errors or I/O
 // failure) and field errors with the section prefix removed.

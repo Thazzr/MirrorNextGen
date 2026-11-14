@@ -18,7 +18,7 @@ const (
 
 func defaultLayout() Layout {
 	return Layout{
-		TopLeft: []string{"clock"}, TopRight: []string{"weather"}, Middle: []string{},
+		TopLeft: []string{"clock"}, TopRight: []string{"weather", "camera"}, Middle: []string{},
 		BottomLeft: []string{"bring"}, BottomRight: []string{"wifi"},
 	}
 }
@@ -107,7 +107,7 @@ func TestListModules(t *testing.T) {
 	e := newTestEnv(t)
 	c := e.setup(t)
 	got := decode[[]ModuleInfo](t, e.do(http.MethodGet, modulesPath, nil, opts{cookie: c.cookie}))
-	want := []ModuleInfo{{Key: "clock", Name: "Uhr"}, {Key: "weather", Name: "Wetter"}, {Key: "wifi", Name: "WLAN-QR-Code"}, {Key: "bring", Name: "Bring!-Einkaufsliste"}}
+	want := []ModuleInfo{{Key: "clock", Name: "Uhr"}, {Key: "weather", Name: "Wetter"}, {Key: "camera", Name: "Kamera"}, {Key: "wifi", Name: "WLAN-QR-Code"}, {Key: "bring", Name: "Bring!-Einkaufsliste"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("modules = %+v", got)
 	}

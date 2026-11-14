@@ -12,6 +12,8 @@ type Props = {
   cleared: boolean
   onClearedChange: (cleared: boolean) => void
   removeLabel: string
+  /** Shown while no value is stored; a stored value gets the keep hint instead. */
+  placeholder?: string
   error?: string
 }
 
@@ -25,6 +27,7 @@ export function SecretField({
   cleared,
   onClearedChange,
   removeLabel,
+  placeholder,
   error,
 }: Props) {
   if (cleared) {
@@ -47,7 +50,7 @@ export function SecretField({
       <PasswordInput
         label={label}
         description={description}
-        placeholder={hasSecret ? 'Gespeichert – leer lassen, um ihn zu behalten' : undefined}
+        placeholder={hasSecret ? 'Gespeichert – leer lassen, um ihn zu behalten' : placeholder}
         autoComplete="new-password"
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}

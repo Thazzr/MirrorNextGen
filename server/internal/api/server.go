@@ -10,6 +10,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/bring"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
+	"github.com/thazzr/mirrornextgen/server/internal/camera"
 	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
@@ -36,6 +37,9 @@ type Deps struct {
 	Calendar *calendar.Service
 	Icons    *icons.Store
 	Display  *display.Controller
+	// Camera registers the stream with go2rtc and proxies the video; nil
+	// switches the camera routes off (tests).
+	Camera *camera.Service
 }
 
 // Server implements the generated StrictServerInterface.
@@ -50,6 +54,7 @@ type Server struct {
 	calendar *calendar.Service
 	icons    *icons.Store
 	display  *display.Controller
+	camera   *camera.Service
 	// iconMu serialises icon deletes with calendar updates, so an icon cannot
 	// be deleted while a settings change that references it is being stored.
 	iconMu sync.Mutex
@@ -59,7 +64,7 @@ var _ StrictServerInterface = (*Server)(nil)
 
 // NewServer returns a Server wired to deps.
 func NewServer(deps Deps) *Server {
-	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather, bring: deps.Bring, calendar: deps.Calendar, icons: deps.Icons, display: deps.Display}
+	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather, bring: deps.Bring, calendar: deps.Calendar, icons: deps.Icons, display: deps.Display, camera: deps.Camera}
 }
 
 // GetHealth answers the liveness check.
@@ -93,6 +98,13 @@ func WriteProblem(w http.ResponseWriter, status int, detail string) {
 // only logged, never sent to the client.
 func Register(mux *http.ServeMux, deps Deps) {
 	register(mux, deps)
+	if deps.Camera != nil {
+		// Not a strict-server operation (it upgrades to a WebSocket and is
+		// proxied), so the auth middleware does not see it. It is public on
+		// purpose: the dashboard has no session. The handler only forwards to
+		// the one fixed stream and answers 404 while no camera is configured.
+		mux.Handle("GET /api/v1/camera/stream", deps.Camera.Handler(WriteProblem))
+	}
 }
 
 // register is Register for any router; extra middlewares wrap the auth

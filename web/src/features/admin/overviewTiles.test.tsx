@@ -9,6 +9,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 const cal = (id: string, name: string) => ({ id, name, icon: { kind: 'none' }, hasUrl: true, urlHint: 'https://x/.../a.ics' })
 const section = (id: string) => ({ id, title: 'Familie', type: 'list', calendarIds: ['a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, shifts: [] })
+const cameraSettings = { enabled: false, title: 'Kamera', hasStreamUrl: false, streamUrlHint: '', brightness: 100, contrast: 100, saturation: 100, grayscale: false }
 const emptyLayout = { topLeft: [], topRight: [], middle: [], bottomLeft: [], bottomRight: [] }
 
 function arrange(over: Record<string, Handler> = {}) {
@@ -21,6 +22,7 @@ function arrange(over: Record<string, Handler> = {}) {
       json({ configured: true, stale: false, data: { location: 'Berlin', temperatureC: 12, condition: 'Leichter Regen' } }),
     'GET /api/v1/dashboard/wifi': () => json({ configured: true, ssid: 'Gäste' }),
     'GET /api/v1/dashboard/bring': () => json({ configured: true, stale: false, items: [{ name: 'Milch', iconUrl: '' }, { name: 'Brot', iconUrl: '' }] }),
+    'GET /api/v1/settings/camera': () => json({ ...cameraSettings, enabled: true, hasStreamUrl: true, streamUrlHint: 'rtsp://192.168.1.20' }),
     'GET /api/v1/settings/calendar': () => json({ refreshMinutes: 15, calendars: [cal('a', 'Familie'), cal('b', 'Arbeit')], sections: [section('s1')], rules: [] }),
     'GET /api/v1/icons': () => json([{ id: 'i1', name: 'Logo', contentType: 'image/png', size: 10 }]),
     ...over,
@@ -41,6 +43,7 @@ describe('overview tiles of the module registry', () => {
       '/admin/layout',
       '/admin/display',
       '/admin/weather',
+      '/admin/camera',
       '/admin/wifi',
       '/admin/calendar',
       '/admin/icons',
@@ -91,6 +94,29 @@ describe('overview tiles of the module registry', () => {
     renderWithProviders('/admin')
     expect(await within(await tile(/^Anordnung/)).findByText('Status nicht verfügbar')).toBeInTheDocument()
     expect(await within(await tile(/^Wetter/)).findByText('Berlin · 12°')).toBeInTheDocument()
+  })
+
+  it('says "An", "Aus" or "Nicht eingerichtet" for the camera', async () => {
+    arrange()
+    const on = renderWithProviders('/admin')
+    expect(await within(await tile(/^Kamera/)).findByText('An')).toBeInTheDocument()
+    on.unmount()
+
+    arrange({ 'GET /api/v1/settings/camera': () => json({ ...cameraSettings, hasStreamUrl: true, streamUrlHint: 'rtsp://cam' }) })
+    const off = renderWithProviders('/admin')
+    expect(await within(await tile(/^Kamera/)).findByText('Aus')).toBeInTheDocument()
+    off.unmount()
+
+    // Enabled but without an address is not shown on the mirror either.
+    arrange({ 'GET /api/v1/settings/camera': () => json({ ...cameraSettings, enabled: true }) })
+    renderWithProviders('/admin')
+    expect(await within(await tile(/^Kamera/)).findByText('Nicht eingerichtet')).toBeInTheDocument()
+  })
+
+  it('shows "Status nicht verfügbar" on the camera tile when its call fails', async () => {
+    arrange({ 'GET /api/v1/settings/camera': () => problem(500, 'Kaputt') })
+    renderWithProviders('/admin')
+    expect(await within(await tile(/^Kamera/)).findByText('Status nicht verfügbar')).toBeInTheDocument()
   })
 
   it('shows the number of shopping list entries, singular and plural', async () => {

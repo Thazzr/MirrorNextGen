@@ -540,6 +540,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardBring"
+  /api/v1/settings/camera:
+    get:
+      operationId: getCameraSettings
+      summary: Camera settings
+      description: >-
+        Returns the camera module settings. The stream address never leaves the server;
+        `hasStreamUrl` tells whether one is stored and `streamUrlHint` shows scheme and host only.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored camera settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CameraSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateCameraSettings
+      summary: Change the camera settings
+      description: >-
+        Validates and stores the camera settings and registers the stream with the camera
+        service. An absent or empty `streamUrl` keeps the stored one, `clearStreamUrl` deletes
+        it. Only `rtsp://` and `rtsps://` addresses are accepted. Invalid values answer 400
+        with `errors` keyed by field name (`title`, `streamUrl`, `brightness`, `contrast`,
+        `saturation`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CameraSettingsUpdate"
+      responses:
+        "200":
+          description: The stored camera settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CameraSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/dashboard/camera:
+    get:
+      operationId: getDashboardCamera
+      summary: Camera module for the dashboard
+      description: >-
+        Returns what the dashboard needs to show the camera: whether it is configured (enabled
+        and a stream address stored) plus title and picture filters. Public, because the dashboard
+        reads it without a session; the stream address is never part of it.
+      responses:
+        "200":
+          description: The camera display state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardCamera"
+  /api/v1/camera/stream:
+    get:
+      operationId: streamCamera
+      summary: Live video of the camera (WebSocket)
+      description: >-
+        WebSocket endpoint the dashboard's player connects to. The server proxies the connection
+        to the internal camera service (go2rtc), always for the one fixed stream the mirror
+        registered: query parameters of the request are ignored and never reach the camera
+        service. Public, because the dashboard has no session; answers 404 while the camera is not
+        configured and 426 to a request that is not a WebSocket upgrade. This route is not a
+        generated operation: the server registers it by hand next to the generated ones.
+      responses:
+        "101":
+          description: Switching to the WebSocket protocol; binary messages carry the video.
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "426":
+          description: The request is not a WebSocket upgrade.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "502":
+          description: The camera service cannot be reached.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /api/v1/settings/calendar:
     get:
       operationId: getCalendarSettings
@@ -1118,6 +1209,91 @@ components:
         iconUrl:
           type: string
           description: Address of Bring!'s picture for the item; empty when none can be derived.
+    CameraSettings:
+      type: object
+      description: Camera settings as the admin UI reads them; the stream address is never included.
+      required: [enabled, title, hasStreamUrl, streamUrlHint, brightness, contrast, saturation, grayscale]
+      properties:
+        enabled:
+          type: boolean
+          description: Shows the camera on the dashboard (needs a stream address).
+        title:
+          type: string
+          maxLength: 60
+          description: Heading above the video; may be empty.
+        hasStreamUrl:
+          type: boolean
+          description: True when a stream address is stored.
+        streamUrlHint:
+          type: string
+          description: Scheme and host of the stored address, for example `rtsp://192.168.1.20`; empty when none is stored.
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 200
+          description: Brightness in percent; 100 leaves the picture unchanged.
+        contrast:
+          type: integer
+          minimum: 0
+          maximum: 200
+          description: Contrast in percent; 100 leaves the picture unchanged.
+        saturation:
+          type: integer
+          minimum: 0
+          maximum: 200
+          description: Saturation in percent; 100 leaves the picture unchanged.
+        grayscale:
+          type: boolean
+          description: Shows the picture in black and white.
+    CameraSettingsUpdate:
+      type: object
+      description: New camera settings.
+      required: [enabled, title, brightness, contrast, saturation, grayscale]
+      properties:
+        enabled:
+          type: boolean
+        title:
+          type: string
+          maxLength: 60
+        streamUrl:
+          type: string
+          maxLength: 2000
+          description: New stream address (`rtsp://` or `rtsps://`); absent or empty keeps the stored one.
+        clearStreamUrl:
+          type: boolean
+          description: Deletes the stored address. Not combinable with a new `streamUrl`.
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 200
+        contrast:
+          type: integer
+          minimum: 0
+          maximum: 200
+        saturation:
+          type: integer
+          minimum: 0
+          maximum: 200
+        grayscale:
+          type: boolean
+    DashboardCamera:
+      type: object
+      description: Camera display state for the dashboard.
+      required: [configured, title, brightness, contrast, saturation, grayscale]
+      properties:
+        configured:
+          type: boolean
+          description: True when the camera is enabled and a stream address is stored; the dashboard hides the module otherwise.
+        title:
+          type: string
+        brightness:
+          type: integer
+        contrast:
+          type: integer
+        saturation:
+          type: integer
+        grayscale:
+          type: boolean
     Layout:
       type: object
       description: >-

@@ -57,6 +57,10 @@ var publicOperations = map[string]bool{
 	// event titles and places of the household's own calendars (the purpose
 	// of the module) but never the calendar addresses, which stay secret.
 	"GetDashboardCalendarSection": true,
+	// The dashboard reads the camera's title and picture filters without a
+	// session; the stream address stays secret. (The video itself is the
+	// hand-registered WebSocket route, see Register.)
+	"GetDashboardCamera": true,
 	// The dashboard loads uploaded icons without a session; the files are
 	// validated at upload and served with a locked-down CSP.
 	"GetIconFile": true,

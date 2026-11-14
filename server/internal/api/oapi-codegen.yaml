@@ -7,3 +7,7 @@ generate:
 output-options:
   # Keep schemas no operation references yet (Problem) for later packages.
   skip-prune: true
+  # The camera stream is a WebSocket proxy registered by hand (see camera.go);
+  # it is documented in the contract but cannot be a strict-server operation.
+  exclude-operation-ids:
+    - streamCamera

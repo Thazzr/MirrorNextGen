@@ -20,6 +20,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/bring"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
+	"github.com/thazzr/mirrornextgen/server/internal/camera"
 	"github.com/thazzr/mirrornextgen/server/internal/config"
 	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
@@ -114,6 +115,19 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Now:      time.Now,
 		Location: mirrorLocation(getenv("TZ")),
 	})
+	cameraSvc, err := camera.New(camera.Options{
+		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		BaseURL:    cfg.Go2RTCURL,
+		Config: func() camera.Config {
+			c := settingsStore.Get().Camera
+			return camera.Config{Enabled: c.Enabled, StreamURL: c.StreamURL}
+		},
+		Logger: logger,
+	})
+	if err != nil {
+		logger.Error("invalid configuration", "error", err)
+		return 1
+	}
 	deps := api.Deps{
 		Build:    api.BuildInfo{Version: version, Commit: commit, BuildTime: buildTime},
 		Logger:   logger,
@@ -126,6 +140,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Calendar: calendarSvc,
 		Icons:    iconStore,
 		Display:  displayCtl,
+		Camera:   cameraSvc,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,
@@ -140,6 +155,12 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return 1
 	}
 	logger.Info("listening", "addr", listener.Addr().String(), "version", version, "commit", commit, "dataDir", cfg.DataDir)
+
+	// Owned by this function: ends with ctx (a failing start returns first and
+	// cancels it through the deferred stop).
+	cameraCtx, stopCamera := context.WithCancel(ctx)
+	defer stopCamera()
+	go cameraSvc.Run(cameraCtx)
 
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(listener) }()

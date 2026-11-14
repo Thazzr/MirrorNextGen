@@ -13,7 +13,7 @@ const kioskStateInterval = 5000
 // Same as the server default: the mirror is never empty while the layout is not known yet or its request failed.
 const defaultLayout = {
   topLeft: ['clock'],
-  topRight: ['weather'],
+  topRight: ['weather', 'camera'],
   middle: [],
   bottomLeft: ['bring'],
   bottomRight: ['wifi'],

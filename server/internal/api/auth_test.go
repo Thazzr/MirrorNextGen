@@ -66,6 +66,7 @@ type testEnv struct {
 	// lastOp is the operation ID of the latest request that reached the
 	// middleware chain (set by an extra, outermost middleware).
 	lastOp   *string
+	go2rtc   *fakeGo2RTC
 	ow       *fakeOW
 	bring    *fakeBring
 	feed     *fakeFeed
@@ -117,6 +118,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Now:      clock.now,
 		Location: berlin,
 	})
+	camSvc, go2rtc := newTestCamera(t, settingsStore)
 	deps := Deps{
 		Build:    BuildInfo{Version: "1.2.3", Commit: "abc123", BuildTime: "2026-01-02T03:04:05Z"},
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -129,6 +131,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Calendar: calSvc,
 		Icons:    iconStore,
 		Display:  displayCtl,
+		Camera:   camSvc,
 	}
 	mux := &recordingMux{ServeMux: http.NewServeMux()}
 	lastOp := new(string)
@@ -141,7 +144,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 			return next(ctx, w, r, req)
 		}
 	})
-	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, ow: ow, bring: fb, feed: feed, icons: iconStore, iconsDir: filepath.Join(dataDir, "icons"), logs: logs}
+	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, go2rtc: go2rtc, ow: ow, bring: fb, feed: feed, icons: iconStore, iconsDir: filepath.Join(dataDir, "icons"), logs: logs}
 }
 
 type opts struct {

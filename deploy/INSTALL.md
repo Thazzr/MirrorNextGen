@@ -102,6 +102,16 @@ Der Kiosk wartet, bis der Server bereit ist, und startet dann die Anzeige. Beend
 
 Öffne am Handy `http://<pi>:8080/admin` und lege das Passwort für die Verwaltung fest.
 
+## Kamera (optional)
+
+Der Dienst `camera` (go2rtc) startet mit `docker compose up -d` von selbst und braucht keine Einrichtung. Er hat keinen veröffentlichten Port: Nur `mirror` im internen Docker-Netz erreicht ihn, das Video geht über `http://<pi>:8080` an den Kiosk. Den eigenen RTSP-Server von go2rtc schaltet `compose.yaml` ab, damit die Kamera im Docker-Netz nicht ohne Anmeldung weiterverteilt wird.
+
+1. Admin → **Kamera**: Die Stream-Adresse deiner Kamera eintragen (nur `rtsp://` oder `rtsps://`, z. B. `rtsp://benutzer:passwort@192.168.1.20:554/stream1`), **Kamera anzeigen** einschalten, speichern.
+2. Der Spiegel meldet den Stream selbst bei go2rtc an. Die Adresse (mit Zugangsdaten) bleibt auf dem Pi: Sie steht in `settings.json` im Volume `mirror-data` und in der Konfiguration von go2rtc im Volume `camera-config`, aber nie im Browser oder im Log.
+3. Das Modul **Kamera** steht in der Standardanordnung oben rechts unter dem Wetter. Auf einer bestehenden Installation fügst du es unter Admin → Anordnung hinzu.
+
+Läuft die Kamera nicht: `docker compose logs camera mirror`. Der Spiegel versucht die Anmeldung bei go2rtc mit wachsenden Abständen erneut, bis der Dienst bereit ist. Veröffentliche Port 1984 nie ins Netz: Die API von go2rtc hat keine Anmeldung und kann Befehle ausführen.
+
 ## 7. Abnahme-Checkliste (am Gerät prüfen)
 
 - [ ] Das Dashboard steht im Vollbild auf dem Monitor, ohne Cursor und ohne Rahmen.

@@ -31,7 +31,8 @@ function keepDistGitignore(): Plugin {
 export default defineConfig({
   plugins: [react(), keepDistGitignore()],
   build: { outDir, emptyOutDir: true },
-  server: { proxy: { '/api': 'http://localhost:8080' } },
+  // ws: the camera stream is a WebSocket below /api.
+  server: { proxy: { '/api': { target: 'http://localhost:8080', ws: true } } },
   test: {
     environment: 'jsdom',
     setupFiles: ['src/test/setup.ts'],

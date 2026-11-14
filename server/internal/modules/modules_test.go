@@ -6,11 +6,11 @@ import (
 )
 
 func TestAvailableListsKeysWithGermanNames(t *testing.T) {
-	want := []Info{{"clock", "Uhr"}, {"weather", "Wetter"}, {"wifi", "WLAN-QR-Code"}, {"bring", "Bring!-Einkaufsliste"}}
+	want := []Info{{"clock", "Uhr"}, {"weather", "Wetter"}, {"camera", "Kamera"}, {"wifi", "WLAN-QR-Code"}, {"bring", "Bring!-Einkaufsliste"}}
 	if got := Available(Input{}); !slices.Equal(got, want) {
 		t.Errorf("Available = %v, want %v", got, want)
 	}
-	if got := Keys(Input{}); !slices.Equal(got, []string{"clock", "weather", "wifi", "bring"}) {
+	if got := Keys(Input{}); !slices.Equal(got, []string{"clock", "weather", "camera", "wifi", "bring"}) {
 		t.Errorf("Keys = %v", got)
 	}
 }

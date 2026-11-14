@@ -9,10 +9,28 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
       MIRROR_CONTROL_DIR: /control
+      MIRROR_GO2RTC_URL: http://camera:1984/
     volumes:
       - mirror-data:/data
       # Shared with the host-side update service (deploy/host).
       - ./control:/control
+
+  # go2rtc turns the camera's RTSP stream into video for the browser. Its API has
+  # no login and can run commands, so it has no `ports:` on purpose: only
+  # containers of this compose network reach it, and `mirror` hands the video on.
+  camera:
+    image: alexxit/go2rtc:1.9.15
+    restart: unless-stopped
+    # go2rtc takes several -config flags; a value starting with "{" is inline
+    # config and overrides the earlier ones, while the first file stays the one
+    # go2rtc writes. The empty rtsp listen address switches off its own RTSP
+    # server: the mirror only needs the API/WebSocket on 1984, and an RTSP
+    # server would re-serve the camera without a login inside the Docker network.
+    command: ["go2rtc", "-config", "/config/go2rtc.yaml", "-config", '{"rtsp":{"listen":""}}']
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - camera-config:/config
 
   kiosk:
     image: ghcr.io/thazzr/mirrornextgen/kiosk:${MIRROR_TAG:-latest}
@@ -36,3 +54,4 @@ services:
 
 volumes:
   mirror-data:
+  camera-config:

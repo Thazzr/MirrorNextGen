@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	owDefault    = "https://api.openweathermap.org/"
-	bringDefault = "https://api.getbring.com/rest/v2/"
+	owDefault     = "https://api.openweathermap.org/"
+	bringDefault  = "https://api.getbring.com/rest/v2/"
+	go2rtcDefault = "http://camera:1984/"
 )
 
 func env(m map[string]string) func(string) string {
@@ -20,14 +21,15 @@ func TestLoad(t *testing.T) {
 		env  map[string]string
 		want Config
 	}{
-		{"defaults", nil, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault}},
-		{"overrides", map[string]string{"MIRROR_ADDR": "127.0.0.1:9000", "MIRROR_DATA_DIR": "/tmp/mirror"}, Config{Addr: "127.0.0.1:9000", DataDir: "/tmp/mirror", OpenWeatherURL: owDefault, BringURL: bringDefault}},
-		{"blank is default", map[string]string{"MIRROR_ADDR": "", "MIRROR_DATA_DIR": ""}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault}},
-		{"whitespace is default", map[string]string{"MIRROR_ADDR": "  \t", "MIRROR_DATA_DIR": " "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault}},
-		{"values are trimmed", map[string]string{"MIRROR_ADDR": " :9090 ", "MIRROR_DATA_DIR": " /x "}, Config{Addr: ":9090", DataDir: "/x", OpenWeatherURL: owDefault, BringURL: bringDefault}},
-		{"ipv6", map[string]string{"MIRROR_ADDR": "[::1]:8080"}, Config{Addr: "[::1]:8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault}},
-		{"bring override", map[string]string{"MIRROR_BRING_URL": " http://127.0.0.1:9998/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: "http://127.0.0.1:9998/"}},
-		{"openweather override", map[string]string{"MIRROR_OPENWEATHER_URL": " http://127.0.0.1:9999/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: "http://127.0.0.1:9999/", BringURL: bringDefault}},
+		{"defaults", nil, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
+		{"overrides", map[string]string{"MIRROR_ADDR": "127.0.0.1:9000", "MIRROR_DATA_DIR": "/tmp/mirror"}, Config{Addr: "127.0.0.1:9000", DataDir: "/tmp/mirror", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
+		{"blank is default", map[string]string{"MIRROR_ADDR": "", "MIRROR_DATA_DIR": ""}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
+		{"whitespace is default", map[string]string{"MIRROR_ADDR": "  \t", "MIRROR_DATA_DIR": " "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
+		{"values are trimmed", map[string]string{"MIRROR_ADDR": " :9090 ", "MIRROR_DATA_DIR": " /x "}, Config{Addr: ":9090", DataDir: "/x", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
+		{"ipv6", map[string]string{"MIRROR_ADDR": "[::1]:8080"}, Config{Addr: "[::1]:8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
+		{"bring override", map[string]string{"MIRROR_BRING_URL": " http://127.0.0.1:9998/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: "http://127.0.0.1:9998/", Go2RTCURL: go2rtcDefault}},
+		{"openweather override", map[string]string{"MIRROR_OPENWEATHER_URL": " http://127.0.0.1:9999/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: "http://127.0.0.1:9999/", BringURL: bringDefault, Go2RTCURL: go2rtcDefault}},
+		{"go2rtc override", map[string]string{"MIRROR_GO2RTC_URL": " http://127.0.0.1:1984/ "}, Config{Addr: ":8080", DataDir: "/data", OpenWeatherURL: owDefault, BringURL: bringDefault, Go2RTCURL: "http://127.0.0.1:1984/"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

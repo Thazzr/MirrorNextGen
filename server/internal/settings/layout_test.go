@@ -20,7 +20,7 @@ func keys(n int) []string {
 
 func TestDefaultLayout(t *testing.T) {
 	want := Layout{
-		TopLeft: []string{"clock"}, TopRight: []string{"weather"}, Middle: []string{},
+		TopLeft: []string{"clock"}, TopRight: []string{"weather", "camera"}, Middle: []string{},
 		BottomLeft: []string{"bring"}, BottomRight: []string{"wifi"},
 	}
 	if got := Defaults().Layout; !reflect.DeepEqual(got, want) {

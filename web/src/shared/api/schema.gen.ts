@@ -444,6 +444,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Camera settings
+         * @description Returns the camera module settings. The stream address never leaves the server; `hasStreamUrl` tells whether one is stored and `streamUrlHint` shows scheme and host only.
+         */
+        get: operations["getCameraSettings"];
+        /**
+         * Change the camera settings
+         * @description Validates and stores the camera settings and registers the stream with the camera service. An absent or empty `streamUrl` keeps the stored one, `clearStreamUrl` deletes it. Only `rtsp://` and `rtsps://` addresses are accepted. Invalid values answer 400 with `errors` keyed by field name (`title`, `streamUrl`, `brightness`, `contrast`, `saturation`); nothing is stored then.
+         */
+        put: operations["updateCameraSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/camera": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Camera module for the dashboard
+         * @description Returns what the dashboard needs to show the camera: whether it is configured (enabled and a stream address stored) plus title and picture filters. Public, because the dashboard reads it without a session; the stream address is never part of it.
+         */
+        get: operations["getDashboardCamera"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/camera/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live video of the camera (WebSocket)
+         * @description WebSocket endpoint the dashboard's player connects to. The server proxies the connection to the internal camera service (go2rtc), always for the one fixed stream the mirror registered: query parameters of the request are ignored and never reach the camera service. Public, because the dashboard has no session; answers 404 while the camera is not configured and 426 to a request that is not a WebSocket upgrade. This route is not a generated operation: the server registers it by hand next to the generated ones.
+         */
+        get: operations["streamCamera"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/calendar": {
         parameters: {
             query?: never;
@@ -766,6 +830,48 @@ export interface components {
             specification?: string;
             /** @description Address of Bring!'s picture for the item; empty when none can be derived. */
             iconUrl: string;
+        };
+        /** @description Camera settings as the admin UI reads them; the stream address is never included. */
+        CameraSettings: {
+            /** @description Shows the camera on the dashboard (needs a stream address). */
+            enabled: boolean;
+            /** @description Heading above the video; may be empty. */
+            title: string;
+            /** @description True when a stream address is stored. */
+            hasStreamUrl: boolean;
+            /** @description Scheme and host of the stored address, for example `rtsp://192.168.1.20`; empty when none is stored. */
+            streamUrlHint: string;
+            /** @description Brightness in percent; 100 leaves the picture unchanged. */
+            brightness: number;
+            /** @description Contrast in percent; 100 leaves the picture unchanged. */
+            contrast: number;
+            /** @description Saturation in percent; 100 leaves the picture unchanged. */
+            saturation: number;
+            /** @description Shows the picture in black and white. */
+            grayscale: boolean;
+        };
+        /** @description New camera settings. */
+        CameraSettingsUpdate: {
+            enabled: boolean;
+            title: string;
+            /** @description New stream address (`rtsp://` or `rtsps://`); absent or empty keeps the stored one. */
+            streamUrl?: string;
+            /** @description Deletes the stored address. Not combinable with a new `streamUrl`. */
+            clearStreamUrl?: boolean;
+            brightness: number;
+            contrast: number;
+            saturation: number;
+            grayscale: boolean;
+        };
+        /** @description Camera display state for the dashboard. */
+        DashboardCamera: {
+            /** @description True when the camera is enabled and a stream address is stored; the dashboard hides the module otherwise. */
+            configured: boolean;
+            title: string;
+            brightness: number;
+            contrast: number;
+            saturation: number;
+            grayscale: boolean;
         };
         /** @description Placement of the modules on the five dashboard regions. Each region is an ordered list of module keys (at most 12); a key may appear only once in the whole layout. */
         Layout: {
@@ -1701,6 +1807,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardBring"];
+                };
+            };
+        };
+    };
+    getCameraSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored camera settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateCameraSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CameraSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The stored camera settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDashboardCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The camera display state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardCamera"];
+                };
+            };
+        };
+    };
+    streamCamera: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching to the WebSocket protocol; binary messages carry the video. */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The request is not a WebSocket upgrade. */
+            426: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The camera service cannot be reached. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

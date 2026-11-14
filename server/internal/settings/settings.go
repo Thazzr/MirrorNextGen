@@ -150,7 +150,7 @@ func (l Layout) Equal(o Layout) bool {
 func DefaultLayout() Layout {
 	return Layout{
 		TopLeft:     []string{"clock"},
-		TopRight:    []string{"weather"},
+		TopRight:    []string{"weather", "camera"},
 		Middle:      []string{},
 		BottomLeft:  []string{"bring"},
 		BottomRight: []string{"wifi"},
@@ -167,6 +167,7 @@ type Settings struct {
 	Wifi          WifiSettings     `json:"wifi"`
 	Bring         BringSettings    `json:"bring"`
 	Calendar      CalendarSettings `json:"calendar"`
+	Camera        CameraSettings   `json:"camera"`
 	Layout        Layout           `json:"layout"`
 }
 
@@ -190,7 +191,7 @@ func (s Settings) ModuleAvailable(key string) bool {
 // Equal reports whether both settings hold the same content.
 func (s Settings) Equal(o Settings) bool {
 	return s.SchemaVersion == o.SchemaVersion && s.Display == o.Display &&
-		s.Weather == o.Weather && s.Wifi == o.Wifi && s.Bring == o.Bring && s.Calendar.equal(o.Calendar) && s.Layout.Equal(o.Layout)
+		s.Weather == o.Weather && s.Wifi == o.Wifi && s.Bring == o.Bring && s.Calendar.equal(o.Calendar) && s.Camera == o.Camera && s.Layout.Equal(o.Layout)
 }
 
 // clone deep-copies the parts of s that are slices.
@@ -238,6 +239,7 @@ func Defaults() Settings {
 		Wifi:          WifiSettings{Security: SecurityWPA},
 		Bring:         BringSettings{MaxItems: 18, RefreshMinutes: 5},
 		Calendar:      defaultCalendar(),
+		Camera:        defaultCamera(),
 		Layout:        DefaultLayout(),
 	}
 }
@@ -303,6 +305,7 @@ func (s Settings) validate(iconExists func(string) bool) map[string]string {
 		errs["bring.refreshMinutes"] = msgBringRefresh
 	}
 	s.Calendar.validate(errs, iconExists)
+	s.Camera.validate(errs)
 	s.validateLayout(errs)
 	if len(errs) == 0 {
 		return nil

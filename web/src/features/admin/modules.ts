@@ -2,6 +2,7 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   IconCalendar,
+  IconCamera,
   IconCloud,
   IconDeviceDesktop,
   IconIcons,
@@ -12,6 +13,7 @@ import {
 } from '@tabler/icons-react'
 import { useCalendarTileStatus } from '../modules/calendar/admin/status.ts'
 import { useWeatherTileStatus } from '../modules/weather/admin/status.ts'
+import { useCameraTileStatus } from '../modules/camera/admin/status.ts'
 import { useBringTileStatus } from '../modules/bring/admin/status.ts'
 import { useWifiTileStatus } from '../modules/wifi/admin/status.ts'
 import { useIconsTileStatus } from './api/iconsStatus.ts'
@@ -88,6 +90,14 @@ export const adminModules: AdminModule[] = [
     path: 'weather',
     load: () => import('../modules/weather/admin/WeatherPage.tsx').then((m) => ({ default: m.WeatherPage })),
     useStatus: useWeatherTileStatus,
+  }),
+  entry({
+    key: 'camera',
+    title: 'Kamera',
+    icon: IconCamera,
+    path: 'camera',
+    load: () => import('../modules/camera/admin/CameraPage.tsx').then((m) => ({ default: m.CameraPage })),
+    useStatus: useCameraTileStatus,
   }),
   entry({
     key: 'wifi',

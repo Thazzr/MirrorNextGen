@@ -1,11 +1,13 @@
 package httpserver
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
@@ -17,6 +19,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/api"
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/calendar"
+	"github.com/thazzr/mirrornextgen/server/internal/camera"
 	"github.com/thazzr/mirrornextgen/server/internal/display"
 	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
@@ -26,6 +29,11 @@ import (
 const indexHTML = "<!doctype html><title>SPA</title>"
 
 func newHandler(t *testing.T, files fstest.MapFS) http.Handler {
+	t.Helper()
+	return newHandlerWithCamera(t, files, nil)
+}
+
+func newHandlerWithCamera(t *testing.T, files fstest.MapFS, cam *camera.Service) http.Handler {
 	t.Helper()
 	admin, err := auth.Load(t.TempDir())
 	if err != nil {
@@ -50,6 +58,7 @@ func newHandler(t *testing.T, files fstest.MapFS) http.Handler {
 		Calendar: calendar.NewService(calendar.ServiceOptions{Feeds: calendar.NewFeeds(calendar.FeedsOptions{})}),
 		Icons:    ic,
 		Display:  display.NewController(display.Options{Schedule: func() display.Schedule { return st.Get().Display.Schedule }}),
+		Camera:   cam,
 	}, files)
 }
 
@@ -218,5 +227,59 @@ func TestLimitBodyRejectsOversizedAPIBodiesButAllowsIconUploads(t *testing.T) {
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	if rec := do(req, cookie, csrf); rec.Code != http.StatusCreated {
 		t.Fatalf("256 KB icon upload: status = %d, body %s", rec.Code, rec.Body)
+	}
+}
+
+// TestCameraStreamRouteIsPublicAndProxiedThroughTheFullStack drives the
+// hand-registered stream route through the complete handler: no session is
+// needed, the upgrade reaches go2rtc for the one fixed stream, and the route
+// does not exist without a camera service.
+func TestCameraStreamRouteIsPublicAndProxiedThroughTheFullStack(t *testing.T) {
+	uris := make(chan string, 1)
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uris <- r.URL.RequestURI()
+		conn, rw, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		_, _ = rw.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
+		_ = rw.Flush()
+	}))
+	defer up.Close()
+	svc, err := camera.New(camera.Options{
+		BaseURL: up.URL,
+		Config:  func() camera.Config { return camera.Config{Enabled: true, StreamURL: "rtsp://cam/x"} },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(newHandlerWithCamera(t, fstest.MapFS{"index.html": {Data: []byte(indexHTML)}}, svc))
+	defer srv.Close()
+
+	conn, err := net.Dial("tcp", strings.TrimPrefix(srv.URL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	_, _ = conn.Write([]byte("GET /api/v1/camera/stream?src=exec:evil HTTP/1.1\r\nHost: mirror\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"))
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
+		t.Fatalf("status = %d, want 101 without a session: %s", resp.StatusCode, b)
+	}
+	if got := <-uris; got != "/api/ws?src=mirror-camera" {
+		t.Errorf("go2rtc saw %q", got)
+	}
+
+	// Without a camera service the path is just an unknown API path.
+	rec := get(newHandler(t, fstest.MapFS{"index.html": {Data: []byte(indexHTML)}}), "/api/v1/camera/stream")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("without camera service: %d", rec.Code)
 	}
 }

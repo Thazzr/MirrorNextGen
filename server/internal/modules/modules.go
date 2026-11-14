@@ -57,6 +57,7 @@ func (d definition) list(in Input) []Info {
 var directory = []definition{
 	{key: "clock", name: "Uhr"},
 	{key: "weather", name: "Wetter"},
+	{key: "camera", name: "Kamera"},
 	{instances: calendarInstances},
 	{key: "wifi", name: "WLAN-QR-Code"},
 	{key: "bring", name: "Bring!-Einkaufsliste"},
