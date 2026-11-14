@@ -1,0 +1,42 @@
+/* Sketch of the portrait mirror: 45 % | 55 % top row, full-width middle, bottom row anchored down. */
+.frame {
+  display: grid;
+  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--mantine-spacing-sm);
+  align-items: start;
+  aspect-ratio: 9 / 16;
+  padding: var(--mantine-spacing-sm);
+  border: 3px solid var(--mantine-color-dark-3);
+  border-radius: var(--mantine-radius-lg);
+  background: var(--mantine-color-dark-8);
+}
+
+.middle {
+  grid-column: 1 / -1;
+}
+
+.bottom {
+  grid-row: 4;
+  align-self: end;
+}
+
+@media (max-width: 600px) {
+  .middle,
+  .bottom {
+    grid-row: auto;
+    /* Overrides the desktop anchoring to the frame's foot. */
+    align-self: stretch;
+  }
+}
+
+/* Phones: no frame proportions, the regions simply stack. */
+@media (max-width: 600px) {
+  .frame {
+    display: flex;
+    flex-direction: column;
+    /* Each card takes the full width, whatever its content. */
+    align-items: stretch;
+    aspect-ratio: auto;
+  }
+}

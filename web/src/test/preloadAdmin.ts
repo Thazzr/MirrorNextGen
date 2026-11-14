@@ -9,5 +9,6 @@ import { beforeAll } from 'vitest'
 export function preloadAdmin() {
   beforeAll(async () => {
     await import('../features/admin/AdminApp.tsx')
+    await (await import('../features/admin/modules.ts')).preloadAdminPages()
   })
 }
