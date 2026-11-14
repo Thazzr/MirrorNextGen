@@ -4,7 +4,7 @@
 //
 // go2rtc's API has no authentication and can run arbitrary commands
 // (exec: sources), so it must stay inside the Docker network and this package
-// only ever registers rtsp:// and rtsps:// addresses under one fixed name. The
+// only ever registers rtsp://, rtsps:// and rtspx:// addresses under one fixed name. The
 // stream address usually contains credentials: it is sent to go2rtc and
 // nowhere else, and never appears in a log line or an error.
 package camera
@@ -27,10 +27,10 @@ import (
 // StreamName is the one stream name the mirror registers and proxies.
 const StreamName = "mirror-camera"
 
-// ErrUnsupportedURL is returned for a stream address that is not rtsp:// or
-// rtsps://. The settings validate this already; the client checks again
+// ErrUnsupportedURL is returned for a stream address that is not rtsp://,
+// rtsps:// or rtspx://. The settings validate this already; the client checks again
 // because the camera service would treat other schemes as commands.
-var ErrUnsupportedURL = errors.New("stream address is not an rtsp or rtsps address")
+var ErrUnsupportedURL = errors.New("stream address is not an rtsp, rtsps or rtspx address")
 
 // Config is the part of the camera settings the service needs.
 type Config struct {
@@ -145,12 +145,38 @@ func (s *Service) Sync(ctx context.Context) error {
 	if !supportedScheme(cfg.StreamURL) {
 		return ErrUnsupportedURL
 	}
-	return s.request(ctx, http.MethodPut, url.Values{"name": {StreamName}, "src": {cfg.StreamURL}})
+	return s.request(ctx, http.MethodPut, url.Values{"name": {StreamName}, "src": {go2rtcSource(cfg.StreamURL)}})
 }
 
 func supportedScheme(raw string) bool {
 	lower := strings.ToLower(raw)
-	return strings.HasPrefix(lower, "rtsp://") || strings.HasPrefix(lower, "rtsps://")
+	return strings.HasPrefix(lower, "rtsp://") || strings.HasPrefix(lower, "rtsps://") || strings.HasPrefix(lower, "rtspx://")
+}
+
+// go2rtcSource is the stream address as go2rtc gets it: without the
+// enableSrtp query parameter, which UniFi Protect adds to its links but which
+// go2rtc's docs say not to use. Everything else stays byte for byte (the
+// token in the path is case-sensitive); the stored settings are not touched.
+func go2rtcSource(raw string) string {
+	base, query, found := strings.Cut(raw, "?")
+	if !found {
+		return raw
+	}
+	var kept []string
+	for _, pair := range strings.Split(query, "&") {
+		key, _, _ := strings.Cut(pair, "=")
+		if k, err := url.QueryUnescape(key); err == nil {
+			key = k
+		}
+		if strings.EqualFold(key, "enableSrtp") {
+			continue
+		}
+		kept = append(kept, pair)
+	}
+	if len(kept) == 0 {
+		return base
+	}
+	return base + "?" + strings.Join(kept, "&")
 }
 
 // endpoint is the go2rtc URL of an API path below the base URL, with the

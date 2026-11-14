@@ -36,6 +36,8 @@ func TestValidateCamera(t *testing.T) {
 		{"title 61", ok(func(c *CameraSettings) { c.Title = strings.Repeat("a", 61) }), "camera.title", msgCamTitle},
 		{"rtsp", ok(func(c *CameraSettings) { c.StreamURL = "rtsp://u:p@192.168.1.20:554/stream1" }), "", ""},
 		{"rtsps upper case", ok(func(c *CameraSettings) { c.StreamURL = "RTSPS://cam.local/live" }), "", ""},
+		{"rtspx", ok(func(c *CameraSettings) { c.StreamURL = "rtspx://host/x" }), "", ""},
+		{"rtspx upper case", ok(func(c *CameraSettings) { c.StreamURL = "RTSPX://host/x" }), "", ""},
 		{"http", ok(func(c *CameraSettings) { c.StreamURL = "http://cam.local/live" }), "camera.streamUrl", msgCamURLShape},
 		{"exec", ok(func(c *CameraSettings) { c.StreamURL = "exec:ffmpeg -i x" }), "camera.streamUrl", msgCamURLShape},
 		{"ffmpeg", ok(func(c *CameraSettings) { c.StreamURL = "ffmpeg:rtsp://cam/live#video=h264" }), "camera.streamUrl", msgCamURLShape},
@@ -77,6 +79,7 @@ func TestCameraURLHintShowsSchemeAndHostOnly(t *testing.T) {
 	tests := []struct{ raw, want string }{
 		{"rtsp://admin:geheim@192.168.1.20:554/stream1?token=abc", "rtsp://192.168.1.20"},
 		{"rtsps://cam.example.org/live/ch0", "rtsps://cam.example.org"},
+		{"rtspx://10.10.1.1:7441/TlgX1QMh0tjJdn17?enableSrtp", "rtspx://10.10.1.1"},
 		{"", ""},
 		{"not a url", ""},
 	}

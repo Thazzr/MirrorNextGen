@@ -436,8 +436,45 @@ func TestProxyAnswers502WhenGo2RTCIsDown(t *testing.T) {
 	}
 }
 
+func TestSyncSendsTheAddressWithoutEnableSrtp(t *testing.T) {
+	tests := []struct{ name, stored, want string }{
+		{"unifi", "rtspx://10.10.1.1:7441/TlgX1QMh0tjJdn17?enableSrtp", "rtspx://10.10.1.1:7441/TlgX1QMh0tjJdn17"},
+		{"keeps other parameters", "rtspx://10.10.1.1:7441/Tok?enableSrtp=true&foo=1", "rtspx://10.10.1.1:7441/Tok?foo=1"},
+		{"keeps parameters before it", "rtsp://h/x?a=1&enableSrtp&b=2", "rtsp://h/x?a=1&b=2"},
+		{"any case", "rtspx://h/Ab?EnableSrtp", "rtspx://h/Ab"},
+		{"rtsps too", "rtsps://h:7441/Ab?enableSrtp", "rtsps://h:7441/Ab"},
+		{"no query", "rtspx://h/Ab", "rtspx://h/Ab"},
+		{"similar name stays", "rtsp://h/x?enableSrtpX=1", "rtsp://h/x?enableSrtpX=1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFakeGo2RTC(t)
+			logs := &logBuf{}
+			cfg := Config{Enabled: true, StreamURL: tt.stored}
+			s := newService(t, f.server.URL, fixed(cfg), logs)
+			if err := s.Sync(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			calls := f.got()
+			if len(calls) != 1 {
+				t.Fatalf("calls = %+v", calls)
+			}
+			want := url.Values{"name": {StreamName}, "src": {tt.want}}.Encode()
+			if calls[0].query != want {
+				t.Errorf("query = %s, want %s", calls[0].query, want)
+			}
+			if cfg.StreamURL != tt.stored {
+				t.Errorf("stored address changed to %q", cfg.StreamURL)
+			}
+			if strings.Contains(logs.String(), "Ab") || strings.Contains(logs.String(), "TlgX") {
+				t.Errorf("log leaks the address: %s", logs)
+			}
+		})
+	}
+}
+
 func TestSupportedSchemeIsCaseInsensitive(t *testing.T) {
-	for _, raw := range []string{"RTSP://host/x", "Rtsps://host/x", "rtsp://host/x"} {
+	for _, raw := range []string{"RTSP://host/x", "Rtsps://host/x", "rtsp://host/x", "rtspx://host/x", "RTSPX://host/x"} {
 		f := newFakeGo2RTC(t)
 		s := newService(t, f.server.URL, fixed(Config{Enabled: true, StreamURL: raw}), io.Discard)
 		if err := s.Sync(context.Background()); err != nil {

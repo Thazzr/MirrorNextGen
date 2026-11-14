@@ -10,7 +10,7 @@ import (
 // Messages of the camera field errors.
 const (
 	msgCamTitle     = "Höchstens 60 Zeichen."
-	msgCamURLShape  = "Die Adresse muss mit rtsp:// oder rtsps:// beginnen und einen Rechner nennen."
+	msgCamURLShape  = "Die Adresse muss mit rtsp://, rtsps:// oder rtspx:// beginnen und einen Rechner nennen."
 	msgCamURLLength = "Höchstens 2000 Zeichen."
 	msgCamPercent   = "Erlaubt sind 0 bis 200 %."
 )
@@ -27,7 +27,7 @@ const (
 type CameraSettings struct {
 	Enabled bool   `json:"enabled"`
 	Title   string `json:"title"`
-	// StreamURL is an rtsp:// or rtsps:// address; "" means none is stored.
+	// StreamURL is an rtsp://, rtsps:// or rtspx:// address; "" means none is stored.
 	StreamURL  string `json:"streamUrl"`
 	Brightness int    `json:"brightness"`
 	Contrast   int    `json:"contrast"`
@@ -52,7 +52,8 @@ func CameraURLHint(raw string) string {
 	return u.Scheme + "://" + u.Hostname()
 }
 
-// ValidCameraURL accepts only rtsp and rtsps addresses with a host. Nothing
+// ValidCameraURL accepts only rtsp, rtsps and rtspx addresses (rtspx is
+// go2rtc's RTSP over TLS without certificate verification, for UniFi Protect) with a host. Nothing
 // else may reach the camera service: its API would run other sources (such as
 // exec:) as commands.
 func ValidCameraURL(raw string) bool {
@@ -61,7 +62,7 @@ func ValidCameraURL(raw string) bool {
 		return false
 	}
 	switch u.Scheme { // url.Parse lower-cases the scheme
-	case "rtsp", "rtsps":
+	case "rtsp", "rtsps", "rtspx":
 	default:
 		return false
 	}

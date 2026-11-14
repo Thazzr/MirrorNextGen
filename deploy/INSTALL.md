@@ -106,7 +106,7 @@ Der Kiosk wartet, bis der Server bereit ist, und startet dann die Anzeige. Beend
 
 Der Dienst `camera` (go2rtc) startet mit `docker compose up -d` von selbst und braucht keine Einrichtung. Er hat keinen veröffentlichten Port: Nur `mirror` im internen Docker-Netz erreicht ihn, das Video geht über `http://<pi>:8080` an den Kiosk. Den eigenen RTSP-Server von go2rtc schaltet `compose.yaml` ab, damit die Kamera im Docker-Netz nicht ohne Anmeldung weiterverteilt wird.
 
-1. Admin → **Kamera**: Die Stream-Adresse deiner Kamera eintragen (nur `rtsp://` oder `rtsps://`, z. B. `rtsp://benutzer:passwort@192.168.1.20:554/stream1`), **Kamera anzeigen** einschalten, speichern.
+1. Admin → **Kamera**: Die Stream-Adresse deiner Kamera eintragen (`rtsp://`, `rtsps://` oder `rtspx://`, z. B. `rtsp://benutzer:passwort@192.168.1.20:554/stream1`), **Kamera anzeigen** einschalten, speichern. Bei UniFi Protect trägst du `rtspx://` statt `rtsps://` ein (ohne Zertifikatsprüfung, weil UniFi ein eigenes Zertifikat nutzt); ein angehängtes `?enableSrtp` entfernt der Spiegel beim Anmelden bei go2rtc selbst.
 2. Der Spiegel meldet den Stream selbst bei go2rtc an. Die Adresse (mit Zugangsdaten) bleibt auf dem Pi: Sie steht in `settings.json` im Volume `mirror-data` und in der Konfiguration von go2rtc im Volume `camera-config`, aber nie im Browser oder im Log.
 3. Das Modul **Kamera** steht in der Standardanordnung oben rechts unter dem Wetter. Auf einer bestehenden Installation fügst du es unter Admin → Anordnung hinzu.
 
