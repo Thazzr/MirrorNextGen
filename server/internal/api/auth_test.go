@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strconv"
@@ -18,6 +19,8 @@ import (
 	"time"
 
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
+	"github.com/thazzr/mirrornextgen/server/internal/calendar"
+	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
 )
 
@@ -61,8 +64,12 @@ type testEnv struct {
 	patterns []string
 	// lastOp is the operation ID of the latest request that reached the
 	// middleware chain (set by an extra, outermost middleware).
-	lastOp *string
-	ow     *fakeOW
+	lastOp   *string
+	ow       *fakeOW
+	feed     *fakeFeed
+	icons    *icons.Store
+	iconsDir string
+	logs     *syncBuffer
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -84,6 +91,24 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 	}
 	clock := &testClock{t: time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)}
 	weatherSvc, ow := newTestWeather(t, settingsStore, clock.now)
+	feed := newFakeFeed(t)
+	logs := &syncBuffer{}
+	dataDir := t.TempDir()
+	iconStore, err := icons.Load(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settingsStore.SetIconChecker(iconStore.Exists)
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	calSvc := calendar.NewService(calendar.ServiceOptions{
+		Feeds:    calendar.NewFeeds(calendar.FeedsOptions{HTTPClient: feed.server.Client(), Now: clock.now, Logger: slog.New(slog.NewTextHandler(logs, nil))}),
+		Now:      clock.now,
+		Location: berlin,
+		Logger:   slog.New(slog.NewTextHandler(logs, nil)),
+	})
 	deps := Deps{
 		Build:    BuildInfo{Version: "1.2.3", Commit: "abc123", BuildTime: "2026-01-02T03:04:05Z"},
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -92,6 +117,8 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 		Throttle: auth.NewThrottle(clock.now),
 		Settings: settingsStore,
 		Weather:  weatherSvc,
+		Calendar: calSvc,
+		Icons:    iconStore,
 	}
 	mux := &recordingMux{ServeMux: http.NewServeMux()}
 	lastOp := new(string)
@@ -104,7 +131,7 @@ func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
 			return next(ctx, w, r, req)
 		}
 	})
-	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, ow: ow}
+	return &testEnv{handler: mux, clock: clock, patterns: mux.patterns, lastOp: lastOp, ow: ow, feed: feed, icons: iconStore, iconsDir: filepath.Join(dataDir, "icons"), logs: logs}
 }
 
 type opts struct {
@@ -532,7 +559,14 @@ func TestEveryOperationIsProtectedUnlessPublic(t *testing.T) {
 				body = map[string]string{} // decodes fine, so the middleware is reached
 			}
 			*e.lastOp = ""
-			rec := e.do(method, path, body, opts{})
+			var rec *httptest.ResponseRecorder
+			if path == "/api/v1/icons" && method == http.MethodPost {
+				// A multipart operation fails to decode a JSON body before the
+				// middleware runs, so it gets a well-formed empty form.
+				rec = e.doMultipart(path, nil, "", nil, opts{})
+			} else {
+				rec = e.do(method, path, body, opts{})
+			}
 			op := *e.lastOp
 			if op == "" {
 				t.Fatalf("%s never reached the middleware chain (status %d)", pattern, rec.Code)

@@ -142,16 +142,25 @@ func DefaultLayout() Layout {
 // file written before a section existed still loads (see parse). Layout
 // holds slices, so Settings is compared with Equal, not ==.
 type Settings struct {
-	SchemaVersion int             `json:"schemaVersion"`
-	Display       DisplaySettings `json:"display"`
-	Weather       WeatherSettings `json:"weather"`
-	Wifi          WifiSettings    `json:"wifi"`
-	Layout        Layout          `json:"layout"`
+	SchemaVersion int              `json:"schemaVersion"`
+	Display       DisplaySettings  `json:"display"`
+	Weather       WeatherSettings  `json:"weather"`
+	Wifi          WifiSettings     `json:"wifi"`
+	Calendar      CalendarSettings `json:"calendar"`
+	Layout        Layout           `json:"layout"`
 }
 
-// moduleInput hands the modules directory what it needs to know about the
-// settings (nothing yet; calendar sections will come here).
-func (s Settings) moduleInput() modules.Input { return modules.Input{} }
+// ModuleInput hands the modules directory what it needs to know about the
+// settings: the calendar sections behind the "calendar:<id>" keys.
+func (s Settings) ModuleInput() modules.Input {
+	in := modules.Input{CalendarSections: make([]modules.Section, 0, len(s.Calendar.Sections))}
+	for _, sec := range s.Calendar.Sections {
+		in.CalendarSections = append(in.CalendarSections, modules.Section{ID: sec.ID, Title: sec.Title, Shifts: sec.Type == SectionShifts})
+	}
+	return in
+}
+
+func (s Settings) moduleInput() modules.Input { return s.ModuleInput() }
 
 // ModuleAvailable reports whether key names a module that exists under s.
 func (s Settings) ModuleAvailable(key string) bool {
@@ -161,12 +170,13 @@ func (s Settings) ModuleAvailable(key string) bool {
 // Equal reports whether both settings hold the same content.
 func (s Settings) Equal(o Settings) bool {
 	return s.SchemaVersion == o.SchemaVersion && s.Display == o.Display &&
-		s.Weather == o.Weather && s.Wifi == o.Wifi && s.Layout.Equal(o.Layout)
+		s.Weather == o.Weather && s.Wifi == o.Wifi && s.Calendar.equal(o.Calendar) && s.Layout.Equal(o.Layout)
 }
 
 // clone deep-copies the parts of s that are slices.
 func (s Settings) clone() Settings {
 	s.Layout = s.Layout.normalized()
+	s.Calendar = s.Calendar.clone()
 	return s
 }
 
@@ -205,12 +215,17 @@ func Defaults() Settings {
 		SchemaVersion: SchemaVersion,
 		Weather:       WeatherSettings{ShowIcons: true, RefreshMinutes: 15},
 		Wifi:          WifiSettings{Security: SecurityWPA},
+		Calendar:      defaultCalendar(),
 		Layout:        DefaultLayout(),
 	}
 }
 
 // Validate returns a German message per invalid field path; nil means valid.
-func (s Settings) Validate() map[string]string {
+// It does not check that uploaded icon ids exist (the Store does on update).
+func (s Settings) Validate() map[string]string { return s.validate(nil) }
+
+// validate is Validate with a check of uploaded icon ids; nil skips it.
+func (s Settings) validate(iconExists func(string) bool) map[string]string {
 	errs := map[string]string{}
 	switch s.Display.Rotation {
 	case 0, 90, 180, 270:
@@ -243,6 +258,7 @@ func (s Settings) Validate() map[string]string {
 	if pwLen > 63 || (f.SSID != "" && f.Security == SecurityWPA && pwLen < 8) {
 		errs["wifi.password"] = msgWifiPassword
 	}
+	s.Calendar.validate(errs, iconExists)
 	s.validateLayout(errs)
 	if len(errs) == 0 {
 		return nil

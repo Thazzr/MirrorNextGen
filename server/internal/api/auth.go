@@ -49,6 +49,13 @@ var publicOperations = map[string]bool{
 	// The dashboard reads the layout without a session; it contains only
 	// module keys, filtered to the modules that exist.
 	"GetDashboardLayout": true,
+	// The dashboard reads calendar sections without a session. They carry
+	// event titles and places of the household's own calendars (the purpose
+	// of the module) but never the calendar addresses, which stay secret.
+	"GetDashboardCalendarSection": true,
+	// The dashboard loads uploaded icons without a session; the files are
+	// validated at upload and served with a locked-down CSP.
+	"GetIconFile": true,
 }
 
 type ctxKey struct{}

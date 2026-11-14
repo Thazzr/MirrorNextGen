@@ -405,6 +405,221 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardWifi"
+  /api/v1/settings/calendar:
+    get:
+      operationId: getCalendarSettings
+      summary: Calendar settings
+      description: >-
+        Returns the calendars, sections and rules. The calendar addresses never leave the
+        server; each calendar carries a shortened `urlHint` and `hasUrl` instead.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored calendar settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateCalendarSettings
+      summary: Change the calendar settings
+      description: >-
+        Validates and stores the calendar settings. An absent or empty `url` keeps the stored
+        address of the calendar with the same id; a new id needs one. Invalid values answer 400
+        with `errors` keyed by field path with indices (`calendars.0.url`, `sections.1.title`,
+        `rules.2.text`, `sections.0.shifts.1.start`); nothing is stored then. A new section is
+        appended to the `topLeft` region of the layout, a removed one leaves the layout.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarSettingsUpdate"
+      responses:
+        "200":
+          description: The stored calendar settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/calendar/preview:
+    post:
+      operationId: previewCalendar
+      summary: Preview an unsaved calendar draft
+      description: >-
+        Evaluates the draft (same body as the update) against the real calendar data without
+        storing it: which events each section would show and which rules matched. Calendars
+        that exist with the same id and no `url` use the stored address. An invalid draft
+        answers 400 like the update.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarSettingsUpdate"
+      responses:
+        "200":
+          description: The preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarPreview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/dashboard/calendar/{sectionId}:
+    get:
+      operationId: getDashboardCalendarSection
+      summary: Calendar section for the dashboard
+      description: >-
+        Returns the events (type `list`) or the shift days (type `shifts`) of one section.
+        Public, because the dashboard reads it without a session; it contains no calendar
+        addresses. A failing calendar is reported in `error`, not as an HTTP error.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The section's data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardCalendarSection"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/icons:
+    get:
+      operationId: listIcons
+      summary: Uploaded icons
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The uploaded icons, in upload order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Icon"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: uploadIcon
+      summary: Upload an icon
+      description: >-
+        Stores an SVG or PNG of at most 256 KB. The type is detected from the content. SVGs
+        with scripts, event handlers, external references or a DOCTYPE are rejected. 400
+        answers with `errors.file`.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                name:
+                  type: string
+                  description: Display name (1 to 60 characters); defaults to the file name without extension.
+      responses:
+        "201":
+          description: The stored icon.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Icon"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/icons/{id}:
+    delete:
+      operationId: deleteIcon
+      summary: Delete an icon
+      description: Answers 409 while the calendar settings still reference the icon.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: The icon was deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/icons/{id}/file:
+    get:
+      operationId: getIconFile
+      summary: The file of an icon
+      description: >-
+        Public, because the dashboard loads icons without a session. Served with a restrictive
+        Content-Security-Policy and `nosniff`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The icon file.
+          headers:
+            Content-Security-Policy:
+              schema:
+                type: string
+            X-Content-Type-Options:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     sessionCookie:
@@ -439,8 +654,14 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     Conflict:
-      description: The request does not fit the current state of the admin access.
+      description: The request does not fit the current state.
       content:
         application/problem+json:
           schema:
@@ -807,3 +1028,330 @@ components:
           description: "`size` strings of `size` characters, 1 for a dark and 0 for a light module."
           items:
             type: string
+    IconRef:
+      type: object
+      description: A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [none, bootstrap, upload]
+        name:
+          type: string
+          description: Bootstrap icon name (`^[a-z0-9-]{1,40}$`), for kind `bootstrap`.
+        file:
+          type: string
+          description: Id of an uploaded icon, for kind `upload`.
+    Icon:
+      type: object
+      description: An uploaded icon.
+      required: [id, name, contentType, size]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        contentType:
+          type: string
+          enum: [image/svg+xml, image/png]
+        size:
+          type: integer
+          description: Bytes.
+    CalendarSource:
+      type: object
+      description: A calendar as the admin UI reads it; the address is replaced by a hint.
+      required: [id, name, icon, hasUrl, urlHint]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        hasUrl:
+          type: boolean
+        urlHint:
+          type: string
+          description: Scheme, host and shortened last path segment, for example `https://calendar.google.com/.../basic.ics`.
+    CalendarSourceUpdate:
+      type: object
+      required: [id, name, icon]
+      properties:
+        id:
+          type: string
+          description: Lowercase letters, digits and hyphens, at most 40 characters; unique.
+        name:
+          type: string
+          description: 1 to 60 characters.
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        url:
+          type: string
+          description: iCal address (http, https, webcal, webcals); absent or empty keeps the stored one.
+    CalendarShift:
+      type: object
+      description: Maps a title keyword to a named shift.
+      required: [id, match, matchMode, label, start, end, icon]
+      properties:
+        id:
+          type: string
+        match:
+          type: string
+          description: 1 to 40 characters.
+        matchMode:
+          type: string
+          enum: [equals, startsWith, contains]
+        label:
+          type: string
+          description: 1 to 40 characters.
+        start:
+          type: string
+          description: "`HH:mm`; empty together with `end`."
+        end:
+          type: string
+          description: "`HH:mm`; empty together with `start`."
+        icon:
+          $ref: "#/components/schemas/IconRef"
+    CalendarSection:
+      type: object
+      description: A calendar area of the mirror, one module instance (`calendar:<id>`).
+      required: [id, title, type, calendarIds, maxEvents, lookAheadDays, shiftDays, shifts]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          description: 1 to 60 characters.
+        type:
+          type: string
+          enum: [list, shifts]
+        calendarIds:
+          type: array
+          description: Ids of existing calendars; at least one.
+          items:
+            type: string
+        maxEvents:
+          type: integer
+          description: 1 to 30; 0 means the default 8.
+        lookAheadDays:
+          type: integer
+          description: 1 to 60; 0 means the default 14.
+        shiftDays:
+          type: integer
+          description: 1 to 7; 0 means the default 2.
+        shifts:
+          type: array
+          description: Only for type `shifts`.
+          items:
+            $ref: "#/components/schemas/CalendarShift"
+    CalendarRule:
+      type: object
+      required: [id, calendarIds, matchMode, text, action, icon, renameTo]
+      properties:
+        id:
+          type: string
+        calendarIds:
+          type: array
+          description: Calendars the rule applies to; empty means all.
+          items:
+            type: string
+        matchMode:
+          type: string
+          enum: [contains, startsWith, equals]
+        text:
+          type: string
+          description: At most 80 characters; empty matches every title.
+        action:
+          type: string
+          enum: [hide, icon, rename]
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        renameTo:
+          type: string
+          description: 1 to 80 characters for action `rename`.
+    CalendarSettings:
+      type: object
+      required: [refreshMinutes, calendars, sections, rules]
+      properties:
+        refreshMinutes:
+          type: integer
+          minimum: 5
+          maximum: 1440
+        calendars:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSource"
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSection"
+        rules:
+          type: array
+          description: Evaluated in this order.
+          items:
+            $ref: "#/components/schemas/CalendarRule"
+    CalendarSettingsUpdate:
+      type: object
+      required: [refreshMinutes, calendars, sections, rules]
+      properties:
+        refreshMinutes:
+          type: integer
+          minimum: 5
+          maximum: 1440
+        calendars:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSourceUpdate"
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSection"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarRule"
+    PreviewItem:
+      type: object
+      description: One candidate event in the admin preview.
+      required: [title, originalTitle, timeLabel, relative, icon, allDay, ongoing, hidden, shown, matchedRules, calendarId, start]
+      properties:
+        title:
+          type: string
+          description: Title after the rules.
+        originalTitle:
+          type: string
+        location:
+          type: string
+        timeLabel:
+          type: string
+        relative:
+          type: string
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        allDay:
+          type: boolean
+        ongoing:
+          type: boolean
+        hidden:
+          type: boolean
+          description: A hide rule removed the event.
+        shown:
+          type: boolean
+          description: The event would appear on the mirror.
+        matchedRules:
+          type: array
+          description: Ids of the rules that matched, in order.
+          items:
+            type: string
+        calendarId:
+          type: string
+        start:
+          type: string
+          format: date-time
+    ShiftDay:
+      type: object
+      description: One day of the compact shift display.
+      required: [date, dayLabel, text, icon, free]
+      properties:
+        date:
+          type: string
+          format: date
+        dayLabel:
+          type: string
+          description: "`Heute`, `Morgen` or the weekday."
+        text:
+          type: string
+          description: For example `Frühdienst 06–14 Uhr` or `frei`.
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        free:
+          type: boolean
+    CalendarPreviewSection:
+      type: object
+      required: [id, title, type]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [list, shifts]
+        error:
+          type: string
+        items:
+          type: array
+          description: Type `list`; all candidates of the look-ahead window.
+          items:
+            $ref: "#/components/schemas/PreviewItem"
+        days:
+          type: array
+          description: Type `shifts`.
+          items:
+            $ref: "#/components/schemas/ShiftDay"
+        summary:
+          type: string
+          description: "Type `shifts`; for example `Heute: Frühdienst 06–14 Uhr · Morgen: frei`."
+    CalendarError:
+      type: object
+      required: [calendarId, message]
+      properties:
+        calendarId:
+          type: string
+        message:
+          type: string
+    CalendarPreview:
+      type: object
+      required: [sections, calendarErrors]
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarPreviewSection"
+        calendarErrors:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarError"
+    DashboardCalendarItem:
+      type: object
+      required: [title, timeLabel, relative, icon, allDay, ongoing]
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+        timeLabel:
+          type: string
+        relative:
+          type: string
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        allDay:
+          type: boolean
+        ongoing:
+          type: boolean
+    DashboardCalendarSection:
+      type: object
+      description: Data of one calendar section for the dashboard.
+      required: [id, title, type]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [list, shifts]
+        error:
+          type: string
+          description: German message when calendars could not be loaded.
+        items:
+          type: array
+          description: Type `list`.
+          items:
+            $ref: "#/components/schemas/DashboardCalendarItem"
+        days:
+          type: array
+          description: Type `shifts`.
+          items:
+            $ref: "#/components/schemas/ShiftDay"

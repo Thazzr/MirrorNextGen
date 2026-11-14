@@ -20,7 +20,7 @@ func New(deps api.Deps, webFS fs.FS) http.Handler {
 	apiMux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		api.WriteProblem(w, http.StatusNotFound, "")
 	})
-	mux.Handle("/api/", noStore(apiMux))
+	mux.Handle("/api/", noStore(limitBody(apiMux)))
 	mux.Handle("/", web.Handler(webFS))
 	return noSniff(mux)
 }
@@ -28,6 +28,17 @@ func New(deps api.Deps, webFS fs.FS) http.Handler {
 func noSniff(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// maxBodyBytes bounds every API request body; the largest legitimate one is an
+// icon upload (256 KB plus multipart overhead).
+const maxBodyBytes = 1 << 20
+
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		next.ServeHTTP(w, r)
 	})
 }

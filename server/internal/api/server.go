@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
+	"github.com/thazzr/mirrornextgen/server/internal/calendar"
+	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
 	"github.com/thazzr/mirrornextgen/server/internal/weather"
 )
@@ -27,6 +30,8 @@ type Deps struct {
 	Throttle *auth.Throttle
 	Settings *settings.Store
 	Weather  *weather.Service
+	Calendar *calendar.Service
+	Icons    *icons.Store
 }
 
 // Server implements the generated StrictServerInterface.
@@ -37,13 +42,18 @@ type Server struct {
 	throttle *auth.Throttle
 	settings *settings.Store
 	weather  *weather.Service
+	calendar *calendar.Service
+	icons    *icons.Store
+	// iconMu serialises icon deletes with calendar updates, so an icon cannot
+	// be deleted while a settings change that references it is being stored.
+	iconMu sync.Mutex
 }
 
 var _ StrictServerInterface = (*Server)(nil)
 
 // NewServer returns a Server wired to deps.
 func NewServer(deps Deps) *Server {
-	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather}
+	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle, settings: deps.Settings, weather: deps.Weather, calendar: deps.Calendar, icons: deps.Icons}
 }
 
 // GetHealth answers the liveness check.

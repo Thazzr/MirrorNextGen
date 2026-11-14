@@ -340,6 +340,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Calendar settings
+         * @description Returns the calendars, sections and rules. The calendar addresses never leave the server; each calendar carries a shortened `urlHint` and `hasUrl` instead.
+         */
+        get: operations["getCalendarSettings"];
+        /**
+         * Change the calendar settings
+         * @description Validates and stores the calendar settings. An absent or empty `url` keeps the stored address of the calendar with the same id; a new id needs one. Invalid values answer 400 with `errors` keyed by field path with indices (`calendars.0.url`, `sections.1.title`, `rules.2.text`, `sections.0.shifts.1.start`); nothing is stored then. A new section is appended to the `topLeft` region of the layout, a removed one leaves the layout.
+         */
+        put: operations["updateCalendarSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/calendar/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview an unsaved calendar draft
+         * @description Evaluates the draft (same body as the update) against the real calendar data without storing it: which events each section would show and which rules matched. Calendars that exist with the same id and no `url` use the stored address. An invalid draft answers 400 like the update.
+         */
+        post: operations["previewCalendar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/calendar/{sectionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Calendar section for the dashboard
+         * @description Returns the events (type `list`) or the shift days (type `shifts`) of one section. Public, because the dashboard reads it without a session; it contains no calendar addresses. A failing calendar is reported in `error`, not as an HTTP error.
+         */
+        get: operations["getDashboardCalendarSection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/icons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uploaded icons */
+        get: operations["listIcons"];
+        put?: never;
+        /**
+         * Upload an icon
+         * @description Stores an SVG or PNG of at most 256 KB. The type is detected from the content. SVGs with scripts, event handlers, external references or a DOCTYPE are rejected. 400 answers with `errors.file`.
+         */
+        post: operations["uploadIcon"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/icons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an icon
+         * @description Answers 409 while the calendar settings still reference the icon.
+         */
+        delete: operations["deleteIcon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/icons/{id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The file of an icon
+         * @description Public, because the dashboard loads icons without a session. Served with a restrictive Content-Security-Policy and `nosniff`.
+         */
+        get: operations["getIconFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -557,6 +682,177 @@ export interface components {
             /** @description `size` strings of `size` characters, 1 for a dark and 0 for a light module. */
             rows: string[];
         };
+        /** @description A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none. */
+        IconRef: {
+            /** @enum {string} */
+            kind: "none" | "bootstrap" | "upload";
+            /** @description Bootstrap icon name (`^[a-z0-9-]{1,40}$`), for kind `bootstrap`. */
+            name?: string;
+            /** @description Id of an uploaded icon, for kind `upload`. */
+            file?: string;
+        };
+        /** @description An uploaded icon. */
+        Icon: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            contentType: "image/svg+xml" | "image/png";
+            /** @description Bytes. */
+            size: number;
+        };
+        /** @description A calendar as the admin UI reads it; the address is replaced by a hint. */
+        CalendarSource: {
+            id: string;
+            name: string;
+            icon: components["schemas"]["IconRef"];
+            hasUrl: boolean;
+            /** @description Scheme, host and shortened last path segment, for example `https://calendar.google.com/.../basic.ics`. */
+            urlHint: string;
+        };
+        CalendarSourceUpdate: {
+            /** @description Lowercase letters, digits and hyphens, at most 40 characters; unique. */
+            id: string;
+            /** @description 1 to 60 characters. */
+            name: string;
+            icon: components["schemas"]["IconRef"];
+            /** @description iCal address (http, https, webcal, webcals); absent or empty keeps the stored one. */
+            url?: string;
+        };
+        /** @description Maps a title keyword to a named shift. */
+        CalendarShift: {
+            id: string;
+            /** @description 1 to 40 characters. */
+            match: string;
+            /** @enum {string} */
+            matchMode: "equals" | "startsWith" | "contains";
+            /** @description 1 to 40 characters. */
+            label: string;
+            /** @description `HH:mm`; empty together with `end`. */
+            start: string;
+            /** @description `HH:mm`; empty together with `start`. */
+            end: string;
+            icon: components["schemas"]["IconRef"];
+        };
+        /** @description A calendar area of the mirror, one module instance (`calendar:<id>`). */
+        CalendarSection: {
+            id: string;
+            /** @description 1 to 60 characters. */
+            title: string;
+            /** @enum {string} */
+            type: "list" | "shifts";
+            /** @description Ids of existing calendars; at least one. */
+            calendarIds: string[];
+            /** @description 1 to 30; 0 means the default 8. */
+            maxEvents: number;
+            /** @description 1 to 60; 0 means the default 14. */
+            lookAheadDays: number;
+            /** @description 1 to 7; 0 means the default 2. */
+            shiftDays: number;
+            /** @description Only for type `shifts`. */
+            shifts: components["schemas"]["CalendarShift"][];
+        };
+        CalendarRule: {
+            id: string;
+            /** @description Calendars the rule applies to; empty means all. */
+            calendarIds: string[];
+            /** @enum {string} */
+            matchMode: "contains" | "startsWith" | "equals";
+            /** @description At most 80 characters; empty matches every title. */
+            text: string;
+            /** @enum {string} */
+            action: "hide" | "icon" | "rename";
+            icon: components["schemas"]["IconRef"];
+            /** @description 1 to 80 characters for action `rename`. */
+            renameTo: string;
+        };
+        CalendarSettings: {
+            refreshMinutes: number;
+            calendars: components["schemas"]["CalendarSource"][];
+            sections: components["schemas"]["CalendarSection"][];
+            /** @description Evaluated in this order. */
+            rules: components["schemas"]["CalendarRule"][];
+        };
+        CalendarSettingsUpdate: {
+            refreshMinutes: number;
+            calendars: components["schemas"]["CalendarSourceUpdate"][];
+            sections: components["schemas"]["CalendarSection"][];
+            rules: components["schemas"]["CalendarRule"][];
+        };
+        /** @description One candidate event in the admin preview. */
+        PreviewItem: {
+            /** @description Title after the rules. */
+            title: string;
+            originalTitle: string;
+            location?: string;
+            timeLabel: string;
+            relative: string;
+            icon: components["schemas"]["IconRef"];
+            allDay: boolean;
+            ongoing: boolean;
+            /** @description A hide rule removed the event. */
+            hidden: boolean;
+            /** @description The event would appear on the mirror. */
+            shown: boolean;
+            /** @description Ids of the rules that matched, in order. */
+            matchedRules: string[];
+            calendarId: string;
+            /** Format: date-time */
+            start: string;
+        };
+        /** @description One day of the compact shift display. */
+        ShiftDay: {
+            /** Format: date */
+            date: string;
+            /** @description `Heute`, `Morgen` or the weekday. */
+            dayLabel: string;
+            /** @description For example `Frühdienst 06–14 Uhr` or `frei`. */
+            text: string;
+            icon: components["schemas"]["IconRef"];
+            free: boolean;
+        };
+        CalendarPreviewSection: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            type: "list" | "shifts";
+            error?: string;
+            /** @description Type `list`; all candidates of the look-ahead window. */
+            items?: components["schemas"]["PreviewItem"][];
+            /** @description Type `shifts`. */
+            days?: components["schemas"]["ShiftDay"][];
+            /** @description Type `shifts`; for example `Heute: Frühdienst 06–14 Uhr · Morgen: frei`. */
+            summary?: string;
+        };
+        CalendarError: {
+            calendarId: string;
+            message: string;
+        };
+        CalendarPreview: {
+            sections: components["schemas"]["CalendarPreviewSection"][];
+            calendarErrors: components["schemas"]["CalendarError"][];
+        };
+        DashboardCalendarItem: {
+            title: string;
+            location?: string;
+            timeLabel: string;
+            relative: string;
+            icon: components["schemas"]["IconRef"];
+            allDay: boolean;
+            ongoing: boolean;
+        };
+        /** @description Data of one calendar section for the dashboard. */
+        DashboardCalendarSection: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            type: "list" | "shifts";
+            /** @description German message when calendars could not be loaded. */
+            error?: string;
+            /** @description Type `list`. */
+            items?: components["schemas"]["DashboardCalendarItem"][];
+            /** @description Type `shifts`. */
+            days?: components["schemas"]["ShiftDay"][];
+        };
     };
     responses: {
         /** @description The request is invalid; `errors` names the offending fields. */
@@ -586,7 +882,16 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description The request does not fit the current state of the admin access. */
+        /** @description The resource does not exist. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The request does not fit the current state. */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -1069,6 +1374,208 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardWifi"];
                 };
             };
+        };
+    };
+    getCalendarSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored calendar settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateCalendarSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The stored calendar settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    previewCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The preview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDashboardCalendarSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The section's data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardCalendarSection"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listIcons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The uploaded icons, in upload order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Icon"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    uploadIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description Display name (1 to 60 characters); defaults to the file name without extension. */
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The stored icon. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Icon"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The icon was deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getIconFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The icon file. */
+            200: {
+                headers: {
+                    "Content-Security-Policy"?: string;
+                    "X-Content-Type-Options"?: string;
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/svg+xml": string;
+                    "image/png": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
 }

@@ -35,8 +35,7 @@ func (s *Server) UpdateLayoutSettings(_ context.Context, request UpdateLayoutSet
 
 // ListModules lists the modules that exist under the current settings.
 func (s *Server) ListModules(_ context.Context, _ ListModulesRequestObject) (ListModulesResponseObject, error) {
-	_ = s.settings.Get() // later modules derive their instances from the settings
-	infos := modules.Available(modules.Input{})
+	infos := modules.Available(s.settings.Get().ModuleInput())
 	out := make(ListModules200JSONResponse, 0, len(infos))
 	for _, m := range infos {
 		out = append(out, ModuleInfo{Key: m.Key, Name: m.Name})

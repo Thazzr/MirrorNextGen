@@ -18,8 +18,10 @@ import (
 
 	"github.com/thazzr/mirrornextgen/server/internal/api"
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
+	"github.com/thazzr/mirrornextgen/server/internal/calendar"
 	"github.com/thazzr/mirrornextgen/server/internal/config"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
+	"github.com/thazzr/mirrornextgen/server/internal/icons"
 	"github.com/thazzr/mirrornextgen/server/internal/settings"
 	"github.com/thazzr/mirrornextgen/server/internal/weather"
 	"github.com/thazzr/mirrornextgen/server/internal/web"
@@ -83,6 +85,18 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Location: time.Local,
 		Logger:   logger,
 	})
+	iconStore, err := icons.Load(cfg.DataDir)
+	if err != nil {
+		logger.Error("cannot load icons", "dataDir", cfg.DataDir, "error", err)
+		return 1
+	}
+	settingsStore.SetIconChecker(iconStore.Exists)
+	calendarSvc := calendar.NewService(calendar.ServiceOptions{
+		Feeds:    calendar.NewFeeds(calendar.FeedsOptions{HTTPClient: &http.Client{Timeout: 15 * time.Second}, Now: time.Now, Logger: logger}),
+		Now:      time.Now,
+		Location: time.Local,
+		Logger:   logger,
+	})
 	deps := api.Deps{
 		Build:    api.BuildInfo{Version: version, Commit: commit, BuildTime: buildTime},
 		Logger:   logger,
@@ -91,6 +105,8 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		Throttle: auth.NewThrottle(time.Now),
 		Settings: settingsStore,
 		Weather:  weatherSvc,
+		Calendar: calendarSvc,
+		Icons:    iconStore,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,

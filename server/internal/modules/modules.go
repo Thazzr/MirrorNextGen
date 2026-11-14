@@ -12,10 +12,31 @@ type Info struct {
 	Name string
 }
 
+// Section names one calendar section; its module key is "calendar:<ID>".
+type Section struct {
+	ID    string
+	Title string
+	// Shifts marks a section of type shifts.
+	Shifts bool
+}
+
 // Input is the part of the settings that decides which module instances
-// exist. Later modules extend it, for example with the calendar sections
-// behind the keys "calendar:<sectionId>".
-type Input struct{}
+// exist.
+type Input struct {
+	CalendarSections []Section
+}
+
+func calendarInstances(in Input) []Info {
+	out := make([]Info, 0, len(in.CalendarSections))
+	for _, sec := range in.CalendarSections {
+		prefix := "Kalender: "
+		if sec.Shifts {
+			prefix = "Schichten: "
+		}
+		out = append(out, Info{Key: "calendar:" + sec.ID, Name: prefix + sec.Title})
+	}
+	return out
+}
 
 // definition is either a single key (key + name) or a prefix with instances.
 type definition struct {
@@ -36,6 +57,7 @@ func (d definition) list(in Input) []Info {
 var directory = []definition{
 	{key: "clock", name: "Uhr"},
 	{key: "weather", name: "Wetter"},
+	{instances: calendarInstances},
 	{key: "wifi", name: "WLAN-QR-Code"},
 }
 

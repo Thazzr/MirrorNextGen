@@ -10,12 +10,131 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"time"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for CalendarPreviewSectionType.
+const (
+	CalendarPreviewSectionTypeList   CalendarPreviewSectionType = "list"
+	CalendarPreviewSectionTypeShifts CalendarPreviewSectionType = "shifts"
+)
+
+// Valid indicates whether the value is a known member of the CalendarPreviewSectionType enum.
+func (e CalendarPreviewSectionType) Valid() bool {
+	switch e {
+	case CalendarPreviewSectionTypeList:
+		return true
+	case CalendarPreviewSectionTypeShifts:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CalendarRuleAction.
+const (
+	CalendarRuleActionHide   CalendarRuleAction = "hide"
+	CalendarRuleActionIcon   CalendarRuleAction = "icon"
+	CalendarRuleActionRename CalendarRuleAction = "rename"
+)
+
+// Valid indicates whether the value is a known member of the CalendarRuleAction enum.
+func (e CalendarRuleAction) Valid() bool {
+	switch e {
+	case CalendarRuleActionHide:
+		return true
+	case CalendarRuleActionIcon:
+		return true
+	case CalendarRuleActionRename:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CalendarRuleMatchMode.
+const (
+	CalendarRuleMatchModeContains   CalendarRuleMatchMode = "contains"
+	CalendarRuleMatchModeEquals     CalendarRuleMatchMode = "equals"
+	CalendarRuleMatchModeStartsWith CalendarRuleMatchMode = "startsWith"
+)
+
+// Valid indicates whether the value is a known member of the CalendarRuleMatchMode enum.
+func (e CalendarRuleMatchMode) Valid() bool {
+	switch e {
+	case CalendarRuleMatchModeContains:
+		return true
+	case CalendarRuleMatchModeEquals:
+		return true
+	case CalendarRuleMatchModeStartsWith:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CalendarSectionType.
+const (
+	CalendarSectionTypeList   CalendarSectionType = "list"
+	CalendarSectionTypeShifts CalendarSectionType = "shifts"
+)
+
+// Valid indicates whether the value is a known member of the CalendarSectionType enum.
+func (e CalendarSectionType) Valid() bool {
+	switch e {
+	case CalendarSectionTypeList:
+		return true
+	case CalendarSectionTypeShifts:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CalendarShiftMatchMode.
+const (
+	CalendarShiftMatchModeContains   CalendarShiftMatchMode = "contains"
+	CalendarShiftMatchModeEquals     CalendarShiftMatchMode = "equals"
+	CalendarShiftMatchModeStartsWith CalendarShiftMatchMode = "startsWith"
+)
+
+// Valid indicates whether the value is a known member of the CalendarShiftMatchMode enum.
+func (e CalendarShiftMatchMode) Valid() bool {
+	switch e {
+	case CalendarShiftMatchModeContains:
+		return true
+	case CalendarShiftMatchModeEquals:
+		return true
+	case CalendarShiftMatchModeStartsWith:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardCalendarSectionType.
+const (
+	DashboardCalendarSectionTypeList   DashboardCalendarSectionType = "list"
+	DashboardCalendarSectionTypeShifts DashboardCalendarSectionType = "shifts"
+)
+
+// Valid indicates whether the value is a known member of the DashboardCalendarSectionType enum.
+func (e DashboardCalendarSectionType) Valid() bool {
+	switch e {
+	case DashboardCalendarSectionTypeList:
+		return true
+	case DashboardCalendarSectionTypeShifts:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for DisplaySettingsRotation.
 const (
@@ -50,6 +169,45 @@ const (
 func (e HealthStatus) Valid() bool {
 	switch e {
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IconContentType.
+const (
+	Imagepng    IconContentType = "image/png"
+	ImagesvgXml IconContentType = "image/svg+xml"
+)
+
+// Valid indicates whether the value is a known member of the IconContentType enum.
+func (e IconContentType) Valid() bool {
+	switch e {
+	case Imagepng:
+		return true
+	case ImagesvgXml:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IconRefKind.
+const (
+	Bootstrap IconRefKind = "bootstrap"
+	None      IconRefKind = "none"
+	Upload    IconRefKind = "upload"
+)
+
+// Valid indicates whether the value is a known member of the IconRefKind enum.
+func (e IconRefKind) Valid() bool {
+	switch e {
+	case Bootstrap:
+		return true
+	case None:
+		return true
+	case Upload:
 		return true
 	default:
 		return false
@@ -116,11 +274,193 @@ func (e WifiSettingsUpdateSecurity) Valid() bool {
 	}
 }
 
+// CalendarError defines model for CalendarError.
+type CalendarError struct {
+	CalendarId string `json:"calendarId"`
+	Message    string `json:"message"`
+}
+
+// CalendarPreview defines model for CalendarPreview.
+type CalendarPreview struct {
+	CalendarErrors []CalendarError          `json:"calendarErrors"`
+	Sections       []CalendarPreviewSection `json:"sections"`
+}
+
+// CalendarPreviewSection defines model for CalendarPreviewSection.
+type CalendarPreviewSection struct {
+	// Days Type `shifts`.
+	Days  *[]ShiftDay `json:"days,omitempty"`
+	Error *string     `json:"error,omitempty"`
+	Id    string      `json:"id"`
+
+	// Items Type `list`; all candidates of the look-ahead window.
+	Items *[]PreviewItem `json:"items,omitempty"`
+
+	// Summary Type `shifts`; for example `Heute: Frühdienst 06–14 Uhr · Morgen: frei`.
+	Summary *string                    `json:"summary,omitempty"`
+	Title   string                     `json:"title"`
+	Type    CalendarPreviewSectionType `json:"type"`
+}
+
+// CalendarPreviewSectionType defines model for CalendarPreviewSection.Type.
+type CalendarPreviewSectionType string
+
+// CalendarRule defines model for CalendarRule.
+type CalendarRule struct {
+	Action CalendarRuleAction `json:"action"`
+
+	// CalendarIds Calendars the rule applies to; empty means all.
+	CalendarIds []string `json:"calendarIds"`
+
+	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+	Icon      IconRef               `json:"icon"`
+	Id        string                `json:"id"`
+	MatchMode CalendarRuleMatchMode `json:"matchMode"`
+
+	// RenameTo 1 to 80 characters for action `rename`.
+	RenameTo string `json:"renameTo"`
+
+	// Text At most 80 characters; empty matches every title.
+	Text string `json:"text"`
+}
+
+// CalendarRuleAction defines model for CalendarRule.Action.
+type CalendarRuleAction string
+
+// CalendarRuleMatchMode defines model for CalendarRule.MatchMode.
+type CalendarRuleMatchMode string
+
+// CalendarSection A calendar area of the mirror, one module instance (`calendar:<id>`).
+type CalendarSection struct {
+	// CalendarIds Ids of existing calendars; at least one.
+	CalendarIds []string `json:"calendarIds"`
+	Id          string   `json:"id"`
+
+	// LookAheadDays 1 to 60; 0 means the default 14.
+	LookAheadDays int `json:"lookAheadDays"`
+
+	// MaxEvents 1 to 30; 0 means the default 8.
+	MaxEvents int `json:"maxEvents"`
+
+	// ShiftDays 1 to 7; 0 means the default 2.
+	ShiftDays int `json:"shiftDays"`
+
+	// Shifts Only for type `shifts`.
+	Shifts []CalendarShift `json:"shifts"`
+
+	// Title 1 to 60 characters.
+	Title string              `json:"title"`
+	Type  CalendarSectionType `json:"type"`
+}
+
+// CalendarSectionType defines model for CalendarSection.Type.
+type CalendarSectionType string
+
+// CalendarSettings defines model for CalendarSettings.
+type CalendarSettings struct {
+	Calendars      []CalendarSource `json:"calendars"`
+	RefreshMinutes int              `json:"refreshMinutes"`
+
+	// Rules Evaluated in this order.
+	Rules    []CalendarRule    `json:"rules"`
+	Sections []CalendarSection `json:"sections"`
+}
+
+// CalendarSettingsUpdate defines model for CalendarSettingsUpdate.
+type CalendarSettingsUpdate struct {
+	Calendars      []CalendarSourceUpdate `json:"calendars"`
+	RefreshMinutes int                    `json:"refreshMinutes"`
+	Rules          []CalendarRule         `json:"rules"`
+	Sections       []CalendarSection      `json:"sections"`
+}
+
+// CalendarShift Maps a title keyword to a named shift.
+type CalendarShift struct {
+	// End `HH:mm`; empty together with `start`.
+	End string `json:"end"`
+
+	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+	Icon IconRef `json:"icon"`
+	Id   string  `json:"id"`
+
+	// Label 1 to 40 characters.
+	Label string `json:"label"`
+
+	// Match 1 to 40 characters.
+	Match     string                 `json:"match"`
+	MatchMode CalendarShiftMatchMode `json:"matchMode"`
+
+	// Start `HH:mm`; empty together with `end`.
+	Start string `json:"start"`
+}
+
+// CalendarShiftMatchMode defines model for CalendarShift.MatchMode.
+type CalendarShiftMatchMode string
+
+// CalendarSource A calendar as the admin UI reads it; the address is replaced by a hint.
+type CalendarSource struct {
+	HasUrl bool `json:"hasUrl"`
+
+	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+	Icon IconRef `json:"icon"`
+	Id   string  `json:"id"`
+	Name string  `json:"name"`
+
+	// UrlHint Scheme, host and shortened last path segment, for example `https://calendar.google.com/.../basic.ics`.
+	UrlHint string `json:"urlHint"`
+}
+
+// CalendarSourceUpdate defines model for CalendarSourceUpdate.
+type CalendarSourceUpdate struct {
+	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+	Icon IconRef `json:"icon"`
+
+	// Id Lowercase letters, digits and hyphens, at most 40 characters; unique.
+	Id string `json:"id"`
+
+	// Name 1 to 60 characters.
+	Name string `json:"name"`
+
+	// Url iCal address (http, https, webcal, webcals); absent or empty keeps the stored one.
+	Url *string `json:"url,omitempty"`
+}
+
 // ChangePasswordRequest Current and new admin password.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
 }
+
+// DashboardCalendarItem defines model for DashboardCalendarItem.
+type DashboardCalendarItem struct {
+	AllDay bool `json:"allDay"`
+
+	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+	Icon      IconRef `json:"icon"`
+	Location  *string `json:"location,omitempty"`
+	Ongoing   bool    `json:"ongoing"`
+	Relative  string  `json:"relative"`
+	TimeLabel string  `json:"timeLabel"`
+	Title     string  `json:"title"`
+}
+
+// DashboardCalendarSection Data of one calendar section for the dashboard.
+type DashboardCalendarSection struct {
+	// Days Type `shifts`.
+	Days *[]ShiftDay `json:"days,omitempty"`
+
+	// Error German message when calendars could not be loaded.
+	Error *string `json:"error,omitempty"`
+	Id    string  `json:"id"`
+
+	// Items Type `list`.
+	Items *[]DashboardCalendarItem     `json:"items,omitempty"`
+	Title string                       `json:"title"`
+	Type  DashboardCalendarSectionType `json:"type"`
+}
+
+// DashboardCalendarSectionType defines model for DashboardCalendarSection.Type.
+type DashboardCalendarSectionType string
 
 // DashboardWeather Weather state for the dashboard.
 type DashboardWeather struct {
@@ -199,6 +539,32 @@ type HourlyPoint struct {
 	WindKph                  int       `json:"windKph"`
 }
 
+// Icon An uploaded icon.
+type Icon struct {
+	ContentType IconContentType `json:"contentType"`
+	Id          string          `json:"id"`
+	Name        string          `json:"name"`
+
+	// Size Bytes.
+	Size int `json:"size"`
+}
+
+// IconContentType defines model for Icon.ContentType.
+type IconContentType string
+
+// IconRef A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+type IconRef struct {
+	// File Id of an uploaded icon, for kind `upload`.
+	File *string     `json:"file,omitempty"`
+	Kind IconRefKind `json:"kind"`
+
+	// Name Bootstrap icon name (`^[a-z0-9-]{1,40}$`), for kind `bootstrap`.
+	Name *string `json:"name,omitempty"`
+}
+
+// IconRefKind defines model for IconRef.Kind.
+type IconRefKind string
+
 // Info Build information of the server binary.
 type Info struct {
 	// BuildTime Build time as ISO 8601 timestamp, empty when unknown.
@@ -249,6 +615,33 @@ type PasswordRequest struct {
 	Password string `json:"password"`
 }
 
+// PreviewItem One candidate event in the admin preview.
+type PreviewItem struct {
+	AllDay     bool   `json:"allDay"`
+	CalendarId string `json:"calendarId"`
+
+	// Hidden A hide rule removed the event.
+	Hidden bool `json:"hidden"`
+
+	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+	Icon     IconRef `json:"icon"`
+	Location *string `json:"location,omitempty"`
+
+	// MatchedRules Ids of the rules that matched, in order.
+	MatchedRules  []string `json:"matchedRules"`
+	Ongoing       bool     `json:"ongoing"`
+	OriginalTitle string   `json:"originalTitle"`
+	Relative      string   `json:"relative"`
+
+	// Shown The event would appear on the mirror.
+	Shown     bool      `json:"shown"`
+	Start     time.Time `json:"start"`
+	TimeLabel string    `json:"timeLabel"`
+
+	// Title Title after the rules.
+	Title string `json:"title"`
+}
+
 // Problem Error body, served as application/problem+json.
 type Problem struct {
 	// Detail Explanation specific to this occurrence.
@@ -283,6 +676,21 @@ type Session struct {
 
 	// SetupRequired True while no admin password is set.
 	SetupRequired bool `json:"setupRequired"`
+}
+
+// ShiftDay One day of the compact shift display.
+type ShiftDay struct {
+	Date openapi_types.Date `json:"date"`
+
+	// DayLabel `Heute`, `Morgen` or the weekday.
+	DayLabel string `json:"dayLabel"`
+	Free     bool   `json:"free"`
+
+	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+	Icon IconRef `json:"icon"`
+
+	// Text For example `Frühdienst 06–14 Uhr` or `frei`.
+	Text string `json:"text"`
 }
 
 // WeatherData Current weather, chart points and forecast.
@@ -387,8 +795,19 @@ type Conflict = Problem
 // Forbidden Error body, served as application/problem+json.
 type Forbidden = Problem
 
+// NotFound Error body, served as application/problem+json.
+type NotFound = Problem
+
 // Unauthorized Error body, served as application/problem+json.
 type Unauthorized = Problem
+
+// UploadIconMultipartBody defines parameters for UploadIcon.
+type UploadIconMultipartBody struct {
+	File openapi_types.File `json:"file"`
+
+	// Name Display name (1 to 60 characters); defaults to the file name without extension.
+	Name *string `json:"name,omitempty"`
+}
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = PasswordRequest
@@ -398,6 +817,15 @@ type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
 // SetupAdminJSONRequestBody defines body for SetupAdmin for application/json ContentType.
 type SetupAdminJSONRequestBody = PasswordRequest
+
+// UploadIconMultipartRequestBody defines body for UploadIcon for multipart/form-data ContentType.
+type UploadIconMultipartRequestBody UploadIconMultipartBody
+
+// UpdateCalendarSettingsJSONRequestBody defines body for UpdateCalendarSettings for application/json ContentType.
+type UpdateCalendarSettingsJSONRequestBody = CalendarSettingsUpdate
+
+// PreviewCalendarJSONRequestBody defines body for PreviewCalendar for application/json ContentType.
+type PreviewCalendarJSONRequestBody = CalendarSettingsUpdate
 
 // UpdateDisplaySettingsJSONRequestBody defines body for UpdateDisplaySettings for application/json ContentType.
 type UpdateDisplaySettingsJSONRequestBody = DisplaySettings
@@ -428,6 +856,9 @@ type ServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(w http.ResponseWriter, r *http.Request)
+	// GetDashboardCalendarSection Calendar section for the dashboard
+	// (GET /api/v1/dashboard/calendar/{sectionId})
+	GetDashboardCalendarSection(w http.ResponseWriter, r *http.Request, sectionId string)
 	// GetDashboardLayout Layout for the dashboard
 	// (GET /api/v1/dashboard/layout)
 	GetDashboardLayout(w http.ResponseWriter, r *http.Request)
@@ -440,6 +871,18 @@ type ServerInterface interface {
 	// GetHealth Liveness check
 	// (GET /api/v1/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// ListIcons Uploaded icons
+	// (GET /api/v1/icons)
+	ListIcons(w http.ResponseWriter, r *http.Request)
+	// UploadIcon Upload an icon
+	// (POST /api/v1/icons)
+	UploadIcon(w http.ResponseWriter, r *http.Request)
+	// DeleteIcon Delete an icon
+	// (DELETE /api/v1/icons/{id})
+	DeleteIcon(w http.ResponseWriter, r *http.Request, id string)
+	// GetIconFile The file of an icon
+	// (GET /api/v1/icons/{id}/file)
+	GetIconFile(w http.ResponseWriter, r *http.Request, id string)
 	// GetInfo Build information
 	// (GET /api/v1/info)
 	GetInfo(w http.ResponseWriter, r *http.Request)
@@ -449,6 +892,15 @@ type ServerInterface interface {
 	// ListModules Available modules
 	// (GET /api/v1/modules)
 	ListModules(w http.ResponseWriter, r *http.Request)
+	// GetCalendarSettings Calendar settings
+	// (GET /api/v1/settings/calendar)
+	GetCalendarSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateCalendarSettings Change the calendar settings
+	// (PUT /api/v1/settings/calendar)
+	UpdateCalendarSettings(w http.ResponseWriter, r *http.Request)
+	// PreviewCalendar Preview an unsaved calendar draft
+	// (POST /api/v1/settings/calendar/preview)
+	PreviewCalendar(w http.ResponseWriter, r *http.Request)
 	// GetDisplaySettings Display settings
 	// (GET /api/v1/settings/display)
 	GetDisplaySettings(w http.ResponseWriter, r *http.Request)
@@ -554,6 +1006,32 @@ func (siw *ServerInterfaceWrapper) SetupAdmin(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetDashboardCalendarSection operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardCalendarSection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "sectionId" -------------
+	var sectionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sectionId", r.PathValue("sectionId"), &sectionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sectionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardCalendarSection(w, r, sectionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDashboardLayout operation middleware
 func (siw *ServerInterfaceWrapper) GetDashboardLayout(w http.ResponseWriter, r *http.Request) {
 
@@ -610,6 +1088,86 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListIcons operation middleware
+func (siw *ServerInterfaceWrapper) ListIcons(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIcons(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadIcon operation middleware
+func (siw *ServerInterfaceWrapper) UploadIcon(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadIcon(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteIcon operation middleware
+func (siw *ServerInterfaceWrapper) DeleteIcon(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteIcon(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetIconFile operation middleware
+func (siw *ServerInterfaceWrapper) GetIconFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetIconFile(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetInfo operation middleware
 func (siw *ServerInterfaceWrapper) GetInfo(w http.ResponseWriter, r *http.Request) {
 
@@ -643,6 +1201,48 @@ func (siw *ServerInterfaceWrapper) ListModules(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListModules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCalendarSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetCalendarSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCalendarSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCalendarSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCalendarSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCalendarSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewCalendar operation middleware
+func (siw *ServerInterfaceWrapper) PreviewCalendar(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewCalendar(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -904,6 +1504,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/layout", wrapper.GetDashboardLayout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/weather", wrapper.GetDashboardWeather)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/wifi", wrapper.GetDashboardWifi)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/calendar", wrapper.GetCalendarSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/calendar", wrapper.UpdateCalendarSettings)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/settings/calendar/preview", wrapper.PreviewCalendar)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/calendar/{sectionId}", wrapper.GetDashboardCalendarSection)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/icons", wrapper.ListIcons)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/icons", wrapper.UploadIcon)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/icons/{id}", wrapper.DeleteIcon)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/icons/{id}/file", wrapper.GetIconFile)
 
 	return m
 }
@@ -913,6 +1521,8 @@ type BadRequestApplicationProblemPlusJSONResponse Problem
 type ConflictApplicationProblemPlusJSONResponse Problem
 
 type ForbiddenApplicationProblemPlusJSONResponse Problem
+
+type NotFoundApplicationProblemPlusJSONResponse Problem
 
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
@@ -1224,6 +1834,44 @@ func (response SetupAdmin409ApplicationProblemPlusJSONResponse) VisitSetupAdminR
 	return err
 }
 
+type GetDashboardCalendarSectionRequestObject struct {
+	SectionId string `json:"sectionId"`
+}
+
+type GetDashboardCalendarSectionResponseObject interface {
+	VisitGetDashboardCalendarSectionResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardCalendarSection200JSONResponse DashboardCalendarSection
+
+func (response GetDashboardCalendarSection200JSONResponse) VisitGetDashboardCalendarSectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDashboardCalendarSection404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetDashboardCalendarSection404ApplicationProblemPlusJSONResponse) VisitGetDashboardCalendarSectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetDashboardLayoutRequestObject struct {
 }
 
@@ -1308,6 +1956,283 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type ListIconsRequestObject struct {
+}
+
+type ListIconsResponseObject interface {
+	VisitListIconsResponse(w http.ResponseWriter) error
+}
+
+type ListIcons200JSONResponse []Icon
+
+func (response ListIcons200JSONResponse) VisitListIconsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIcons401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListIcons401ApplicationProblemPlusJSONResponse) VisitListIconsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadIconRequestObject struct {
+	Body *multipart.Reader
+}
+
+type UploadIconResponseObject interface {
+	VisitUploadIconResponse(w http.ResponseWriter) error
+}
+
+type UploadIcon201JSONResponse Icon
+
+func (response UploadIcon201JSONResponse) VisitUploadIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadIcon400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UploadIcon400ApplicationProblemPlusJSONResponse) VisitUploadIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadIcon401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UploadIcon401ApplicationProblemPlusJSONResponse) VisitUploadIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadIcon403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UploadIcon403ApplicationProblemPlusJSONResponse) VisitUploadIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteIconRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DeleteIconResponseObject interface {
+	VisitDeleteIconResponse(w http.ResponseWriter) error
+}
+
+type DeleteIcon204Response struct {
+}
+
+func (response DeleteIcon204Response) VisitDeleteIconResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteIcon401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteIcon401ApplicationProblemPlusJSONResponse) VisitDeleteIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteIcon403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteIcon403ApplicationProblemPlusJSONResponse) VisitDeleteIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteIcon404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteIcon404ApplicationProblemPlusJSONResponse) VisitDeleteIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteIcon409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteIcon409ApplicationProblemPlusJSONResponse) VisitDeleteIconResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetIconFileRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetIconFileResponseObject interface {
+	VisitGetIconFileResponse(w http.ResponseWriter) error
+}
+
+type GetIconFile200ResponseHeaders struct {
+	CacheControl          *string
+	ContentSecurityPolicy *string
+	XContentTypeOptions   *string
+}
+
+type GetIconFile200ImagepngResponse struct {
+	Body          io.Reader
+	Headers       GetIconFile200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetIconFile200ImagepngResponse) VisitGetIconFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "image/png")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	if response.Headers.ContentSecurityPolicy != nil {
+		w.Header().Set("Content-Security-Policy", fmt.Sprint(*response.Headers.ContentSecurityPolicy))
+	}
+	if response.Headers.XContentTypeOptions != nil {
+		w.Header().Set("X-Content-Type-Options", fmt.Sprint(*response.Headers.XContentTypeOptions))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetIconFile200ImagesvgXmlResponse struct {
+	Body          io.Reader
+	Headers       GetIconFile200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetIconFile200ImagesvgXmlResponse) VisitGetIconFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "image/svg+xml")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
+	if response.Headers.ContentSecurityPolicy != nil {
+		w.Header().Set("Content-Security-Policy", fmt.Sprint(*response.Headers.ContentSecurityPolicy))
+	}
+	if response.Headers.XContentTypeOptions != nil {
+		w.Header().Set("X-Content-Type-Options", fmt.Sprint(*response.Headers.XContentTypeOptions))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetIconFile404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetIconFile404ApplicationProblemPlusJSONResponse) VisitGetIconFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetInfoRequestObject struct {
 }
 
@@ -1383,6 +2308,183 @@ func (response ListModules401ApplicationProblemPlusJSONResponse) VisitListModule
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCalendarSettingsRequestObject struct {
+}
+
+type GetCalendarSettingsResponseObject interface {
+	VisitGetCalendarSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetCalendarSettings200JSONResponse CalendarSettings
+
+func (response GetCalendarSettings200JSONResponse) VisitGetCalendarSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCalendarSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetCalendarSettings401ApplicationProblemPlusJSONResponse) VisitGetCalendarSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCalendarSettingsRequestObject struct {
+	Body *UpdateCalendarSettingsJSONRequestBody
+}
+
+type UpdateCalendarSettingsResponseObject interface {
+	VisitUpdateCalendarSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateCalendarSettings200JSONResponse CalendarSettings
+
+func (response UpdateCalendarSettings200JSONResponse) VisitUpdateCalendarSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCalendarSettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateCalendarSettings400ApplicationProblemPlusJSONResponse) VisitUpdateCalendarSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCalendarSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateCalendarSettings401ApplicationProblemPlusJSONResponse) VisitUpdateCalendarSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCalendarSettings403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateCalendarSettings403ApplicationProblemPlusJSONResponse) VisitUpdateCalendarSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewCalendarRequestObject struct {
+	Body *PreviewCalendarJSONRequestBody
+}
+
+type PreviewCalendarResponseObject interface {
+	VisitPreviewCalendarResponse(w http.ResponseWriter) error
+}
+
+type PreviewCalendar200JSONResponse CalendarPreview
+
+func (response PreviewCalendar200JSONResponse) VisitPreviewCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewCalendar400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewCalendar400ApplicationProblemPlusJSONResponse) VisitPreviewCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewCalendar401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewCalendar401ApplicationProblemPlusJSONResponse) VisitPreviewCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewCalendar403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewCalendar403ApplicationProblemPlusJSONResponse) VisitPreviewCalendarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1832,6 +2934,9 @@ type StrictServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(ctx context.Context, request SetupAdminRequestObject) (SetupAdminResponseObject, error)
+	// GetDashboardCalendarSection Calendar section for the dashboard
+	// (GET /api/v1/dashboard/calendar/{sectionId})
+	GetDashboardCalendarSection(ctx context.Context, request GetDashboardCalendarSectionRequestObject) (GetDashboardCalendarSectionResponseObject, error)
 	// GetDashboardLayout Layout for the dashboard
 	// (GET /api/v1/dashboard/layout)
 	GetDashboardLayout(ctx context.Context, request GetDashboardLayoutRequestObject) (GetDashboardLayoutResponseObject, error)
@@ -1844,6 +2949,18 @@ type StrictServerInterface interface {
 	// GetHealth Liveness check
 	// (GET /api/v1/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// ListIcons Uploaded icons
+	// (GET /api/v1/icons)
+	ListIcons(ctx context.Context, request ListIconsRequestObject) (ListIconsResponseObject, error)
+	// UploadIcon Upload an icon
+	// (POST /api/v1/icons)
+	UploadIcon(ctx context.Context, request UploadIconRequestObject) (UploadIconResponseObject, error)
+	// DeleteIcon Delete an icon
+	// (DELETE /api/v1/icons/{id})
+	DeleteIcon(ctx context.Context, request DeleteIconRequestObject) (DeleteIconResponseObject, error)
+	// GetIconFile The file of an icon
+	// (GET /api/v1/icons/{id}/file)
+	GetIconFile(ctx context.Context, request GetIconFileRequestObject) (GetIconFileResponseObject, error)
 	// GetInfo Build information
 	// (GET /api/v1/info)
 	GetInfo(ctx context.Context, request GetInfoRequestObject) (GetInfoResponseObject, error)
@@ -1853,6 +2970,15 @@ type StrictServerInterface interface {
 	// ListModules Available modules
 	// (GET /api/v1/modules)
 	ListModules(ctx context.Context, request ListModulesRequestObject) (ListModulesResponseObject, error)
+	// GetCalendarSettings Calendar settings
+	// (GET /api/v1/settings/calendar)
+	GetCalendarSettings(ctx context.Context, request GetCalendarSettingsRequestObject) (GetCalendarSettingsResponseObject, error)
+	// UpdateCalendarSettings Change the calendar settings
+	// (PUT /api/v1/settings/calendar)
+	UpdateCalendarSettings(ctx context.Context, request UpdateCalendarSettingsRequestObject) (UpdateCalendarSettingsResponseObject, error)
+	// PreviewCalendar Preview an unsaved calendar draft
+	// (POST /api/v1/settings/calendar/preview)
+	PreviewCalendar(ctx context.Context, request PreviewCalendarRequestObject) (PreviewCalendarResponseObject, error)
 	// GetDisplaySettings Display settings
 	// (GET /api/v1/settings/display)
 	GetDisplaySettings(ctx context.Context, request GetDisplaySettingsRequestObject) (GetDisplaySettingsResponseObject, error)
@@ -2059,6 +3185,32 @@ func (sh *strictHandler) SetupAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetDashboardCalendarSection operation middleware
+func (sh *strictHandler) GetDashboardCalendarSection(w http.ResponseWriter, r *http.Request, sectionId string) {
+	var request GetDashboardCalendarSectionRequestObject
+
+	request.SectionId = sectionId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardCalendarSection(ctx, request.(GetDashboardCalendarSectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardCalendarSection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardCalendarSectionResponseObject); ok {
+		if err := validResponse.VisitGetDashboardCalendarSectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetDashboardLayout operation middleware
 func (sh *strictHandler) GetDashboardLayout(w http.ResponseWriter, r *http.Request) {
 	var request GetDashboardLayoutRequestObject
@@ -2155,6 +3307,113 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListIcons operation middleware
+func (sh *strictHandler) ListIcons(w http.ResponseWriter, r *http.Request) {
+	var request ListIconsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIcons(ctx, request.(ListIconsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIcons")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListIconsResponseObject); ok {
+		if err := validResponse.VisitListIconsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadIcon operation middleware
+func (sh *strictHandler) UploadIcon(w http.ResponseWriter, r *http.Request) {
+	var request UploadIconRequestObject
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadIcon(ctx, request.(UploadIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadIcon")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UploadIconResponseObject); ok {
+		if err := validResponse.VisitUploadIconResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteIcon operation middleware
+func (sh *strictHandler) DeleteIcon(w http.ResponseWriter, r *http.Request, id string) {
+	var request DeleteIconRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteIcon(ctx, request.(DeleteIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteIcon")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteIconResponseObject); ok {
+		if err := validResponse.VisitDeleteIconResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetIconFile operation middleware
+func (sh *strictHandler) GetIconFile(w http.ResponseWriter, r *http.Request, id string) {
+	var request GetIconFileRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetIconFile(ctx, request.(GetIconFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetIconFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetIconFileResponseObject); ok {
+		if err := validResponse.VisitGetIconFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetInfo operation middleware
 func (sh *strictHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	var request GetInfoRequestObject
@@ -2220,6 +3479,92 @@ func (sh *strictHandler) ListModules(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListModulesResponseObject); ok {
 		if err := validResponse.VisitListModulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCalendarSettings operation middleware
+func (sh *strictHandler) GetCalendarSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetCalendarSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCalendarSettings(ctx, request.(GetCalendarSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCalendarSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCalendarSettingsResponseObject); ok {
+		if err := validResponse.VisitGetCalendarSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateCalendarSettings operation middleware
+func (sh *strictHandler) UpdateCalendarSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateCalendarSettingsRequestObject
+
+	var body UpdateCalendarSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCalendarSettings(ctx, request.(UpdateCalendarSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCalendarSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateCalendarSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateCalendarSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewCalendar operation middleware
+func (sh *strictHandler) PreviewCalendar(w http.ResponseWriter, r *http.Request) {
+	var request PreviewCalendarRequestObject
+
+	var body PreviewCalendarJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewCalendar(ctx, request.(PreviewCalendarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewCalendar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewCalendarResponseObject); ok {
+		if err := validResponse.VisitPreviewCalendarResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

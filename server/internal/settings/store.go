@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +25,16 @@ type Store struct {
 	path string
 	cur  Settings
 	now  func() time.Time
+	// iconExists checks uploaded icon ids on update; nil skips the check.
+	iconExists func(id string) bool
+}
+
+// SetIconChecker sets the lookup that validates uploaded icon ids in the
+// calendar settings.
+func (s *Store) SetIconChecker(exists func(id string) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.iconExists = exists
 }
 
 // Load opens the store in dir. A missing file yields defaults without
@@ -125,6 +136,58 @@ func (s *Store) UpdateLayout(l Layout) (Layout, map[string]string, error) {
 	return cur.Layout.normalized(), errs, err
 }
 
+// UpdateCalendar merges u into the calendar section (see CalendarUpdate for
+// the secret URL rules), validates and stores it. A new section is appended
+// to the layout so it shows up at once; a removed one leaves the layout.
+// Field errors are keyed like "calendars.0.url".
+func (s *Store) UpdateCalendar(u CalendarUpdate) (CalendarSettings, map[string]string, error) {
+	cur, errs, err := s.update("calendar", func(next *Settings) map[string]string {
+		old := next.Calendar
+		next.Calendar = u.apply(old)
+		next.Layout = coupleLayout(next.Layout, old.Sections, next.Calendar.Sections)
+		return nil
+	})
+	return cur.Calendar, errs, err
+}
+
+// coupleLayout keeps the layout in step with the calendar sections: keys of
+// removed sections go, keys of new ones are appended to topLeft (or the
+// first region with room).
+func coupleLayout(l Layout, before, after []CalendarSection) Layout {
+	has := func(list []CalendarSection, id string) bool {
+		return slices.ContainsFunc(list, func(sec CalendarSection) bool { return sec.ID == id })
+	}
+	for _, sec := range before {
+		if !has(after, sec.ID) {
+			drop := "calendar:" + sec.ID
+			l = l.Filtered(func(key string) bool { return key != drop })
+		}
+	}
+	l = l.normalized()
+	for _, sec := range after {
+		if has(before, sec.ID) {
+			continue
+		}
+		key := "calendar:" + sec.ID
+		placed := false
+		for _, r := range l.regions() {
+			if slices.Contains(*r, key) {
+				placed = true
+			}
+		}
+		for _, r := range []*[]string{&l.TopLeft, &l.Middle, &l.BottomLeft} {
+			if placed {
+				break
+			}
+			if len(*r) < maxModulesPerRegion {
+				*r = append(*r, key)
+				placed = true
+			}
+		}
+	}
+	return l
+}
+
 // UpdateWeather merges u into the weather section (see WeatherUpdate for the
 // secret rules), validates and stores it.
 func (s *Store) UpdateWeather(u WeatherUpdate) (WeatherSettings, map[string]string, error) {
@@ -157,7 +220,7 @@ func (s *Store) update(section string, mutate func(next *Settings) map[string]st
 	if errs := mutate(&next); errs != nil {
 		return s.cur, errs, nil
 	}
-	if errs := next.Validate(); errs != nil {
+	if errs := next.validate(s.iconExists); errs != nil {
 		fieldErrs := map[string]string{}
 		for path, msg := range errs {
 			// Only the edited section can be blamed for this request.
@@ -183,4 +246,25 @@ func (s *Store) update(section string, mutate func(next *Settings) map[string]st
 func trimSection(path string) string {
 	_, field, _ := strings.Cut(path, ".")
 	return field
+}
+
+// DraftCalendar applies u to the stored calendar section without storing
+// anything and returns the result with its field errors (keyed like
+// "calendars.0.url"). The admin preview evaluates drafts this way; calendars
+// that exist and carry no URL in u keep their stored address.
+func (s *Store) DraftCalendar(u CalendarUpdate) (CalendarSettings, map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next := s.cur.clone()
+	next.Calendar = u.apply(next.Calendar)
+	fieldErrs := map[string]string{}
+	for path, msg := range next.validate(s.iconExists) {
+		if strings.HasPrefix(path, "calendar.") {
+			fieldErrs[trimSection(path)] = msg
+		}
+	}
+	if len(fieldErrs) > 0 {
+		return CalendarSettings{}, fieldErrs
+	}
+	return next.Calendar, nil
 }

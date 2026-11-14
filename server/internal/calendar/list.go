@@ -23,17 +23,19 @@ type ListInput struct {
 
 // ListItem is one line of the dashboard list.
 type ListItem struct {
-	Title        string
-	Location     string
-	TimeLabel    string
-	Relative     string
-	Icon         IconRef
-	AllDay       bool
-	Ongoing      bool
-	Start        time.Time
-	End          time.Time
-	CalendarID   string
-	MatchedRules []string
+	Title string
+	// OriginalTitle is the title before the rules renamed it.
+	OriginalTitle string
+	Location      string
+	TimeLabel     string
+	Relative      string
+	Icon          IconRef
+	AllDay        bool
+	Ongoing       bool
+	Start         time.Time
+	End           time.Time
+	CalendarID    string
+	MatchedRules  []string
 }
 
 // PreviewItem is a candidate for the admin preview: Hidden marks events a
@@ -74,17 +76,18 @@ func BuildPreview(input ListInput, now time.Time, loc *time.Location) []PreviewI
 		res := Apply(input.Rules, so.CalendarID, so.Title, so.DefaultIcon)
 		items = append(items, PreviewItem{
 			ListItem: ListItem{
-				Title:        res.Title,
-				Location:     so.Location,
-				TimeLabel:    TimeLabel(so.AllDay),
-				Relative:     FormatRelativeTime(so.Start, so.End, so.AllDay, now, loc),
-				Icon:         res.Icon,
-				AllDay:       so.AllDay,
-				Ongoing:      !so.Start.After(now) && now.Before(so.End),
-				Start:        so.Start,
-				End:          so.End,
-				CalendarID:   so.CalendarID,
-				MatchedRules: res.Matched,
+				Title:         res.Title,
+				OriginalTitle: so.Title,
+				Location:      so.Location,
+				TimeLabel:     TimeLabel(so.AllDay),
+				Relative:      FormatRelativeTime(so.Start, so.End, so.AllDay, now, loc),
+				Icon:          res.Icon,
+				AllDay:        so.AllDay,
+				Ongoing:       !so.Start.After(now) && now.Before(so.End),
+				Start:         so.Start,
+				End:           so.End,
+				CalendarID:    so.CalendarID,
+				MatchedRules:  res.Matched,
 			},
 			Hidden: res.Hidden,
 		})
