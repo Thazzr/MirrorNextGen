@@ -7,6 +7,12 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
+## [0.9.1] - 2026-11-14
+
+### Fixed
+
+- **admin**: Verwaltung am Handy ohne Zoom
+
 ## [0.9.0] - 2026-11-14
 
 ### Added
