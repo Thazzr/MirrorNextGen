@@ -1,6 +1,7 @@
+import { Blob as NodeBlob, File as NodeFile } from 'node:buffer'
 import { vi } from 'vitest'
 
-export type RecordedCall = { method: string; path: string; csrf: string | null; body: unknown }
+export type RecordedCall = { method: string; path: string; csrf: string | null; body: unknown; bodyError?: string }
 export type Handler = Response | ((call: RecordedCall) => Response | Promise<Response>)
 
 export const json = (body: unknown, init?: ResponseInit) => Response.json(body, init)
@@ -10,6 +11,24 @@ export const problem = (status: number, title: string, extra: Record<string, unk
     status,
     headers: { 'Content-Type': 'application/problem+json', ...headers },
   })
+
+/**
+ * Reads a multipart body. undici 7's parser asserts that every part is an instance of the *global* File,
+ * which under jsdom is jsdom's class, not the one undici builds (undici 6 did not check). So the parse runs
+ * with Node's File and Blob in place of jsdom's and puts them back afterwards.
+ */
+export async function readFormData(request: Request): Promise<FormData> {
+  const g = globalThis as { File: unknown; Blob: unknown }
+  const { File, Blob } = g
+  g.File = NodeFile
+  g.Blob = NodeBlob
+  try {
+    return await request.clone().formData()
+  } finally {
+    g.File = File
+    g.Blob = Blob
+  }
+}
 
 /**
  * Stubs `fetch` underneath the generated client. Handlers are keyed "METHOD /path" and can be
@@ -23,13 +42,22 @@ export function mockApi(initial: Record<string, Handler> = {}) {
     vi.fn(async (input: Request) => {
       // Multipart bodies (icon upload) are kept as FormData, everything else is parsed as JSON.
       const multipart = (input.headers.get('Content-Type') ?? '').startsWith('multipart/form-data')
-      const form = multipart ? await input.clone().formData() : undefined
-      const text = multipart ? '' : await input.text()
       const call: RecordedCall = {
         method: input.method,
         path: new URL(input.url).pathname,
         csrf: input.headers.get('X-CSRF-Token'),
-        body: form ?? (text ? JSON.parse(text) : undefined),
+        body: undefined,
+      }
+      // A body that cannot be parsed must not hide the request: record it with the reason and say so loudly.
+      try {
+        if (multipart) call.body = await readFormData(input)
+        else {
+          const text = await input.text()
+          call.body = text ? JSON.parse(text) : undefined
+        }
+      } catch (error) {
+        call.bodyError = error instanceof Error ? error.message : String(error)
+        console.error(`mockApi: cannot parse the body of ${call.method} ${call.path}: ${call.bodyError}`)
       }
       calls.push(call)
       const handler = handlers[`${call.method} ${call.path}`]
