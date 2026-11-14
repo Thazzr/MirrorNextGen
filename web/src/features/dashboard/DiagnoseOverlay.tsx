@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { dashboardInfoQueryKey } from './useReloadOnNewBuild.ts'
 import { api, unwrap } from '../../shared/api/client.ts'
 import './diagnose.css'
 
@@ -35,7 +36,7 @@ type Props = {
 export function DiagnoseOverlay({ size, rotation }: Props) {
   const windowViewport = useViewport()
   const viewport = size ?? windowViewport
-  const info = useQuery({ queryKey: ['info'], queryFn: async () => unwrap(await api.GET('/api/v1/info')) })
+  const info = useQuery({ queryKey: dashboardInfoQueryKey, queryFn: async () => unwrap(await api.GET('/api/v1/info')) })
 
   let server: string
   if (info.isPending) server = 'wird geladen …'

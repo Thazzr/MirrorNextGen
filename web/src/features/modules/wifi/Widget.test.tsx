@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { act, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { json, mockApi, problem } from '../../../test/mockApi.ts'
 import { layoutOf } from '../../../test/dashboardFixtures.ts'
@@ -49,5 +49,23 @@ describe('wifi widget', () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(document.querySelector('.mirror-wifi')).toBeNull()
     expect(screen.queryByText(/Kaputt|Fehler/)).not.toBeInTheDocument()
+  })
+
+  it('polls every 60 seconds', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] })
+    try {
+      const api = setup({ configured: false })
+      renderWithProviders('/')
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10)
+      })
+      expect(api.callsTo('GET /api/v1/dashboard/wifi')).toHaveLength(1)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+      expect(api.callsTo('GET /api/v1/dashboard/wifi')).toHaveLength(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

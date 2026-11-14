@@ -5,6 +5,7 @@ import { api, unwrap } from '../../shared/api/client.ts'
 import { resolveWidget, type Region as RegionName } from '../modules/widgets.ts'
 import { DiagnoseOverlay } from './DiagnoseOverlay.tsx'
 import { RotatedViewport } from './RotatedViewport.tsx'
+import { useReloadOnNewBuild } from './useReloadOnNewBuild.ts'
 import { normalizeRotation, useBrowserRotation } from './useBrowserRotation.ts'
 import './dashboard.css'
 
@@ -46,6 +47,7 @@ function Region({ name, keys }: { name: RegionName; keys: string[] }) {
 
 export function DashboardPage() {
   const [searchParams] = useSearchParams()
+  useReloadOnNewBuild()
   // A failing request only means "no test pattern": the mirror shows no error text for it.
   const kioskState = useQuery({
     queryKey: ['kiosk', 'state'],

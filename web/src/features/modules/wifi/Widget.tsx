@@ -9,7 +9,7 @@ export function WifiWidget() {
   const query = useQuery({
     queryKey: ['dashboard', 'wifi'],
     queryFn: async () => unwrap(await api.GET('/api/v1/dashboard/wifi')),
-    refetchInterval: 5 * 60_000,
+    refetchInterval: 60_000,
   })
   const qr = query.data?.configured ? query.data.qr : undefined
   if (!qr) return null
