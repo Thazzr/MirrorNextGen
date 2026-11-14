@@ -128,3 +128,7 @@ Ist das Repo privat, braucht der Pi einmalig `docker login ghcr.io` mit einem To
 Regeln, Architekturgrenzen und den Ablauf pro Phase beschreibt [`CLAUDE.md`](CLAUDE.md): Planen und Prüfen, Umsetzen durch Subagenten, Gegenproben, Gate, Conventional Commits, SemVer-Tags.
 
 [`CHANGELOG.md`](CHANGELOG.md) wird mit `npm run changelog` aus den Commit-Nachrichten erzeugt und nie von Hand bearbeitet.
+
+## Lizenz
+
+MirrorNextGen steht unter der [MIT-Lizenz](LICENSE). Mitgelieferte Fremdbestandteile behalten ihre eigenen Lizenzen: IBM Plex Sans (SIL Open Font License 1.1), Bootstrap Icons, Tabler Icons und Mantine (MIT). Die Lizenzen der npm- und Go-Abhängigkeiten liegen bei den jeweiligen Paketen.
