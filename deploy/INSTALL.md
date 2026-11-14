@@ -1,0 +1,139 @@
+# MirrorNextGen auf dem Raspberry Pi 5 installieren
+
+> **Hinweis:** Diese Anleitung wurde ohne Zugriff auf die Hardware geschrieben.
+> Jeder Schritt, vor allem die Anzeige (Abschnitte 2, 7 und 8), muss am Gerät
+> bestätigt werden. Wenn etwas abweicht, gilt, was du am Gerät siehst.
+
+Der Pi lädt nur fertige Images und baut nichts selbst. Auf dem Host ist nur Docker installiert, alles andere läuft in den Containern `mirror` (Server und Oberfläche) und `kiosk` (Bildschirmanzeige).
+
+## 1. Voraussetzungen
+
+- Raspberry Pi 5 mit Netzteil und Speicherkarte (oder SSD)
+- WQHD-Monitor (2560 × 1440), per HDMI am Pi, im Hochformat aufgestellt
+- Netzwerk (LAN oder WLAN) mit Internetzugang
+- Ein zweiter Rechner oder das Handy für die Verwaltung
+
+Schritte:
+
+1. Schreibe **Ubuntu Server 26.04 LTS (64 Bit, arm64)** mit dem Raspberry Pi Imager auf die Karte. Lege im Imager Hostname, Benutzer und SSH-Zugang gleich fest.
+2. Starte den Pi und melde dich an (direkt oder per SSH).
+3. Bring das System auf den neuesten Stand:
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo reboot
+```
+
+## 2. Anzeige vorbereiten
+
+Der Kiosk-Container nutzt den Grafiktreiber des Hosts (KMS). Prüfe, dass er aktiv ist:
+
+```bash
+ls /dev/dri
+```
+
+Du solltest `card0` (oder `card1`) und `renderD128` sehen. Fehlt `/dev/dri`, geht die Anzeige nicht. Prüfe dann, ob in `/boot/firmware/config.txt` die Zeile `dtoverlay=vc4-kms-v3d` steht (Standard bei Ubuntu für den Pi).
+
+Damit die Textkonsole nicht über dem Dashboard erscheint:
+
+```bash
+# Login-Prompt auf tty1 abschalten
+sudo systemctl disable --now getty@tty1
+# Konsolen-Cursor ausblenden und Bildschirmschoner der Konsole abschalten
+sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
+sudo sed -i '1 s/$/ consoleblank=0 vt.global_cursor_default=0/' /boot/firmware/cmdline.txt
+cat /boot/firmware/cmdline.txt
+sudo reboot
+```
+
+`cmdline.txt` muss **eine einzige Zeile** bleiben. Prüfe das mit dem `cat`.
+
+## 3. Docker installieren
+
+```bash
+sudo apt install -y docker.io docker-compose-v2
+sudo usermod -aG docker $USER
+```
+
+Melde dich ab und wieder an (oder starte neu), damit die Gruppe gilt. Dann:
+
+```bash
+docker version
+docker compose version
+```
+
+## 4. Zugriff auf die Images (GHCR)
+
+Die Images liegen privat in der GitHub Container Registry.
+
+1. Erzeuge auf GitHub ein **Personal Access Token (classic)** mit der Berechtigung `read:packages` (Einstellungen → Developer settings → Personal access tokens).
+2. Melde dich am Pi an der Registry an. Das Token gibst du erst auf Nachfrage ein, nicht in den Befehl:
+
+```bash
+docker login ghcr.io -u <github-benutzername>
+```
+
+## 5. Deploy-Dateien holen
+
+Du brauchst nur `compose.yaml` und `.env.example` aus dem Ordner `deploy/` des Repositorys:
+
+```bash
+mkdir -p ~/mirror && cd ~/mirror
+# Beide Dateien aus deploy/ des Repositorys hierher kopieren, z. B. per scp vom Rechner:
+#   scp deploy/compose.yaml deploy/.env.example <benutzer>@<pi>:~/mirror/
+cp .env.example .env
+nano .env
+```
+
+In `.env` kannst du Zeitzone (`TZ`), Port (`MIRROR_PORT`) und die Kiosk-Optionen anpassen. Die Standardwerte genügen für den ersten Start.
+
+## 6. Starten
+
+```bash
+cd ~/mirror
+docker compose pull
+docker compose up -d
+docker compose logs -f kiosk
+```
+
+Der Kiosk wartet, bis der Server bereit ist, und startet dann die Anzeige. Beenden der Log-Ansicht: `Strg+C` (die Container laufen weiter).
+
+Öffne am Handy `http://<pi>:8080/admin` und lege das Passwort für die Verwaltung fest.
+
+## 7. Abnahme-Checkliste (am Gerät prüfen)
+
+- [ ] Das Dashboard steht im Vollbild auf dem Monitor, ohne Cursor und ohne Rahmen.
+- [ ] Admin → Anzeige → **Testbild an**: Es zeigt 1440 × 2560 im Hochformat, der Pfeil „oben“ liegt am **physischen** oberen Rand.
+- [ ] Jede Drehung (0°, 90°, 180°, 270°) wird innerhalb von etwa 5 Sekunden übernommen, ohne dass etwas neu startet.
+- [ ] Nach `sudo reboot` kommt alles von selbst zurück (Dashboard sichtbar, ohne dass du etwas tippst).
+- [ ] `docker compose logs kiosk` zeigt die angewendeten Drehungen (Einträge „applied screen state“ mit `rotation` und `output`).
+
+Notiere Abweichungen, besonders den Namen des Ausgangs (z. B. `HDMI-A-1`) und welche Drehung zur Aufstellung deines Monitors passt.
+
+## 8. Fehlersuche
+
+**Schwarzer Bildschirm**
+- `ls /dev/dri` prüfen (siehe Abschnitt 2).
+- Das Grafikgerät festlegen: in `.env` `WLR_DRM_DEVICES=/dev/dri/card1` eintragen (oder `card0`), dann `docker compose up -d`.
+- Log ansehen: `docker compose logs kiosk`.
+
+**Grafikprobleme (Flackern, Absturz, schwarzes Fenster)**
+- In `.env` `KIOSK_DISABLE_GPU=true` setzen.
+- Zusätzlich oder stattdessen `WLR_RENDERER=pixman` (reine Software-Darstellung, langsamer).
+
+**Drehung wird nicht übernommen**
+- Im Log nach Fehlern von `wlr-randr` suchen.
+- Ausweg: `KIOSK_ROTATION=browser` in `.env`. Dann dreht sich das Dashboard selbst, und der Kiosk-Agent ruft kein `wlr-randr` auf.
+
+**Login-Prompt oder Konsolentext sichtbar, Anzeige hängt am Umschalten der Konsole**
+- Prüfe, dass `getty@tty1` abgeschaltet ist: `systemctl status getty@tty1`.
+- Prüfe die Zeile in `/boot/firmware/cmdline.txt` (siehe Abschnitt 2).
+- Starte den Kiosk neu: `docker compose restart kiosk`.
+
+**Aktualisieren**
+
+```bash
+cd ~/mirror
+docker compose pull
+docker compose up -d
+```

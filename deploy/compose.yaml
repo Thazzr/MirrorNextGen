@@ -11,5 +11,25 @@ services:
     volumes:
       - mirror-data:/data
 
+  kiosk:
+    image: ghcr.io/thazzr/mirrornextgen/kiosk:${MIRROR_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      mirror:
+        condition: service_healthy
+    # First, broad variant (GPU, input and VT access in one go). To be narrowed
+    # to the needed devices and capabilities after the hardware test.
+    privileged: true
+    volumes:
+      - /run/udev:/run/udev:ro
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      KIOSK_URL: http://mirror:8080/
+      KIOSK_DISABLE_GPU: ${KIOSK_DISABLE_GPU:-false}
+      KIOSK_ROTATION: ${KIOSK_ROTATION:-compositor}
+      # Optional; values from .env reach the container, empty means unset (kioskd ignores empty values).
+      WLR_RENDERER: ${WLR_RENDERER:-}
+      WLR_DRM_DEVICES: ${WLR_DRM_DEVICES:-}
+
 volumes:
   mirror-data:
