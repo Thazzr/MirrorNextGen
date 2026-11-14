@@ -99,6 +99,42 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
 - **Interne Dienste bleiben intern.** go2rtc und andere Hilfsdienste werden nicht ins LAN veröffentlicht. Was der Browser davon braucht, reicht `mirror` gezielt durch.
 - **Zeitzone:** `TZ` wird einmal in `deploy/.env` gesetzt (Standard `Europe/Berlin`) und gilt für alle Container. Das Go-Binary bettet `time/tzdata` ein, damit es auch im distroless-Image funktioniert.
 
+## Module und Anordnung
+
+Nutzerentscheidung 2026-11-14: Der Spiegel besteht aus **internen Modulen**, und der Nutzer **ordnet sie frei an**. Ein Plugin-System mit Fremdcode zur Laufzeit gibt es bewusst nicht.
+
+- **Module:** Uhr (`clock`), Wetter (`weather`), Kalender-Bereiche (`calendar:<bereichs-id>`, eine Instanz je Bereich), Schichten (`calendar:<bereichs-id>` vom Typ Schichten), WLAN (`wifi`), Bring! (`bring`) und Kamera (`camera`). Ein Modul bringt mit:
+  - einen Einstellungsabschnitt in `settings.json`;
+  - eigene, typisierte Endpunkte im Vertrag: Einstellungen (geschützt) und Dashboard-Daten (öffentlich, ohne Geheimnisse);
+  - ein Go-Paket unter `internal/<modul>`;
+  - im Web einen Ordner `web/src/features/modules/<modul>/` mit
+    - `Widget.tsx` (Dashboard, ohne Mantine),
+    - `admin/` (Detailseite und Kachel-Status, nur im Admin-Chunk).
+- **Registrierung:** Zwei getrennte Registries, damit Mantine nie ins Dashboard gelangt:
+  - `features/modules/widgets.ts` ordnet Schlüssel → Widget zu;
+  - `features/admin/modules.ts` ordnet Schlüssel → Admin-Seite, Kachel und Status zu.
+
+  Im Go-Server kennt ein Modulverzeichnis (`internal/modules`) die gültigen Schlüssel. Die Anordnung wird dagegen validiert.
+- **Anordnung (`layout` in `settings.json`):** Fünf Regionen des 1440×2560-Dashboards:
+  - `topLeft` und `topRight` (die beiden Spalten 45 % | 55 % wie in SmartMirror2);
+  - `middle` (volle Breite darunter);
+  - `bottomLeft` und `bottomRight` (am unteren Rand verankert).
+
+  Jede Region ist eine geordnete Liste von Modulschlüsseln. Jeder Schlüssel darf höchstens einmal vorkommen. Was in keiner Region steht, ist ausgeschaltet. Die Vorgabe entspricht SmartMirror2:
+  - `topLeft`: Uhr, dann die Kalender-Bereiche;
+  - `topRight`: Wetter, Kamera;
+  - `bottomLeft`: Bring!;
+  - `bottomRight`: WLAN.
+- **Dashboard:** Es lädt die Anordnung öffentlich (`GET /api/v1/dashboard/layout`) und zeigt je Region die Widgets in Reihenfolge. Ein unbekannter Schlüssel wird übersprungen. Jedes Widget lädt seine Daten selbst und zeigt Fehler an Ort und Stelle.
+- **Admin:** Eine Seite „Anordnung“ stellt die Regionen als Spiegel-Skizze dar. Sie fügt Module hinzu und entfernt sie, verschiebt sie zwischen Regionen und ändert die Reihenfolge, per Knöpfen (am Handy) bzw. Ziehen. Gespeichert wird über die Leiste „Ungespeicherte Änderungen“.
+- **Neues Modul anlegen:**
+  1. Einstellungsabschnitt mit Validierung;
+  2. Endpunkte im Vertrag und `npm run generate`;
+  3. Go-Paket und Handler mit Tests;
+  4. Schlüssel im Modulverzeichnis;
+  5. Web-Ordner mit Widget und Admin-Seite, Einträge in beiden Registries;
+  6. Platz in der Vorgabe-Anordnung.
+
 ## Go-Regeln (`server/`)
 
 - **Standardbibliothek zuerst.** `net/http` mit `ServeMux`, `log/slog`, `context`, `encoding/json`, `embed`. Eine Abhängigkeit kommt nur dazu, wenn sie echte Arbeit abnimmt (iCal/RRULE, QR, Argon2), und mit fester Version in `go.mod`.
