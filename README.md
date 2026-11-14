@@ -81,6 +81,7 @@ Die Verwaltung liegt unter `/admin` und funktioniert am Handy wie am Rechner.
 - **Kalender:**
   - Du trägst beliebig viele private iCal-Links ein (Google, iCloud, Outlook) und legst Bereiche an, entweder Terminlisten oder eine Schichtanzeige für den Dienstplan. Neue Bereiche erscheinen oben links.
   - Regeln blenden Termine aus, setzen Symbole oder benennen sie um. Die Vorschau zeigt mit echten Terminen, welche Regel greift.
+  - Je Bereich lässt sich die Zeitangabe einfärben: läuft gerade, beginnt in weniger als X Stunden, beginnt heute – jede Stufe mit eigener Farbe.
   - Serientermine, Ausnahmen, ganz- und mehrtägige Termine sowie Zeitzonen werden korrekt berechnet.
   - Die iCal-Adressen bleiben auf dem Server.
 - **Symbole:** eigene SVG- oder PNG-Dateien bis 256 KB. SVGs werden auf aktive Inhalte geprüft.
