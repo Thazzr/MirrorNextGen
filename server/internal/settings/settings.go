@@ -2,9 +2,13 @@
 package settings
 
 import (
+	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/thazzr/mirrornextgen/server/internal/modules"
 )
 
 // SchemaVersion is the version of the settings file format. A file with any
@@ -22,6 +26,7 @@ const (
 	msgSSIDLength     = "Höchstens 32 Bytes."
 	msgSecurity       = "Erlaubt sind WPA oder offen."
 	msgWifiPassword   = "Das WLAN-Passwort muss 8 bis 63 Zeichen haben."
+	msgMaxModules     = "Höchstens 12 Module je Region."
 	msgSecretConflict = "Sende entweder einen neuen Wert oder lösche den gespeicherten, nicht beides."
 )
 
@@ -63,13 +68,135 @@ type WifiSettings struct {
 	Password string `json:"password"`
 }
 
+// maxModulesPerRegion bounds a layout region; the dashboard has no room for more.
+const maxModulesPerRegion = 12
+
+// Layout places modules on the five regions of the dashboard. Each region is
+// an ordered list of module keys; a module in no region is switched off.
+type Layout struct {
+	TopLeft     []string `json:"topLeft"`
+	TopRight    []string `json:"topRight"`
+	Middle      []string `json:"middle"`
+	BottomLeft  []string `json:"bottomLeft"`
+	BottomRight []string `json:"bottomRight"`
+}
+
+// LayoutRegions are the region names in layout order, also the field names
+// of validation errors.
+var LayoutRegions = []string{"topLeft", "topRight", "middle", "bottomLeft", "bottomRight"}
+
+// regions returns pointers to the lists in LayoutRegions order.
+func (l *Layout) regions() []*[]string {
+	return []*[]string{&l.TopLeft, &l.TopRight, &l.Middle, &l.BottomLeft, &l.BottomRight}
+}
+
+// normalized returns a deep copy in which no region is nil (JSON must carry
+// [] rather than null).
+func (l Layout) normalized() Layout {
+	out := Layout{}
+	src, dst := l.regions(), out.regions()
+	for i := range src {
+		*dst[i] = append([]string{}, *src[i]...)
+	}
+	return out
+}
+
+// Filtered returns a copy of the layout without the keys keep rejects.
+func (l Layout) Filtered(keep func(key string) bool) Layout {
+	out := Layout{}
+	src, dst := l.regions(), out.regions()
+	for i := range src {
+		*dst[i] = []string{}
+		for _, k := range *src[i] {
+			if keep(k) {
+				*dst[i] = append(*dst[i], k)
+			}
+		}
+	}
+	return out
+}
+
+// Equal reports whether both layouts hold the same lists.
+func (l Layout) Equal(o Layout) bool {
+	a, b := l.regions(), o.regions()
+	for i := range a {
+		if !slices.Equal(*a[i], *b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// DefaultLayout is the layout while none is stored.
+func DefaultLayout() Layout {
+	return Layout{
+		TopLeft:     []string{"clock"},
+		TopRight:    []string{"weather"},
+		Middle:      []string{},
+		BottomLeft:  []string{},
+		BottomRight: []string{"wifi"},
+	}
+}
+
 // Settings is the content of settings.json. Later phases add sections; a
-// file written before a section existed still loads (see parse).
+// file written before a section existed still loads (see parse). Layout
+// holds slices, so Settings is compared with Equal, not ==.
 type Settings struct {
 	SchemaVersion int             `json:"schemaVersion"`
 	Display       DisplaySettings `json:"display"`
 	Weather       WeatherSettings `json:"weather"`
 	Wifi          WifiSettings    `json:"wifi"`
+	Layout        Layout          `json:"layout"`
+}
+
+// moduleInput hands the modules directory what it needs to know about the
+// settings (nothing yet; calendar sections will come here).
+func (s Settings) moduleInput() modules.Input { return modules.Input{} }
+
+// ModuleAvailable reports whether key names a module that exists under s.
+func (s Settings) ModuleAvailable(key string) bool {
+	return modules.IsAvailable(s.moduleInput(), key)
+}
+
+// Equal reports whether both settings hold the same content.
+func (s Settings) Equal(o Settings) bool {
+	return s.SchemaVersion == o.SchemaVersion && s.Display == o.Display &&
+		s.Weather == o.Weather && s.Wifi == o.Wifi && s.Layout.Equal(o.Layout)
+}
+
+// clone deep-copies the parts of s that are slices.
+func (s Settings) clone() Settings {
+	s.Layout = s.Layout.normalized()
+	return s
+}
+
+// validateLayout reports field errors keyed by region name. A duplicate is
+// reported on the region of its second occurrence.
+func (s Settings) validateLayout(errs map[string]string) {
+	in := s.moduleInput()
+	seen := map[string]bool{}
+	l := s.Layout
+	for i, region := range l.regions() {
+		name := LayoutRegions[i]
+		if len(*region) > maxModulesPerRegion {
+			errs["layout."+name] = msgMaxModules
+		}
+		for _, key := range *region {
+			var msg string
+			switch {
+			case !modules.IsAvailable(in, key):
+				msg = fmt.Sprintf("Unbekanntes Modul „%s“.", key)
+			case seen[key]:
+				msg = fmt.Sprintf("„%s“ steht mehrfach in der Anordnung.", key)
+			}
+			seen[key] = true
+			if msg != "" {
+				if _, taken := errs["layout."+name]; !taken {
+					errs["layout."+name] = msg
+				}
+			}
+		}
+	}
 }
 
 // Defaults returns the settings used while no file exists.
@@ -78,6 +205,7 @@ func Defaults() Settings {
 		SchemaVersion: SchemaVersion,
 		Weather:       WeatherSettings{ShowIcons: true, RefreshMinutes: 15},
 		Wifi:          WifiSettings{Security: SecurityWPA},
+		Layout:        DefaultLayout(),
 	}
 }
 
@@ -115,6 +243,7 @@ func (s Settings) Validate() map[string]string {
 	if pwLen > 63 || (f.SSID != "" && f.Security == SecurityWPA && pwLen < 8) {
 		errs["wifi.password"] = msgWifiPassword
 	}
+	s.validateLayout(errs)
 	if len(errs) == 0 {
 		return nil
 	}

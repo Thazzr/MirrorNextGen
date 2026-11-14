@@ -67,11 +67,18 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
+	return newTestEnvWithSettingsDir(t, t.TempDir())
+}
+
+// newTestEnvWithSettingsDir is newTestEnv with a settings directory the
+// caller may have prepared (for example with a settings.json to load).
+func newTestEnvWithSettingsDir(t *testing.T, settingsDir string) *testEnv {
+	t.Helper()
 	admin, err := auth.Load(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	settingsStore, err := settings.Load(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	settingsStore, err := settings.Load(settingsDir, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

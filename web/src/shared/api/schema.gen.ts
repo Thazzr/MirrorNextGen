@@ -236,6 +236,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard layout
+         * @description Returns the stored placement of the modules on the dashboard regions.
+         */
+        get: operations["getLayoutSettings"];
+        /**
+         * Change the dashboard layout
+         * @description Validates and stores the layout. Invalid values answer 400 with `errors` keyed by region name (`topLeft`, `topRight`, `middle`, `bottomLeft`, `bottomRight`); nothing is stored then.
+         */
+        put: operations["updateLayoutSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Available modules
+         * @description Lists all modules that currently exist, for the layout editor of the admin UI.
+         */
+        get: operations["listModules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Layout for the dashboard
+         * @description Returns the stored layout without the keys of modules that are no longer available. Public, because the dashboard reads it without a session; it contains only module keys.
+         */
+        get: operations["getDashboardLayout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/weather": {
         parameters: {
             query?: never;
@@ -391,6 +455,21 @@ export interface components {
             password?: string;
             /** @description Deletes the stored password. Not combinable with a new `password`. */
             clearPassword?: boolean;
+        };
+        /** @description Placement of the modules on the five dashboard regions. Each region is an ordered list of module keys (at most 12); a key may appear only once in the whole layout. */
+        Layout: {
+            topLeft: string[];
+            topRight: string[];
+            middle: string[];
+            bottomLeft: string[];
+            bottomRight: string[];
+        };
+        /** @description A module that can be placed in the layout. */
+        ModuleInfo: {
+            /** @description Module key, for example `clock`. */
+            key: string;
+            /** @description German display name. */
+            name: string;
         };
         /** @description Weather state for the dashboard. */
         DashboardWeather: {
@@ -861,6 +940,95 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getLayoutSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored layout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateLayoutSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Layout"];
+            };
+        };
+        responses: {
+            /** @description The stored layout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listModules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The available modules. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleInfo"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The layout to render. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Layout"];
+                };
+            };
         };
     };
     getDashboardWeather: {

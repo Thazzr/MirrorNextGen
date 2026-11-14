@@ -47,7 +47,7 @@ func load(dir string, logger *slog.Logger, now func() time.Time) (*Store, error)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", s.path, err)
 	}
-	loaded, reason := parse(data)
+	loaded, dropped, reason := parse(data)
 	if reason != "" {
 		aside := s.path + ".discarded-" + now().UTC().Format("20060102T150405Z")
 		if err := os.Rename(s.path, aside); err != nil {
@@ -56,34 +56,51 @@ func load(dir string, logger *slog.Logger, now func() time.Time) (*Store, error)
 		logger.Warn("settings file discarded, using defaults", "reason", reason, "movedTo", aside)
 		return s, nil
 	}
+	if len(dropped) > 0 {
+		logger.Warn("unavailable modules removed from layout", "keys", dropped)
+	}
 	s.cur = loaded
 	return s, nil
 }
 
 // parse decodes data; a non-empty reason means the content is unusable.
-func parse(data []byte) (Settings, string) {
+// dropped lists layout keys removed because no such module exists any more.
+//
+// Unavailable module keys are dropped instead of failing validation: modules
+// can disappear between versions (a deleted calendar section), and that must
+// not throw away the whole file. Structural layout errors (duplicates, too
+// many keys) still discard it.
+func parse(data []byte) (st Settings, dropped []string, reason string) {
 	// Decode on top of the defaults so a file written before a section
 	// existed keeps working and the new sections get their defaults.
-	st := Defaults()
+	st = Defaults()
 	st.SchemaVersion = 0 // a file without a version must not inherit one
 	dec := json.NewDecoder(bytes.NewReader(data))
 	if err := dec.Decode(&st); err != nil {
-		return Settings{}, "invalid JSON: " + err.Error()
+		return Settings{}, nil, "invalid JSON: " + err.Error()
 	}
 	if st.SchemaVersion != SchemaVersion {
-		return Settings{}, fmt.Sprintf("unsupported schemaVersion %d", st.SchemaVersion)
+		return Settings{}, nil, fmt.Sprintf("unsupported schemaVersion %d", st.SchemaVersion)
 	}
+	st = st.clone()
+	st.Layout = st.Layout.Filtered(func(key string) bool {
+		if st.ModuleAvailable(key) {
+			return true
+		}
+		dropped = append(dropped, key)
+		return false
+	})
 	if errs := st.Validate(); errs != nil {
-		return Settings{}, fmt.Sprintf("invalid content: %v", errs)
+		return Settings{}, nil, fmt.Sprintf("invalid content: %v", errs)
 	}
-	return st, ""
+	return st, dropped, ""
 }
 
 // Get returns a copy of the current settings.
 func (s *Store) Get() Settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.cur
+	return s.cur.clone()
 }
 
 // UpdateDisplay validates and stores new display settings. On validation
@@ -96,6 +113,16 @@ func (s *Store) UpdateDisplay(d DisplaySettings) (DisplaySettings, map[string]st
 		return nil
 	})
 	return cur.Display, errs, err
+}
+
+// UpdateLayout validates and stores a new layout. Field errors are keyed by
+// region name.
+func (s *Store) UpdateLayout(l Layout) (Layout, map[string]string, error) {
+	cur, errs, err := s.update("layout", func(next *Settings) map[string]string {
+		next.Layout = l.normalized()
+		return nil
+	})
+	return cur.Layout.normalized(), errs, err
 }
 
 // UpdateWeather merges u into the weather section (see WeatherUpdate for the
@@ -126,7 +153,7 @@ func (s *Store) UpdateWifi(u WifiUpdate) (WifiSettings, map[string]string, error
 func (s *Store) update(section string, mutate func(next *Settings) map[string]string) (Settings, map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := s.cur
+	next := s.cur.clone()
 	if errs := mutate(&next); errs != nil {
 		return s.cur, errs, nil
 	}

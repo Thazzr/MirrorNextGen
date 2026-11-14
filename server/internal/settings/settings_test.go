@@ -72,7 +72,7 @@ func TestLoadMissingFileGivesDefaultsAndWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := s.Get(); got != Defaults() || got.Display.Rotation != 0 || got.SchemaVersion != 1 {
+	if got := s.Get(); !got.Equal(Defaults()) || got.Display.Rotation != 0 || got.SchemaVersion != 1 {
 		t.Errorf("got %+v", got)
 	}
 	entries, _ := os.ReadDir(dir)
@@ -131,7 +131,7 @@ func TestBadFilesAreMovedAside(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if s.Get() != Defaults() {
+			if !s.Get().Equal(Defaults()) {
 				t.Errorf("got %+v, want defaults", s.Get())
 			}
 			if _, err := os.Stat(p); !os.IsNotExist(err) {
@@ -204,11 +204,11 @@ func TestConcurrentUpdates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loaded, reason := parse(data)
+	loaded, _, reason := parse(data)
 	if reason != "" {
 		t.Fatalf("file not a complete valid version: %s", reason)
 	}
-	if loaded != s.Get() {
+	if !loaded.Equal(s.Get()) {
 		t.Errorf("file %+v != memory %+v", loaded, s.Get())
 	}
 	if entries, _ := os.ReadDir(dir); len(entries) != 1 {

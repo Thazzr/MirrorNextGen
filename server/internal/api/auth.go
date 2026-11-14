@@ -46,6 +46,9 @@ var publicOperations = map[string]bool{
 	// purpose of that widget.
 	"GetDashboardWeather": true,
 	"GetDashboardWifi":    true,
+	// The dashboard reads the layout without a session; it contains only
+	// module keys, filtered to the modules that exist.
+	"GetDashboardLayout": true,
 }
 
 type ctxKey struct{}

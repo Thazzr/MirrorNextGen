@@ -1,0 +1,74 @@
+// Package modules is the directory of the mirror's modules: it knows which
+// module keys exist, so the layout can be validated against them. It depends
+// on no other internal package (settings imports it), so the data that
+// instance-based modules need arrives through Input.
+package modules
+
+import "slices"
+
+// Info names one available module.
+type Info struct {
+	Key  string
+	Name string
+}
+
+// Input is the part of the settings that decides which module instances
+// exist. Later modules extend it, for example with the calendar sections
+// behind the keys "calendar:<sectionId>".
+type Input struct{}
+
+// definition is either a single key (key + name) or a prefix with instances.
+type definition struct {
+	key  string
+	name string
+	// instances lists the keys of a prefix module for the given input; used
+	// when key is empty.
+	instances func(Input) []Info
+}
+
+func (d definition) list(in Input) []Info {
+	if d.key != "" {
+		return []Info{{Key: d.key, Name: d.name}}
+	}
+	return d.instances(in)
+}
+
+var directory = []definition{
+	{key: "clock", name: "Uhr"},
+	{key: "weather", name: "Wetter"},
+	{key: "wifi", name: "WLAN-QR-Code"},
+}
+
+// Available returns all modules that currently exist, in directory order.
+func Available(in Input) []Info {
+	out := []Info{}
+	for _, d := range directory {
+		out = append(out, d.list(in)...)
+	}
+	return out
+}
+
+// Keys returns just the keys of Available.
+func Keys(in Input) []string {
+	infos := Available(in)
+	keys := make([]string, len(infos))
+	for i, m := range infos {
+		keys[i] = m.Key
+	}
+	return keys
+}
+
+// IsAvailable reports whether key names an existing module.
+func IsAvailable(in Input, key string) bool {
+	return slices.Contains(Keys(in), key)
+}
+
+// Name returns the German name of an available module key.
+func Name(in Input, key string) (string, bool) {
+	for _, m := range Available(in) {
+		if m.Key == key {
+			return m.Name, true
+		}
+	}
+	return "", false
+}

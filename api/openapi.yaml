@@ -300,6 +300,82 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/layout:
+    get:
+      operationId: getLayoutSettings
+      summary: Dashboard layout
+      description: Returns the stored placement of the modules on the dashboard regions.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored layout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateLayoutSettings
+      summary: Change the dashboard layout
+      description: >-
+        Validates and stores the layout. Invalid values answer 400 with `errors` keyed by
+        region name (`topLeft`, `topRight`, `middle`, `bottomLeft`, `bottomRight`); nothing
+        is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Layout"
+      responses:
+        "200":
+          description: The stored layout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/modules:
+    get:
+      operationId: listModules
+      summary: Available modules
+      description: Lists all modules that currently exist, for the layout editor of the admin UI.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The available modules.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModuleInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/dashboard/layout:
+    get:
+      operationId: getDashboardLayout
+      summary: Layout for the dashboard
+      description: >-
+        Returns the stored layout without the keys of modules that are no longer available.
+        Public, because the dashboard reads it without a session; it contains only module keys.
+      responses:
+        "200":
+          description: The layout to render.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
   /api/v1/dashboard/weather:
     get:
       operationId: getDashboardWeather
@@ -543,6 +619,39 @@ components:
         clearPassword:
           type: boolean
           description: Deletes the stored password. Not combinable with a new `password`.
+    Layout:
+      type: object
+      description: >-
+        Placement of the modules on the five dashboard regions. Each region is an ordered list
+        of module keys (at most 12); a key may appear only once in the whole layout.
+      required: [topLeft, topRight, middle, bottomLeft, bottomRight]
+      properties:
+        topLeft:
+          type: array
+          items: {type: string}
+        topRight:
+          type: array
+          items: {type: string}
+        middle:
+          type: array
+          items: {type: string}
+        bottomLeft:
+          type: array
+          items: {type: string}
+        bottomRight:
+          type: array
+          items: {type: string}
+    ModuleInfo:
+      type: object
+      description: A module that can be placed in the layout.
+      required: [key, name]
+      properties:
+        key:
+          type: string
+          description: Module key, for example `clock`.
+        name:
+          type: string
+          description: German display name.
     DashboardWeather:
       type: object
       description: Weather state for the dashboard.

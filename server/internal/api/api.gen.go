@@ -226,6 +226,24 @@ type KioskState struct {
 // KioskStateRotation Rotation in degrees clockwise.
 type KioskStateRotation int
 
+// Layout Placement of the modules on the five dashboard regions. Each region is an ordered list of module keys (at most 12); a key may appear only once in the whole layout.
+type Layout struct {
+	BottomLeft  []string `json:"bottomLeft"`
+	BottomRight []string `json:"bottomRight"`
+	Middle      []string `json:"middle"`
+	TopLeft     []string `json:"topLeft"`
+	TopRight    []string `json:"topRight"`
+}
+
+// ModuleInfo A module that can be placed in the layout.
+type ModuleInfo struct {
+	// Key Module key, for example `clock`.
+	Key string `json:"key"`
+
+	// Name German display name.
+	Name string `json:"name"`
+}
+
 // PasswordRequest A password to set or to sign in with.
 type PasswordRequest struct {
 	Password string `json:"password"`
@@ -384,6 +402,9 @@ type SetupAdminJSONRequestBody = PasswordRequest
 // UpdateDisplaySettingsJSONRequestBody defines body for UpdateDisplaySettings for application/json ContentType.
 type UpdateDisplaySettingsJSONRequestBody = DisplaySettings
 
+// UpdateLayoutSettingsJSONRequestBody defines body for UpdateLayoutSettings for application/json ContentType.
+type UpdateLayoutSettingsJSONRequestBody = Layout
+
 // UpdateWeatherSettingsJSONRequestBody defines body for UpdateWeatherSettings for application/json ContentType.
 type UpdateWeatherSettingsJSONRequestBody = WeatherSettingsUpdate
 
@@ -407,6 +428,9 @@ type ServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(w http.ResponseWriter, r *http.Request)
+	// GetDashboardLayout Layout for the dashboard
+	// (GET /api/v1/dashboard/layout)
+	GetDashboardLayout(w http.ResponseWriter, r *http.Request)
 	// GetDashboardWeather Weather for the dashboard
 	// (GET /api/v1/dashboard/weather)
 	GetDashboardWeather(w http.ResponseWriter, r *http.Request)
@@ -422,12 +446,21 @@ type ServerInterface interface {
 	// GetKioskState Target state of the kiosk
 	// (GET /api/v1/kiosk/state)
 	GetKioskState(w http.ResponseWriter, r *http.Request)
+	// ListModules Available modules
+	// (GET /api/v1/modules)
+	ListModules(w http.ResponseWriter, r *http.Request)
 	// GetDisplaySettings Display settings
 	// (GET /api/v1/settings/display)
 	GetDisplaySettings(w http.ResponseWriter, r *http.Request)
 	// UpdateDisplaySettings Change the display settings
 	// (PUT /api/v1/settings/display)
 	UpdateDisplaySettings(w http.ResponseWriter, r *http.Request)
+	// GetLayoutSettings Dashboard layout
+	// (GET /api/v1/settings/layout)
+	GetLayoutSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateLayoutSettings Change the dashboard layout
+	// (PUT /api/v1/settings/layout)
+	UpdateLayoutSettings(w http.ResponseWriter, r *http.Request)
 	// GetWeatherSettings Weather settings
 	// (GET /api/v1/settings/weather)
 	GetWeatherSettings(w http.ResponseWriter, r *http.Request)
@@ -521,6 +554,20 @@ func (siw *ServerInterfaceWrapper) SetupAdmin(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetDashboardLayout operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardLayout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardLayout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDashboardWeather operation middleware
 func (siw *ServerInterfaceWrapper) GetDashboardWeather(w http.ResponseWriter, r *http.Request) {
 
@@ -591,6 +638,20 @@ func (siw *ServerInterfaceWrapper) GetKioskState(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// ListModules operation middleware
+func (siw *ServerInterfaceWrapper) ListModules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListModules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDisplaySettings operation middleware
 func (siw *ServerInterfaceWrapper) GetDisplaySettings(w http.ResponseWriter, r *http.Request) {
 
@@ -610,6 +671,34 @@ func (siw *ServerInterfaceWrapper) UpdateDisplaySettings(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateDisplaySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLayoutSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetLayoutSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLayoutSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateLayoutSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateLayoutSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateLayoutSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -809,6 +898,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/weather", wrapper.UpdateWeatherSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/wifi", wrapper.GetWifiSettings)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/wifi", wrapper.UpdateWifiSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/layout", wrapper.GetLayoutSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/layout", wrapper.UpdateLayoutSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/modules", wrapper.ListModules)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/layout", wrapper.GetDashboardLayout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/weather", wrapper.GetDashboardWeather)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/dashboard/wifi", wrapper.GetDashboardWifi)
 
@@ -1131,6 +1224,27 @@ func (response SetupAdmin409ApplicationProblemPlusJSONResponse) VisitSetupAdminR
 	return err
 }
 
+type GetDashboardLayoutRequestObject struct {
+}
+
+type GetDashboardLayoutResponseObject interface {
+	VisitGetDashboardLayoutResponse(w http.ResponseWriter) error
+}
+
+type GetDashboardLayout200JSONResponse Layout
+
+func (response GetDashboardLayout200JSONResponse) VisitGetDashboardLayoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetDashboardWeatherRequestObject struct {
 }
 
@@ -1236,6 +1350,43 @@ func (response GetKioskState200JSONResponse) VisitGetKioskStateResponse(w http.R
 	return err
 }
 
+type ListModulesRequestObject struct {
+}
+
+type ListModulesResponseObject interface {
+	VisitListModulesResponse(w http.ResponseWriter) error
+}
+
+type ListModules200JSONResponse []ModuleInfo
+
+func (response ListModules200JSONResponse) VisitListModulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListModules401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListModules401ApplicationProblemPlusJSONResponse) VisitListModulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetDisplaySettingsRequestObject struct {
 }
 
@@ -1332,6 +1483,113 @@ type UpdateDisplaySettings403ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response UpdateDisplaySettings403ApplicationProblemPlusJSONResponse) VisitUpdateDisplaySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLayoutSettingsRequestObject struct {
+}
+
+type GetLayoutSettingsResponseObject interface {
+	VisitGetLayoutSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetLayoutSettings200JSONResponse Layout
+
+func (response GetLayoutSettings200JSONResponse) VisitGetLayoutSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLayoutSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetLayoutSettings401ApplicationProblemPlusJSONResponse) VisitGetLayoutSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLayoutSettingsRequestObject struct {
+	Body *UpdateLayoutSettingsJSONRequestBody
+}
+
+type UpdateLayoutSettingsResponseObject interface {
+	VisitUpdateLayoutSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateLayoutSettings200JSONResponse Layout
+
+func (response UpdateLayoutSettings200JSONResponse) VisitUpdateLayoutSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLayoutSettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateLayoutSettings400ApplicationProblemPlusJSONResponse) VisitUpdateLayoutSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLayoutSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateLayoutSettings401ApplicationProblemPlusJSONResponse) VisitUpdateLayoutSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLayoutSettings403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateLayoutSettings403ApplicationProblemPlusJSONResponse) VisitUpdateLayoutSettingsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1574,6 +1832,9 @@ type StrictServerInterface interface {
 	// SetupAdmin Set the admin password
 	// (POST /api/v1/auth/setup)
 	SetupAdmin(ctx context.Context, request SetupAdminRequestObject) (SetupAdminResponseObject, error)
+	// GetDashboardLayout Layout for the dashboard
+	// (GET /api/v1/dashboard/layout)
+	GetDashboardLayout(ctx context.Context, request GetDashboardLayoutRequestObject) (GetDashboardLayoutResponseObject, error)
 	// GetDashboardWeather Weather for the dashboard
 	// (GET /api/v1/dashboard/weather)
 	GetDashboardWeather(ctx context.Context, request GetDashboardWeatherRequestObject) (GetDashboardWeatherResponseObject, error)
@@ -1589,12 +1850,21 @@ type StrictServerInterface interface {
 	// GetKioskState Target state of the kiosk
 	// (GET /api/v1/kiosk/state)
 	GetKioskState(ctx context.Context, request GetKioskStateRequestObject) (GetKioskStateResponseObject, error)
+	// ListModules Available modules
+	// (GET /api/v1/modules)
+	ListModules(ctx context.Context, request ListModulesRequestObject) (ListModulesResponseObject, error)
 	// GetDisplaySettings Display settings
 	// (GET /api/v1/settings/display)
 	GetDisplaySettings(ctx context.Context, request GetDisplaySettingsRequestObject) (GetDisplaySettingsResponseObject, error)
 	// UpdateDisplaySettings Change the display settings
 	// (PUT /api/v1/settings/display)
 	UpdateDisplaySettings(ctx context.Context, request UpdateDisplaySettingsRequestObject) (UpdateDisplaySettingsResponseObject, error)
+	// GetLayoutSettings Dashboard layout
+	// (GET /api/v1/settings/layout)
+	GetLayoutSettings(ctx context.Context, request GetLayoutSettingsRequestObject) (GetLayoutSettingsResponseObject, error)
+	// UpdateLayoutSettings Change the dashboard layout
+	// (PUT /api/v1/settings/layout)
+	UpdateLayoutSettings(ctx context.Context, request UpdateLayoutSettingsRequestObject) (UpdateLayoutSettingsResponseObject, error)
 	// GetWeatherSettings Weather settings
 	// (GET /api/v1/settings/weather)
 	GetWeatherSettings(ctx context.Context, request GetWeatherSettingsRequestObject) (GetWeatherSettingsResponseObject, error)
@@ -1789,6 +2059,30 @@ func (sh *strictHandler) SetupAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetDashboardLayout operation middleware
+func (sh *strictHandler) GetDashboardLayout(w http.ResponseWriter, r *http.Request) {
+	var request GetDashboardLayoutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDashboardLayout(ctx, request.(GetDashboardLayoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDashboardLayout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDashboardLayoutResponseObject); ok {
+		if err := validResponse.VisitGetDashboardLayoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetDashboardWeather operation middleware
 func (sh *strictHandler) GetDashboardWeather(w http.ResponseWriter, r *http.Request) {
 	var request GetDashboardWeatherRequestObject
@@ -1909,6 +2203,30 @@ func (sh *strictHandler) GetKioskState(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListModules operation middleware
+func (sh *strictHandler) ListModules(w http.ResponseWriter, r *http.Request) {
+	var request ListModulesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListModules(ctx, request.(ListModulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListModules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListModulesResponseObject); ok {
+		if err := validResponse.VisitListModulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetDisplaySettings operation middleware
 func (sh *strictHandler) GetDisplaySettings(w http.ResponseWriter, r *http.Request) {
 	var request GetDisplaySettingsRequestObject
@@ -1957,6 +2275,61 @@ func (sh *strictHandler) UpdateDisplaySettings(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateDisplaySettingsResponseObject); ok {
 		if err := validResponse.VisitUpdateDisplaySettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLayoutSettings operation middleware
+func (sh *strictHandler) GetLayoutSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetLayoutSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLayoutSettings(ctx, request.(GetLayoutSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLayoutSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLayoutSettingsResponseObject); ok {
+		if err := validResponse.VisitGetLayoutSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateLayoutSettings operation middleware
+func (sh *strictHandler) UpdateLayoutSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateLayoutSettingsRequestObject
+
+	var body UpdateLayoutSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateLayoutSettings(ctx, request.(UpdateLayoutSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateLayoutSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateLayoutSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateLayoutSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
