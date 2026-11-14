@@ -1,3 +1,5 @@
+/// <reference types="node" />
+import { File as NodeFile } from 'node:buffer'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -8,6 +10,14 @@ import { renderWithProviders } from '../../test/renderWithProviders.tsx'
 
 preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
+
+// jsdom replaces FormData and File with its own classes, but the generated client sends a Node Request. Newer
+// Node versions only accept Node's own FormData there (Node 22 tolerated the mix), so the upload tests use
+// Node's FormData together with Node's File. Response.formData() hands out an instance of Node's class.
+async function useNodeFormData() {
+  const NodeFormData = (await new Response(new URLSearchParams()).formData()).constructor
+  vi.stubGlobal('FormData', NodeFormData)
+}
 
 const icons = [
   { id: 'ic1', name: 'Logo', contentType: 'image/png', size: 100 },
@@ -23,13 +33,22 @@ function arrange(over: Record<string, Handler> = {}) {
   })
 }
 
-const pngFile = () => new File([new Uint8Array([137, 80, 78, 71])], 'logo.png', { type: 'image/png' })
+const pngFile = () => new NodeFile([new Uint8Array([137, 80, 78, 71])], 'logo.png', { type: 'image/png' }) as unknown as File
 
 async function openIcons() {
   const view = renderWithProviders('/admin/icons')
   await screen.findByRole('group', { name: 'Logo' })
   return view
 }
+
+describe('test environment', () => {
+  it('lets FormData take the test file and keeps its name', async () => {
+    await useNodeFormData()
+    const form = new FormData()
+    expect(() => form.append('file', pngFile())).not.toThrow()
+    expect((form.get('file') as File).name).toBe('logo.png')
+  })
+})
 
 describe('icons page', () => {
   it('lists the uploaded icons with previews and has one h1', async () => {
@@ -48,6 +67,7 @@ describe('icons page', () => {
   })
 
   it('uploads the file and the name as multipart with the CSRF header', async () => {
+    await useNodeFormData()
     const api = arrange({ 'POST /api/v1/icons': () => json({ id: 'ic3', name: 'Mein Logo', contentType: 'image/png', size: 4 }, { status: 201 }) })
     const { container } = await openIcons()
     await userEvent.upload(container.querySelector('input[type="file"]') as HTMLInputElement, pngFile())
@@ -57,8 +77,9 @@ describe('icons page', () => {
     const call = api.callsTo('POST /api/v1/icons')[0]
     expect(call.csrf).toBe('tok-123')
     const form = call.body as FormData
-    // jsdom's File loses its name in undici's FormData, so the content identifies the part.
-    expect((form.get('file') as Blob).size).toBe(4)
+    const part = form.get('file') as File
+    expect(part.name).toBe('logo.png')
+    expect(part.size).toBe(4)
     expect(form.get('name')).toBe('Mein Logo')
     // The list is fetched again after the upload.
     await waitFor(() => expect(api.callsTo('GET /api/v1/icons').length).toBeGreaterThan(1))
@@ -73,6 +94,7 @@ describe('icons page', () => {
   })
 
   it('shows the server error of the file', async () => {
+    await useNodeFormData()
     arrange({ 'POST /api/v1/icons': () => problem(400, 'Ungültig', { errors: { file: 'Die SVG-Datei enthält nicht erlaubte Inhalte.' } }) })
     const { container } = await openIcons()
     await userEvent.upload(container.querySelector('input[type="file"]') as HTMLInputElement, pngFile())
