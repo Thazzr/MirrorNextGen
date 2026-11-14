@@ -1,0 +1,16 @@
+node_modules/
+*.log
+.env
+deploy/.env
+coverage/
+
+# Go binaries built by hand
+/server/mirror
+/server/mirror.exe
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

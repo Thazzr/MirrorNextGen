@@ -8,12 +8,20 @@ const outDir = '../server/internal/web/dist'
 
 // emptyOutDir deletes the committed dist/.gitignore; the Go server embeds the
 // directory and git needs this file to keep it, so write it back byte for byte.
+// Only for the embedded directory itself: a build into another outDir (the
+// verify gate builds into a temp dir) must not create files there, let alone
+// touch the embedded directory.
 function keepDistGitignore(): Plugin {
+  let dir: string | null = null
   return {
     name: 'keep-dist-gitignore',
     apply: 'build',
+    configResolved(config) {
+      const resolved = resolve(config.root, config.build.outDir)
+      dir = resolved === resolve(import.meta.dirname, outDir) ? resolved : null
+    },
     closeBundle() {
-      const dir = resolve(import.meta.dirname, outDir)
+      if (!dir) return
       mkdirSync(dir, { recursive: true })
       writeFileSync(resolve(dir, '.gitignore'), '*\n!.gitignore\n')
     },
