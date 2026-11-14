@@ -1,8 +1,12 @@
 import { useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import { api, unwrap } from '../../shared/api/client.ts'
 import { isoWeek, useClock } from './clock.ts'
 import { DiagnoseOverlay } from './DiagnoseOverlay.tsx'
 import './dashboard.css'
+
+const kioskStateInterval = 5000
 
 const dateFormat = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -10,6 +14,12 @@ export function DashboardPage() {
   const now = useClock()
   const calendarWeek = useMemo(() => isoWeek(now), [now])
   const [searchParams] = useSearchParams()
+  // A failing request only means "no test pattern": the mirror shows no error text for it.
+  const kioskState = useQuery({
+    queryKey: ['kiosk', 'state'],
+    queryFn: async () => unwrap(await api.GET('/api/v1/kiosk/state')),
+    refetchInterval: kioskStateInterval,
+  })
 
   useEffect(() => {
     document.body.classList.add('mirror-kiosk')
@@ -29,7 +39,7 @@ export function DashboardPage() {
           <div className="mirror-clock__meta">KW {calendarWeek}</div>
         </section>
       </header>
-      {searchParams.has('diagnose') && <DiagnoseOverlay />}
+      {(kioskState.data?.testPattern || searchParams.has('diagnose')) && <DiagnoseOverlay />}
     </main>
   )
 }

@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import '@fontsource/ibm-plex-sans/latin-300.css'
 import '@fontsource/ibm-plex-sans/latin-ext-300.css'
@@ -14,9 +14,10 @@ import '@fontsource/ibm-plex-sans/latin-700.css'
 import '@fontsource/ibm-plex-sans/latin-ext-700.css'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import './base.css'
+import { createQueryClient } from '../shared/api/queryClient.ts'
 import { routes } from './routes.tsx'
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
+const queryClient = createQueryClient()
 const router = createBrowserRouter(routes)
 
 createRoot(document.getElementById('root')!).render(

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, ApiError, unwrap } from './client.ts'
+import { api, ApiError, setCsrfToken, unwrap } from './client.ts'
 
 function stubFetch(response: Response) {
   vi.stubGlobal('fetch', vi.fn(async () => response))
@@ -59,5 +59,51 @@ describe('unwrap', () => {
     } catch (e) {
       expect(e).toMatchObject({ status: 500 })
     }
+  })
+})
+
+describe('ApiError details', () => {
+  it('carries field errors, detail and Retry-After', async () => {
+    stubFetch(
+      new Response(JSON.stringify({ title: 'Ungültig', status: 400, detail: 'Mehr Text', errors: { password: 'zu kurz' } }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '42' },
+      }),
+    )
+    const error = await getInfo().catch((e: unknown) => e)
+    expect(error).toMatchObject({
+      status: 400,
+      detail: 'Mehr Text',
+      fieldErrors: { password: 'zu kurz' },
+      retryAfterSeconds: 42,
+    })
+  })
+})
+
+describe('CSRF middleware', () => {
+  afterEach(() => setCsrfToken(undefined))
+
+  async function headerOf(send: () => Promise<unknown>) {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await send()
+    return (fetchMock.mock.calls[0] as unknown as [Request])[0].headers.get('X-CSRF-Token')
+  }
+
+  it('adds the token to unsafe methods once it is known', async () => {
+    setCsrfToken('abc')
+    expect(await headerOf(() => api.POST('/api/v1/auth/logout'))).toBe('abc')
+  })
+
+  it('leaves GET alone', async () => {
+    setCsrfToken('abc')
+    expect(await headerOf(() => api.GET('/api/v1/info'))).toBeNull()
+  })
+
+  it('sends no header without a token, and none after it was cleared', async () => {
+    expect(await headerOf(() => api.POST('/api/v1/auth/logout'))).toBeNull()
+    setCsrfToken('abc')
+    setCsrfToken(undefined)
+    expect(await headerOf(() => api.POST('/api/v1/auth/logout'))).toBeNull()
   })
 })
