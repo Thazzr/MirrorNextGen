@@ -7,11 +7,18 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
-## [Unreleased]
+## [0.3.0] - 2026-11-14
 
 ### Added
 
 - **kiosk**: Kiosk-Container mit Cage, Chromium und Agent kioskd
+- **kiosk**: Dashboard dreht sich bei Bedarf selbst, Kiosk-Image auf arm64-Runner
+
+### Changed
+
+- README für Verwaltung und Kiosk nachziehen, Changelog bis v0.2.0
+- Interne Module und freie Anordnung festlegen
+- README auf den Stand nach Phase 3 bringen
 
 ## [0.2.0] - 2026-11-14
 
