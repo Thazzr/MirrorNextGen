@@ -7,6 +7,16 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
+## [0.7.0] - 2026-11-14
+
+### Added
+
+- **admin**: Logbuch und Update-Knopf
+
+### Changed
+
+- Logbuch und Update-Knopf in README, INSTALL und Projektregeln
+
 ## [0.6.0] - 2026-11-14
 
 ### Added
