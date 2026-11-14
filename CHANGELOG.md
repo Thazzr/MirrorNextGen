@@ -7,6 +7,21 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
+## [0.4.0] - 2026-11-14
+
+### Added
+
+- **weather**: Wetter- und WLAN-Modul im Server
+- **layout**: Modulverzeichnis und freie Anordnung im Server
+- **dashboard**: Regionen und Module Uhr, Wetter und WLAN im Dashboard
+- **calendar**: Kalender-Kern mit korrekter Expansion, Regeln und Schichten
+- **admin**: Admin-Seiten Wetter, WLAN-QR-Code und Anordnung
+
+### Changed
+
+- Ausnahme für den WLAN-QR-Code und Bedienung der Anordnung präzisieren
+- README auf den Stand nach Phase 4 bringen
+
 ## [0.3.0] - 2026-11-14
 
 ### Added
