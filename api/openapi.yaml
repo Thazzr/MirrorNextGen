@@ -1,0 +1,68 @@
+openapi: 3.0.3
+info:
+  title: MirrorNextGen API
+  version: 0.1.0
+  description: API of the MirrorNextGen smart mirror server.
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness check
+      description: Returns ok while the server is able to answer requests. Used by the Docker healthcheck.
+      responses:
+        "200":
+          description: The server is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/v1/info:
+    get:
+      operationId: getInfo
+      summary: Build information
+      description: Returns the version, commit and build time of the running server.
+      responses:
+        "200":
+          description: Build information of the running server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Info"
+components:
+  schemas:
+    Health:
+      type: object
+      description: Result of the liveness check.
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    Info:
+      type: object
+      description: Build information of the server binary.
+      required: [version, commit, buildTime]
+      properties:
+        version:
+          type: string
+          description: Release version, "dev" for local builds.
+        commit:
+          type: string
+          description: Git commit the binary was built from, "unknown" when not known.
+        buildTime:
+          type: string
+          description: Build time as ISO 8601 timestamp, empty when unknown.
+    Problem:
+      type: object
+      description: Error body, served as application/problem+json.
+      required: [title, status]
+      properties:
+        title:
+          type: string
+          description: Short, human-readable summary of the problem.
+        status:
+          type: integer
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Explanation specific to this occurrence.
