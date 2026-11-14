@@ -549,3 +549,63 @@ func TestApplyResetsTheBackoff(t *testing.T) {
 		t.Errorf("backoff attempts = %v, want [0 0] (reset by Apply)", got)
 	}
 }
+
+func TestRunWithoutCameraDoesNotBackOffOrWarn(t *testing.T) {
+	srv, calls := scriptedGo2RTC(t, 503)
+	a := &attempts{wait: time.Hour}
+	logs := &logBuf{}
+	s, err := New(Options{
+		HTTPClient: &http.Client{Timeout: 2 * time.Second},
+		BaseURL:    srv.URL,
+		Config:     fixed(Config{}),
+		Logger:     slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		Backoff:    a.backoff,
+		Resync:     5 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	// With a one-hour backoff a second call could only come from the resync wait.
+	waitFor(t, func() bool { return calls() >= 3 }, "three resyncs")
+	if got := a.got(); len(got) != 0 {
+		t.Errorf("backoff was used while not configured: %v", got)
+	}
+	if strings.Contains(logs.String(), "level=WARN") {
+		t.Errorf("warning logged while not configured:\n%s", logs)
+	}
+	if !strings.Contains(logs.String(), "level=DEBUG") {
+		t.Errorf("expected a debug record:\n%s", logs)
+	}
+}
+
+func TestRunWhileConfiguredWarnsAndBacksOff(t *testing.T) {
+	srv, calls := scriptedGo2RTC(t, 503)
+	a := &attempts{wait: time.Millisecond}
+	logs := &logBuf{}
+	s, err := New(Options{
+		HTTPClient: &http.Client{Timeout: 2 * time.Second},
+		BaseURL:    srv.URL,
+		Config:     fixed(Config{Enabled: true, StreamURL: "rtsp://cam/x"}),
+		Logger:     slog.New(slog.NewTextHandler(logs, nil)),
+		Backoff:    a.backoff,
+		Resync:     time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	waitFor(t, func() bool { return calls() >= 3 }, "three attempts")
+	if got := a.got(); len(got) < 2 || got[0] != 0 || got[1] != 1 {
+		t.Errorf("backoff attempts = %v, want to start [0 1]", got)
+	}
+	if !strings.Contains(logs.String(), "level=WARN") {
+		t.Errorf("no warning while configured:\n%s", logs)
+	}
+}

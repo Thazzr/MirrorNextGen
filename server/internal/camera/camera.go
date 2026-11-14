@@ -110,7 +110,11 @@ func (s *Service) Run(ctx context.Context) {
 	attempt := 0
 	for {
 		wait := s.resync
-		if err := s.Sync(ctx); err != nil {
+		if err := s.Sync(ctx); err != nil && !s.config().configured() {
+			// Nothing to register and go2rtc is not running: that is the normal
+			// state for a mirror without the camera service, so no backoff and no warning.
+			s.log.Debug("camera service not reachable, camera is not configured", "error", err)
+		} else if err != nil {
 			wait = s.backoff(attempt)
 			attempt++
 			// err never contains the stream address (see request).
