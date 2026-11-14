@@ -1,0 +1,57 @@
+name: mirror
+
+services:
+  mirror:
+    image: ghcr.io/thazzr/mirrornextgen/mirror:${MIRROR_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${MIRROR_PORT:-8080}:8080"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      MIRROR_CONTROL_DIR: /control
+      MIRROR_GO2RTC_URL: http://camera:1984/
+    volumes:
+      - mirror-data:/data
+      # Shared with the host-side update service (deploy/host).
+      - ./control:/control
+
+  # go2rtc turns the camera's RTSP stream into video for the browser. Its API has
+  # no login and can run commands, so it has no `ports:` on purpose: only
+  # containers of this compose network reach it, and `mirror` hands the video on.
+  camera:
+    image: alexxit/go2rtc:1.9.15
+    restart: unless-stopped
+    # go2rtc takes several -config flags; a value starting with "{" is inline
+    # config and overrides the earlier ones, while the first file stays the one
+    # go2rtc writes. The empty rtsp listen address switches off its own RTSP
+    # server: the mirror only needs the API/WebSocket on 1984, and an RTSP
+    # server would re-serve the camera without a login inside the Docker network.
+    command: ["go2rtc", "-config", "/config/go2rtc.yaml", "-config", '{"rtsp":{"listen":""}}']
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - camera-config:/config
+
+  kiosk:
+    image: ghcr.io/thazzr/mirrornextgen/kiosk:${MIRROR_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      mirror:
+        condition: service_healthy
+    # First, broad variant (GPU, input and VT access in one go). To be narrowed
+    # to the needed devices and capabilities after the hardware test.
+    privileged: true
+    volumes:
+      - /run/udev:/run/udev:ro
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      KIOSK_URL: http://mirror:8080/
+      KIOSK_DISABLE_GPU: ${KIOSK_DISABLE_GPU:-false}
+      KIOSK_ROTATION: ${KIOSK_ROTATION:-compositor}
+      # Optional; values from .env reach the container, empty means unset (kioskd ignores empty values).
+      WLR_RENDERER: ${WLR_RENDERER:-}
+      WLR_DRM_DEVICES: ${WLR_DRM_DEVICES:-}
+
+volumes:
+  mirror-data:
+  camera-config:

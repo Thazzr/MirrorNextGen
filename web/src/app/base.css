@@ -1,0 +1,12 @@
+:root { color:#fff; background:#000; font-family:"IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-synthesis:none; letter-spacing:.01rem; text-rendering:optimizeLegibility; }
+* { box-sizing:border-box; } body { margin:0; min-width:320px; min-height:100vh; background:#000; } button,input { font:inherit; } #root { min-height:100vh; }
+
+/* The parts of Bootstrap 5.3's reboot that the dashboard relies on. */
+*, ::before, ::after { box-sizing: border-box; }
+body { margin: 0; line-height: 1.5; font-size: 1rem; -webkit-text-size-adjust: 100%; }
+h1, h2, h3, h4, h5, h6 { margin-top: 0; margin-bottom: .5rem; font-weight: 500; line-height: 1.2; }
+p { margin-top: 0; margin-bottom: 1rem; }
+ul, ol { padding-left: 2rem; margin-top: 0; margin-bottom: 1rem; }
+img, svg { vertical-align: middle; }
+
+.visually-hidden { border: 0; clip: rect(0, 0, 0, 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }

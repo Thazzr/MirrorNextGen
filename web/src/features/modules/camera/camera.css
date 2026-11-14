@@ -1,0 +1,8 @@
+/* Ported from SmartMirror2 with the values that apply there after weather-enhancements.css (max-width: none). */
+.mirror-camera { align-self: flex-end; display: flex; flex-direction: column; gap: .4rem; max-width: none; padding-top: clamp(1rem,1.5vw,1.75rem); width: 100%; }
+.mirror-camera--left { align-self: flex-start; }
+.mirror-camera__title { border-bottom: 1px solid rgba(255,255,255,.25); color: var(--mirror-muted); font-size: clamp(1.3rem,2vw,2.1rem); font-weight: 600; height: 41px; letter-spacing: .04rem; line-height: 1.2; margin: 0; min-width: 0; overflow: hidden; padding: 0 0 .4rem; text-align: right; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+.mirror-camera--left .mirror-camera__title { text-align: left; }
+.mirror-camera__video { aspect-ratio: 16 / 9; background: transparent; border: none; overflow: hidden; width: 100%; }
+.mirror-camera__video video-rtc { display: block; height: 100%; width: 100%; }
+.mirror-camera__video video { background: transparent; object-fit: cover; }

@@ -1,0 +1,31 @@
+.card {
+  display: block;
+  position: relative;
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-dark-4);
+  border-radius: var(--mantine-radius-md);
+  cursor: pointer;
+}
+
+.card[data-checked] {
+  border-color: var(--mantine-color-yellow-filled);
+  background: var(--mantine-color-yellow-light);
+}
+
+.card:has(.input:focus-visible) {
+  outline: 2px solid var(--mantine-color-yellow-filled);
+  outline-offset: 2px;
+}
+
+/* Hidden for the eye, still focusable and announced. */
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

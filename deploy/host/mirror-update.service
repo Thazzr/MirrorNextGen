@@ -1,0 +1,10 @@
+[Unit]
+Description=MirrorNextGen update (pull images, restart stack)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=MIRROR_DIR=@MIRROR_DIR@
+ExecStart=@MIRROR_DIR@/host/mirror-update.sh
+TimeoutStartSec=20min

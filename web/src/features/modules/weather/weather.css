@@ -1,0 +1,46 @@
+/* Effective values of SmartMirror2's dashboard.css after the overrides of weather-enhancements.css. */
+.mirror-weather { align-items: flex-end; display: flex; flex-direction: column; text-align: right; width: 100%; }
+.mirror-weather--left { align-items: flex-start; text-align: left; }
+.mirror-weather__overview { width: 100%; }
+.mirror-weather__current { align-items: center; display: flex; gap: clamp(.9rem,1.5vw,1.4rem); justify-content: flex-end; line-height: 1; margin-top: .55rem; min-width: 0; width: 100%; }
+.mirror-weather--left .mirror-weather__current { justify-content: flex-start; }
+.mirror-weather__icon { align-items: center; display: inline-flex; flex-shrink: 0; height: clamp(6.25rem,9vw,9rem); justify-content: center; object-fit: contain; width: clamp(6.25rem,9vw,9rem); }
+.mirror-weather__current .mirror-weather__icon { transform: scale(1.14); transform-origin: center; }
+.mirror-weather__temperature { font-size: clamp(6.25rem,9vw,9rem); font-weight: 300; letter-spacing: -.05em; }
+.mirror-weather__condition { font-size: clamp(1.55rem,2.05vw,2.2rem); letter-spacing: .1rem; margin-top: .45rem; }
+.mirror-weather__alert { color: #fff; font-size: clamp(1.15rem,1.45vw,1.55rem); margin-top: .7rem; }
+.mirror-weather__alert i { margin-right: .5rem; }
+.mirror-weather__stale { font-size: clamp(1.15rem,1.45vw,1.55rem); margin-top: 1rem; }
+
+.mirror-weather__hourly { margin-top: 3.5rem; text-align: left; width: 100%; }
+.mirror-weather__forecast h2 { color: #fff; font-size: clamp(1.35rem,1.7vw,1.8rem); font-weight: 500; letter-spacing: .08rem; margin: 0 0 1.15rem; text-transform: uppercase; }
+
+.mirror-weather__chart { display: block; height: clamp(14rem,17vw,16.5rem); margin-top: .9rem; overflow: visible; width: 100%; }
+.mirror-weather__chart line { stroke: rgba(255,255,255,.15); stroke-dasharray: 3 6; stroke-width: 1; }
+.mirror-weather__chart-now { stroke: rgba(255,255,255,.8) !important; stroke-dasharray: 3 5 !important; stroke-width: 1.5 !important; }
+.mirror-weather__chart-temp { fill: none; stroke: #fff; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
+.mirror-weather__chart circle { fill: #fff; }
+.mirror-weather__chart-scale { fill: var(--mirror-muted); font-size: 36px; text-anchor: start; }
+.mirror-weather__chart-value { fill: #fff; font-size: 36px; text-anchor: middle; }
+.mirror-weather__rain-bars rect { fill: rgba(255,255,255,.42); }
+.mirror-weather__rain-bars text { fill: rgba(255,255,255,.8); font-size: 32px; text-anchor: middle; }
+.mirror-weather__chart-past { opacity: .86; }
+.mirror-weather__chart-now-marker { fill: #fff; }
+
+.meteocon--monochrome { filter: brightness(0) invert(1); }
+.mirror-weather__hour-labels { display: block; height: 4.9rem; margin: 1rem 0 0; position: relative; width: 100%; }
+.mirror-weather__hour-labels > div { align-items: center; display: flex; flex-direction: column; gap: .45rem; min-width: 0; position: absolute; text-align: center; transform: translateX(-50%); }
+.mirror-weather__hour-labels > .mirror-weather__hour-label--past { opacity: .48; }
+.mirror-weather__hour-labels span { color: #fff; font-size: clamp(1.2rem,1.5vw,1.6rem); font-weight: 700; }
+.mirror-weather__hour-labels .mirror-weather__icon { height: 3rem; width: 3rem; }
+
+.mirror-weather__forecast { align-items: stretch; display: flex; flex-direction: column; margin-top: 3.5rem; text-align: left; width: 100%; }
+.mirror-weather__forecast-rows { display: grid; gap: clamp(.8rem,1.4vw,1.4rem); grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; }
+.mirror-weather__forecast-row { display: flex; flex-direction: column; gap: .45rem; min-width: 0; }
+.mirror-weather__forecast-day { color: #fff; font-size: clamp(1.35rem,1.65vw,1.75rem); font-weight: 700; min-height: 2.1em; }
+.mirror-weather__forecast-main { align-items: baseline; display: flex; gap: .5rem; min-height: 4.75rem; }
+.mirror-weather__forecast-main .mirror-weather__icon { height: 4rem; width: 4rem; }
+.mirror-weather__forecast-main strong { display: inline-block; font-size: clamp(2.6rem,3.5vw,3.75rem); font-weight: 400; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.mirror-weather__forecast-main small { font-size: .56em; font-weight: 300; letter-spacing: 0; }
+.mirror-weather__forecast-condition { color: #fff; font-size: clamp(1.2rem,1.5vw,1.6rem); font-weight: 600; min-height: 2.4em; overflow: hidden; text-overflow: ellipsis; }
+.mirror-weather__forecast footer { color: rgba(255,255,255,.96); display: flex; flex-wrap: wrap; font-size: clamp(1.15rem,1.35vw,1.45rem); font-weight: 600; gap: .55rem 1rem; }

@@ -1,0 +1,1955 @@
+openapi: 3.0.3
+info:
+  title: MirrorNextGen API
+  version: 0.1.0
+  description: API of the MirrorNextGen smart mirror server.
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness check
+      description: Returns ok while the server is able to answer requests. Used by the Docker healthcheck.
+      responses:
+        "200":
+          description: The server is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/v1/info:
+    get:
+      operationId: getInfo
+      summary: Build information
+      description: Returns the version, commit and build time of the running server.
+      responses:
+        "200":
+          description: Build information of the running server.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Info"
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: Current session state
+      description: >-
+        Tells the web app whether the admin access still has to be set up and whether
+        the caller is signed in. The CSRF token is only returned to a signed-in caller.
+      responses:
+        "200":
+          description: The session state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /api/v1/auth/setup:
+    post:
+      operationId: setupAdmin
+      summary: Set the admin password
+      description: >-
+        Sets the admin password on first start and signs the caller in. Only possible
+        while no admin password is set.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRequest"
+      responses:
+        "200":
+          description: The password was set and a session was started.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Sign in
+      description: >-
+        Signs in with the admin password. After five failed attempts within fifteen
+        minutes the client address is blocked until the oldest failure expires.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRequest"
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          description: Too many failed attempts.
+          headers:
+            Retry-After:
+              description: Seconds until the next attempt is allowed.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Sign out
+      description: Ends the current session and expires the session cookie.
+      security:
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Signed out.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/auth/password:
+    post:
+      operationId: changePassword
+      summary: Change the admin password
+      description: >-
+        Changes the admin password. All other sessions are ended, the current one stays.
+        A wrong current password does not count towards the login throttle.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: The password was changed.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/display:
+    get:
+      operationId: getDisplaySettings
+      summary: Display settings
+      description: Returns the stored display settings (rotation, output, test pattern, night schedule).
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored display settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplaySettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateDisplaySettings
+      summary: Change the display settings
+      description: >-
+        Validates and stores the display settings. Invalid values answer 400 with
+        `errors` keyed by field name (`rotation`, `output`, `schedule.offTime`,
+        `schedule.onTime`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisplaySettings"
+      responses:
+        "200":
+          description: The stored display settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplaySettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/display/status:
+    get:
+      operationId: getDisplayStatus
+      summary: Monitor state
+      description: >-
+        Returns whether the monitor is on now and why, and the next switch of the
+        night schedule. Times use the mirror's time zone.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The monitor state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplayStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/display/test-off:
+    post:
+      operationId: testDisplayOff
+      summary: Switch the monitor off for ten seconds
+      description: >-
+        Overrides the schedule and keeps the monitor off for ten seconds from now
+        (a second call restarts the ten seconds), so the night schedule's effect can
+        be tried. The override lives in memory only. Answers the monitor state.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The monitor state right after the call.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplayStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/kiosk/state:
+    get:
+      operationId: getKioskState
+      summary: Target state of the kiosk
+      description: >-
+        Returns what the kiosk agent applies to the screen. Public, because the kiosk
+        container and the dashboard read it without a session; it contains no secrets.
+      responses:
+        "200":
+          description: The target state of the screen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KioskState"
+  /api/v1/settings/weather:
+    get:
+      operationId: getWeatherSettings
+      summary: Weather settings
+      description: >-
+        Returns the weather settings. The API key never leaves the server; `hasApiKey`
+        tells whether one is stored.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored weather settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateWeatherSettings
+      summary: Change the weather settings
+      description: >-
+        Validates and stores the weather settings. An absent or empty `apiKey` keeps the
+        stored key, `clearApiKey` deletes it. Invalid values answer 400 with `errors` keyed
+        by field name (`location`, `apiKey`, `refreshMinutes`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeatherSettingsUpdate"
+      responses:
+        "200":
+          description: The stored weather settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/wifi:
+    get:
+      operationId: getWifiSettings
+      summary: Guest Wi-Fi settings
+      description: >-
+        Returns the guest Wi-Fi settings. The password never leaves the server;
+        `hasPassword` tells whether one is stored.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored Wi-Fi settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WifiSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateWifiSettings
+      summary: Change the guest Wi-Fi settings
+      description: >-
+        Validates and stores the Wi-Fi settings. An absent or empty `password` keeps the
+        stored one, `clearPassword` deletes it. Invalid values answer 400 with `errors`
+        keyed by field name (`ssid`, `security`, `password`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WifiSettingsUpdate"
+      responses:
+        "200":
+          description: The stored Wi-Fi settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WifiSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/layout:
+    get:
+      operationId: getLayoutSettings
+      summary: Dashboard layout
+      description: Returns the stored placement of the modules on the dashboard regions.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored layout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateLayoutSettings
+      summary: Change the dashboard layout
+      description: >-
+        Validates and stores the layout. Invalid values answer 400 with `errors` keyed by
+        region name (`topLeft`, `topRight`, `middle`, `bottomLeft`, `bottomRight`); nothing
+        is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Layout"
+      responses:
+        "200":
+          description: The stored layout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/modules:
+    get:
+      operationId: listModules
+      summary: Available modules
+      description: Lists all modules that currently exist, for the layout editor of the admin UI.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The available modules.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModuleInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/dashboard/layout:
+    get:
+      operationId: getDashboardLayout
+      summary: Layout for the dashboard
+      description: >-
+        Returns the stored layout without the keys of modules that are no longer available.
+        Public, because the dashboard reads it without a session; it contains only module keys.
+      responses:
+        "200":
+          description: The layout to render.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
+  /api/v1/dashboard/weather:
+    get:
+      operationId: getDashboardWeather
+      summary: Weather for the dashboard
+      description: >-
+        Returns the current weather, the chart points and the forecast. Public, because the
+        dashboard reads it without a session; it contains no secrets. Failures are reported
+        in the body (`error`), not as an HTTP error, so the other dashboard areas stay visible.
+      responses:
+        "200":
+          description: The weather state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardWeather"
+  /api/v1/dashboard/wifi:
+    get:
+      operationId: getDashboardWifi
+      summary: Guest Wi-Fi QR code for the dashboard
+      description: >-
+        Returns the QR code of the guest Wi-Fi. Public, because the dashboard reads it without
+        a session; the code encodes the Wi-Fi password, which is the purpose of the widget.
+      responses:
+        "200":
+          description: The Wi-Fi QR code state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardWifi"
+  /api/v1/settings/bring:
+    get:
+      operationId: getBringSettings
+      summary: Bring! settings
+      description: >-
+        Returns the Bring! shopping list settings. The password never leaves the server;
+        `hasPassword` tells whether one is stored.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored Bring! settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BringSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateBringSettings
+      summary: Change the Bring! settings
+      description: >-
+        Validates and stores the Bring! settings. An absent or empty `password` keeps the
+        stored one, `clearPassword` deletes it. Invalid values answer 400 with `errors` keyed
+        by field name (`email`, `password`, `listUuid`, `maxItems`, `refreshMinutes`); nothing
+        is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BringSettingsUpdate"
+      responses:
+        "200":
+          description: The stored Bring! settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BringSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/bring/lists:
+    get:
+      operationId: getBringLists
+      summary: Shopping lists of the Bring! account
+      description: >-
+        Asks Bring! for the lists of the account whose e-mail and password are stored, so the
+        admin UI can offer them in a picker. Answers 409 while no e-mail and password are
+        stored, 400 when Bring! refuses the login and 502 when Bring! cannot be reached; the
+        problem's `detail` is a German text for the user.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The lists of the account.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BringList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          description: Bring! could not be reached or answered with an error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/dashboard/bring:
+    get:
+      operationId: getDashboardBring
+      summary: Bring! shopping list for the dashboard
+      description: >-
+        Returns the open items of the Bring! list. Public, because the dashboard reads it
+        without a session; it contains item names and specifications of the household's own
+        list but no credentials. Failures are reported in the body (`error`), not as an HTTP
+        error, so the other dashboard areas stay visible.
+      responses:
+        "200":
+          description: The shopping list state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardBring"
+  /api/v1/settings/camera:
+    get:
+      operationId: getCameraSettings
+      summary: Camera settings
+      description: >-
+        Returns the camera module settings. The stream address never leaves the server;
+        `hasStreamUrl` tells whether one is stored and `streamUrlHint` shows scheme and host only.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored camera settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CameraSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateCameraSettings
+      summary: Change the camera settings
+      description: >-
+        Validates and stores the camera settings and registers the stream with the camera
+        service. An absent or empty `streamUrl` keeps the stored one, `clearStreamUrl` deletes
+        it. Only `rtsp://` and `rtsps://` addresses are accepted. Invalid values answer 400
+        with `errors` keyed by field name (`title`, `streamUrl`, `brightness`, `contrast`,
+        `saturation`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CameraSettingsUpdate"
+      responses:
+        "200":
+          description: The stored camera settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CameraSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/dashboard/camera:
+    get:
+      operationId: getDashboardCamera
+      summary: Camera module for the dashboard
+      description: >-
+        Returns what the dashboard needs to show the camera: whether it is configured (enabled
+        and a stream address stored) plus title and picture filters. Public, because the dashboard
+        reads it without a session; the stream address is never part of it.
+      responses:
+        "200":
+          description: The camera display state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardCamera"
+  /api/v1/camera/stream:
+    get:
+      operationId: streamCamera
+      summary: Live video of the camera (WebSocket)
+      description: >-
+        WebSocket endpoint the dashboard's player connects to. The server proxies the connection
+        to the internal camera service (go2rtc), always for the one fixed stream the mirror
+        registered: query parameters of the request are ignored and never reach the camera
+        service. Public, because the dashboard has no session; answers 404 while the camera is not
+        configured and 426 to a request that is not a WebSocket upgrade. This route is not a
+        generated operation: the server registers it by hand next to the generated ones.
+      responses:
+        "101":
+          description: Switching to the WebSocket protocol; binary messages carry the video.
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "426":
+          description: The request is not a WebSocket upgrade.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "502":
+          description: The camera service cannot be reached.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/settings/calendar:
+    get:
+      operationId: getCalendarSettings
+      summary: Calendar settings
+      description: >-
+        Returns the calendars, sections and rules. The calendar addresses never leave the
+        server; each calendar carries a shortened `urlHint` and `hasUrl` instead.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored calendar settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateCalendarSettings
+      summary: Change the calendar settings
+      description: >-
+        Validates and stores the calendar settings. An absent or empty `url` keeps the stored
+        address of the calendar with the same id; a new id needs one. Invalid values answer 400
+        with `errors` keyed by field path with indices (`calendars.0.url`, `sections.1.title`,
+        `rules.2.text`, `sections.0.shifts.1.start`); nothing is stored then. A new section is
+        appended to the `topLeft` region of the layout, a removed one leaves the layout.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarSettingsUpdate"
+      responses:
+        "200":
+          description: The stored calendar settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/calendar/preview:
+    post:
+      operationId: previewCalendar
+      summary: Preview an unsaved calendar draft
+      description: >-
+        Evaluates the draft (same body as the update) against the real calendar data without
+        storing it: which events each section would show and which rules matched. Calendars
+        that exist with the same id and no `url` use the stored address. An invalid draft
+        answers 400 like the update.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarSettingsUpdate"
+      responses:
+        "200":
+          description: The preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarPreview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/dashboard/calendar/{sectionId}:
+    get:
+      operationId: getDashboardCalendarSection
+      summary: Calendar section for the dashboard
+      description: >-
+        Returns the events (type `list`) or the shift days (type `shifts`) of one section.
+        Public, because the dashboard reads it without a session; it contains no calendar
+        addresses. A failing calendar is reported in `error`, not as an HTTP error.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The section's data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardCalendarSection"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/icons:
+    get:
+      operationId: listIcons
+      summary: Uploaded icons
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The uploaded icons, in upload order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Icon"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: uploadIcon
+      summary: Upload an icon
+      description: >-
+        Stores an SVG or PNG of at most 256 KB. The type is detected from the content. SVGs
+        with scripts, event handlers, external references or a DOCTYPE are rejected. 400
+        answers with `errors.file`.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                name:
+                  type: string
+                  description: Display name (1 to 60 characters); defaults to the file name without extension.
+      responses:
+        "201":
+          description: The stored icon.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Icon"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/icons/{id}:
+    delete:
+      operationId: deleteIcon
+      summary: Delete an icon
+      description: Answers 409 while the calendar settings still reference the icon.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: The icon was deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/icons/{id}/file:
+    get:
+      operationId: getIconFile
+      summary: The file of an icon
+      description: >-
+        Public, because the dashboard loads icons without a session. Served with a restrictive
+        Content-Security-Policy and `nosniff`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The icon file.
+          headers:
+            Content-Security-Policy:
+              schema:
+                type: string
+            X-Content-Type-Options:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/logbook:
+    get:
+      operationId: getLogbook
+      summary: Recent log records
+      description: >-
+        Returns the last records the server logged since its start (at most the
+        capacity of the ring buffer), newest first, at or above `minLevel`. Only the
+        admin sees them; attributes never carry secrets because the log has none.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: minLevel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [debug, info, warn, error]
+            default: info
+      responses:
+        "200":
+          description: The recorded log entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Logbook"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/system/update:
+    get:
+      operationId: getSystemUpdate
+      summary: State of the update button
+      description: >-
+        Tells whether updates by button are set up and how the latest update is
+        going. The state comes from the host's updater script.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The update state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: requestSystemUpdate
+      summary: Ask the host to update the mirror
+      description: >-
+        Writes an update request into the control directory; the host's updater
+        pulls the new images and restarts the stack. Answers 409 while a request is
+        pending (not stalled) or an update is running, 503 when no control directory is set
+        up or it cannot be written.
+      security:
+        - sessionCookie: []
+      responses:
+        "202":
+          description: The request was written; the body is the update state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          description: Updates by button are not set up, or the control directory is not writable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: mirror_session
+      description: >-
+        Session cookie set by setup and login. Unsafe methods also need the session's
+        CSRF token in the X-CSRF-Token header. Enforced by a server middleware that
+        denies every operation not explicitly listed as public.
+  headers:
+    SetCookie:
+      description: Sets or expires the mirror_session cookie.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: The request is invalid; `errors` names the offending fields.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: Not signed in, or the credentials are wrong.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: The CSRF token is missing or wrong.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: The request does not fit the current state.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Health:
+      type: object
+      description: Result of the liveness check.
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    Info:
+      type: object
+      description: Build information of the server binary.
+      required: [version, commit, buildTime]
+      properties:
+        version:
+          type: string
+          description: Release version, "dev" for local builds.
+        commit:
+          type: string
+          description: Git commit the binary was built from, "unknown" when not known.
+        buildTime:
+          type: string
+          description: Build time as ISO 8601 timestamp, empty when unknown.
+    LogbookEntry:
+      type: object
+      description: One recorded log record.
+      required: [time, level, message, attrs]
+      properties:
+        time:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+        message:
+          type: string
+        attrs:
+          type: array
+          description: Attributes of the record; groups are flattened to `group.key`.
+          items:
+            $ref: "#/components/schemas/LogbookAttr"
+    LogbookAttr:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    Logbook:
+      type: object
+      description: The recent log records, newest first.
+      required: [entries, capacity]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogbookEntry"
+        capacity:
+          type: integer
+          description: How many records the logbook keeps at most.
+    UpdateStatus:
+      type: object
+      description: State of the update button.
+      required: [available, pending, stalled, state]
+      properties:
+        available:
+          type: boolean
+          description: False when no control directory is set up.
+        pending:
+          type: boolean
+          description: True while a request waits for the host's updater.
+        stalled:
+          type: boolean
+          description: >-
+            True when a request has waited more than two minutes and the host is not running an
+            update, i.e. nobody picks it up. A stalled request does not block a new one.
+        state:
+          type: string
+          enum: [idle, running, succeeded, failed, unknown]
+          description: >-
+            Progress reported by the host. `unknown` when the status file cannot be read.
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: Text from the host (tail of the update log on failure); admin only.
+    Problem:
+      type: object
+      description: Error body, served as application/problem+json.
+      required: [title, status]
+      properties:
+        title:
+          type: string
+          description: Short, human-readable summary of the problem.
+        status:
+          type: integer
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Explanation specific to this occurrence.
+        errors:
+          type: object
+          description: Validation messages by field name.
+          additionalProperties:
+            type: string
+    Session:
+      type: object
+      description: State of the caller's admin session.
+      required: [setupRequired, authenticated]
+      properties:
+        setupRequired:
+          type: boolean
+          description: True while no admin password is set.
+        authenticated:
+          type: boolean
+          description: True when the caller has a valid session.
+        csrfToken:
+          type: string
+          description: Token for the X-CSRF-Token header, only present when authenticated.
+    PasswordRequest:
+      type: object
+      description: A password to set or to sign in with.
+      required: [password]
+      properties:
+        password:
+          type: string
+    ChangePasswordRequest:
+      type: object
+      description: Current and new admin password.
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+    DisplaySchedule:
+      type: object
+      description: >-
+        Night schedule (Nachtruhe). The monitor is off from `offTime` (inclusive) until
+        `onTime` (exclusive) in the mirror's time zone; the period may cross midnight.
+        Equal times mean there is no quiet time.
+      required: [enabled, offTime, onTime]
+      properties:
+        enabled:
+          type: boolean
+        offTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Time of day `HH:mm` at which the monitor goes off.
+        onTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Time of day `HH:mm` at which the monitor goes on.
+    DisplayStatus:
+      type: object
+      description: Whether the monitor is on now and why.
+      required: [powerOn, reason, now, timeZone]
+      properties:
+        powerOn:
+          type: boolean
+        reason:
+          type: string
+          enum: [schedule, test, always]
+          description: >-
+            `schedule` when a night schedule is in effect, `test` during the test
+            switch-off, `always` when there is no quiet time.
+        nextSwitchAt:
+          type: string
+          format: date-time
+          description: Next switch of the schedule; absent without a schedule in effect.
+        nextSwitchOn:
+          type: boolean
+          description: True when the next switch turns the monitor on; present with `nextSwitchAt`.
+        now:
+          type: string
+          format: date-time
+          description: The server's clock in the mirror's time zone.
+        timeZone:
+          type: string
+          description: Name of the mirror's time zone, e.g. Europe/Berlin.
+    DisplaySettings:
+      type: object
+      description: Settings of the mirror's screen.
+      required: [rotation, output, testPattern, schedule]
+      properties:
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotation in degrees clockwise.
+        output:
+          type: string
+          description: Connector name such as HDMI-A-1; empty means automatic.
+        testPattern:
+          type: boolean
+          description: Shows the diagnose overlay on the mirror.
+        schedule:
+          $ref: "#/components/schemas/DisplaySchedule"
+    KioskState:
+      type: object
+      description: Target state of the screen as the kiosk agent applies it.
+      required: [rotation, output, testPattern, powerOn]
+      properties:
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotation in degrees clockwise.
+        output:
+          type: string
+          description: Connector name such as HDMI-A-1; empty means automatic.
+        testPattern:
+          type: boolean
+          description: Shows the diagnose overlay on the mirror.
+        powerOn:
+          type: boolean
+          description: >-
+            False while the night schedule or the test switch-off wants the monitor off.
+            Agents and dashboards that predate this field treat a missing value as true.
+    WeatherSettings:
+      type: object
+      description: Weather settings as the admin UI reads them; the API key is never included.
+      required: [location, hasApiKey, showIcons, refreshMinutes]
+      properties:
+        location:
+          type: string
+          maxLength: 100
+          description: Place name for OpenWeather's geocoder; empty disables the weather.
+        hasApiKey:
+          type: boolean
+          description: True when an OpenWeather API key is stored.
+        showIcons:
+          type: boolean
+          description: Shows the OpenWeather icons next to the conditions.
+        refreshMinutes:
+          type: integer
+          minimum: 10
+          maximum: 1440
+          description: Minutes between two refreshes from OpenWeather.
+    WeatherSettingsUpdate:
+      type: object
+      description: New weather settings.
+      required: [location, showIcons, refreshMinutes]
+      properties:
+        location:
+          type: string
+          maxLength: 100
+        apiKey:
+          type: string
+          maxLength: 200
+          description: New API key; absent or empty keeps the stored key.
+        clearApiKey:
+          type: boolean
+          description: Deletes the stored API key. Not combinable with a new `apiKey`.
+        showIcons:
+          type: boolean
+        refreshMinutes:
+          type: integer
+          minimum: 10
+          maximum: 1440
+    WifiSettings:
+      type: object
+      description: Guest Wi-Fi settings as the admin UI reads them; the password is never included.
+      required: [ssid, security, hasPassword]
+      properties:
+        ssid:
+          type: string
+          description: Network name (at most 32 bytes); empty disables the QR code.
+        security:
+          type: string
+          enum: [WPA, nopass]
+          description: WPA for a password-protected network, nopass for an open one.
+        hasPassword:
+          type: boolean
+          description: True when a Wi-Fi password is stored.
+    WifiSettingsUpdate:
+      type: object
+      description: New guest Wi-Fi settings.
+      required: [ssid, security]
+      properties:
+        ssid:
+          type: string
+        security:
+          type: string
+          enum: [WPA, nopass]
+        password:
+          type: string
+          description: New password (8 to 63 characters for WPA); absent or empty keeps the stored one.
+        clearPassword:
+          type: boolean
+          description: Deletes the stored password. Not combinable with a new `password`.
+    BringSettings:
+      type: object
+      description: Bring! settings as the admin UI reads them; the password is never included.
+      required: [email, hasPassword, listUuid, maxItems, refreshMinutes]
+      properties:
+        email:
+          type: string
+          maxLength: 200
+          description: E-mail address of the Bring! account.
+        hasPassword:
+          type: boolean
+          description: True when a Bring! password is stored.
+        listUuid:
+          type: string
+          description: UUID of the list to show; empty means the default list of the account.
+        maxItems:
+          type: integer
+          minimum: 1
+          maximum: 18
+          description: Most items shown on the dashboard.
+        refreshMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: Minutes between two refreshes from Bring!.
+    BringSettingsUpdate:
+      type: object
+      description: New Bring! settings.
+      required: [email, listUuid, maxItems, refreshMinutes]
+      properties:
+        email:
+          type: string
+          maxLength: 200
+        password:
+          type: string
+          maxLength: 200
+          description: New password; absent or empty keeps the stored one.
+        clearPassword:
+          type: boolean
+          description: Deletes the stored password. Not combinable with a new `password`.
+        listUuid:
+          type: string
+          description: UUID of the list to show; empty means the default list of the account.
+        maxItems:
+          type: integer
+          minimum: 1
+          maximum: 18
+        refreshMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+    BringList:
+      type: object
+      description: One shopping list of the Bring! account.
+      required: [uuid, name]
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+    DashboardBring:
+      type: object
+      description: Shopping list state for the dashboard.
+      required: [configured, stale, items]
+      properties:
+        configured:
+          type: boolean
+          description: False while e-mail or password is missing; the dashboard then hides the list.
+        stale:
+          type: boolean
+          description: True when the last refresh failed and `items` are older (less than 3 hours).
+        error:
+          type: string
+          description: German message when no items are available.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BringItem"
+    BringItem:
+      type: object
+      description: One open item of the shopping list.
+      required: [name, iconUrl]
+      properties:
+        name:
+          type: string
+        specification:
+          type: string
+          description: Amount or note such as "2 Stück"; absent when there is none.
+        iconUrl:
+          type: string
+          description: Address of Bring!'s picture for the item; empty when none can be derived.
+    CameraSettings:
+      type: object
+      description: Camera settings as the admin UI reads them; the stream address is never included.
+      required: [enabled, title, hasStreamUrl, streamUrlHint, brightness, contrast, saturation, grayscale]
+      properties:
+        enabled:
+          type: boolean
+          description: Shows the camera on the dashboard (needs a stream address).
+        title:
+          type: string
+          maxLength: 60
+          description: Heading above the video; may be empty.
+        hasStreamUrl:
+          type: boolean
+          description: True when a stream address is stored.
+        streamUrlHint:
+          type: string
+          description: Scheme and host of the stored address, for example `rtsp://192.168.1.20`; empty when none is stored.
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 200
+          description: Brightness in percent; 100 leaves the picture unchanged.
+        contrast:
+          type: integer
+          minimum: 0
+          maximum: 200
+          description: Contrast in percent; 100 leaves the picture unchanged.
+        saturation:
+          type: integer
+          minimum: 0
+          maximum: 200
+          description: Saturation in percent; 100 leaves the picture unchanged.
+        grayscale:
+          type: boolean
+          description: Shows the picture in black and white.
+    CameraSettingsUpdate:
+      type: object
+      description: New camera settings.
+      required: [enabled, title, brightness, contrast, saturation, grayscale]
+      properties:
+        enabled:
+          type: boolean
+        title:
+          type: string
+          maxLength: 60
+        streamUrl:
+          type: string
+          maxLength: 2000
+          description: New stream address (`rtsp://` or `rtsps://`); absent or empty keeps the stored one.
+        clearStreamUrl:
+          type: boolean
+          description: Deletes the stored address. Not combinable with a new `streamUrl`.
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 200
+        contrast:
+          type: integer
+          minimum: 0
+          maximum: 200
+        saturation:
+          type: integer
+          minimum: 0
+          maximum: 200
+        grayscale:
+          type: boolean
+    DashboardCamera:
+      type: object
+      description: Camera display state for the dashboard.
+      required: [configured, title, brightness, contrast, saturation, grayscale]
+      properties:
+        configured:
+          type: boolean
+          description: True when the camera is enabled and a stream address is stored; the dashboard hides the module otherwise.
+        title:
+          type: string
+        brightness:
+          type: integer
+        contrast:
+          type: integer
+        saturation:
+          type: integer
+        grayscale:
+          type: boolean
+    Layout:
+      type: object
+      description: >-
+        Placement of the modules on the five dashboard regions. Each region is an ordered list
+        of module keys (at most 12); a key may appear only once in the whole layout.
+      required: [topLeft, topRight, middle, bottomLeft, bottomRight]
+      properties:
+        topLeft:
+          type: array
+          items: {type: string}
+        topRight:
+          type: array
+          items: {type: string}
+        middle:
+          type: array
+          items: {type: string}
+        bottomLeft:
+          type: array
+          items: {type: string}
+        bottomRight:
+          type: array
+          items: {type: string}
+    ModuleInfo:
+      type: object
+      description: A module that can be placed in the layout.
+      required: [key, name]
+      properties:
+        key:
+          type: string
+          description: Module key, for example `clock`.
+        name:
+          type: string
+          description: German display name.
+    DashboardWeather:
+      type: object
+      description: Weather state for the dashboard.
+      required: [configured, stale]
+      properties:
+        configured:
+          type: boolean
+          description: False while location or API key is missing; the dashboard then hides the weather.
+        stale:
+          type: boolean
+          description: True when the last refresh failed and `data` is older (less than 3 hours).
+        error:
+          type: string
+          description: German message when no data is available.
+        data:
+          $ref: "#/components/schemas/WeatherData"
+    WeatherData:
+      type: object
+      description: Current weather, chart points and forecast.
+      required:
+        - location
+        - updatedAt
+        - temperatureC
+        - feelsLikeC
+        - humidity
+        - condition
+        - showIcons
+        - windKph
+        - precipitationProbability
+        - hourly
+        - forecast
+      properties:
+        location:
+          type: string
+          description: Place name as OpenWeather resolved it.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the data was fetched.
+        temperatureC:
+          type: integer
+        feelsLikeC:
+          type: integer
+        humidity:
+          type: integer
+          description: Relative humidity in percent.
+        condition:
+          type: string
+          description: Current conditions in German, first letter capitalised.
+        iconCode:
+          type: string
+          description: OpenWeather icon code such as 10d.
+        showIcons:
+          type: boolean
+        windKph:
+          type: integer
+        precipitationProbability:
+          type: integer
+          description: Percent.
+        sunrise:
+          type: string
+          format: date-time
+        sunset:
+          type: string
+          format: date-time
+        uvIndex:
+          type: integer
+        alert:
+          type: string
+          description: Short German hint about an upcoming change, absent when there is none.
+        hourly:
+          type: array
+          description: Chart points of the day (every three hours, midnight to midnight).
+          items:
+            $ref: "#/components/schemas/HourlyPoint"
+        forecast:
+          type: array
+          description: The next three days, starting tomorrow.
+          items:
+            $ref: "#/components/schemas/ForecastDay"
+    HourlyPoint:
+      type: object
+      description: One point of the day chart.
+      required: [time, temperatureC, feelsLikeC, condition, precipitationProbability, windKph, gustKph, precipitationMm]
+      properties:
+        time:
+          type: string
+          format: date-time
+        temperatureC:
+          type: integer
+        feelsLikeC:
+          type: integer
+        condition:
+          type: string
+        iconCode:
+          type: string
+        precipitationProbability:
+          type: integer
+          description: Percent.
+        windKph:
+          type: integer
+        gustKph:
+          type: integer
+        precipitationMm:
+          type: number
+          format: double
+    ForecastDay:
+      type: object
+      description: Forecast of one day.
+      required: [date, condition, lowC, highC, precipitationProbability, windKph, precipitationMm]
+      properties:
+        date:
+          type: string
+          format: date
+        condition:
+          type: string
+        iconCode:
+          type: string
+        lowC:
+          type: integer
+        highC:
+          type: integer
+        precipitationProbability:
+          type: integer
+          description: Percent.
+        windKph:
+          type: integer
+        precipitationMm:
+          type: number
+          format: double
+    DashboardWifi:
+      type: object
+      description: Guest Wi-Fi QR code state for the dashboard.
+      required: [configured]
+      properties:
+        configured:
+          type: boolean
+          description: False while no SSID is set.
+        ssid:
+          type: string
+        qr:
+          $ref: "#/components/schemas/QrCode"
+    QrCode:
+      type: object
+      description: A QR code as modules; the quiet zone is not included, the client draws it.
+      required: [size, rows]
+      properties:
+        size:
+          type: integer
+          description: Modules per side.
+        rows:
+          type: array
+          description: "`size` strings of `size` characters, 1 for a dark and 0 for a light module."
+          items:
+            type: string
+    IconRef:
+      type: object
+      description: A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [none, bootstrap, upload]
+        name:
+          type: string
+          description: Bootstrap icon name (`^[a-z0-9-]{1,40}$`), for kind `bootstrap`.
+        file:
+          type: string
+          description: Id of an uploaded icon, for kind `upload`.
+    Icon:
+      type: object
+      description: An uploaded icon.
+      required: [id, name, contentType, size]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        contentType:
+          type: string
+          enum: [image/svg+xml, image/png]
+        size:
+          type: integer
+          description: Bytes.
+    CalendarSource:
+      type: object
+      description: A calendar as the admin UI reads it; the address is replaced by a hint.
+      required: [id, name, icon, hasUrl, urlHint]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        hasUrl:
+          type: boolean
+        urlHint:
+          type: string
+          description: Scheme, host and shortened last path segment, for example `https://calendar.google.com/.../basic.ics`.
+    CalendarSourceUpdate:
+      type: object
+      required: [id, name, icon]
+      properties:
+        id:
+          type: string
+          description: Lowercase letters, digits and hyphens, at most 40 characters; unique.
+        name:
+          type: string
+          description: 1 to 60 characters.
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        url:
+          type: string
+          description: iCal address (http, https, webcal, webcals); absent or empty keeps the stored one.
+    CalendarShift:
+      type: object
+      description: Maps a title keyword to a named shift.
+      required: [id, match, matchMode, label, start, end, icon]
+      properties:
+        id:
+          type: string
+        match:
+          type: string
+          description: 1 to 40 characters.
+        matchMode:
+          type: string
+          enum: [equals, startsWith, contains]
+        label:
+          type: string
+          description: 1 to 40 characters.
+        start:
+          type: string
+          description: "`HH:mm`; empty together with `end`."
+        end:
+          type: string
+          description: "`HH:mm`; empty together with `start`."
+        icon:
+          $ref: "#/components/schemas/IconRef"
+    CalendarSection:
+      type: object
+      description: A calendar area of the mirror, one module instance (`calendar:<id>`).
+      required: [id, title, type, calendarIds, maxEvents, lookAheadDays, shiftDays, shifts]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          description: 1 to 60 characters.
+        type:
+          type: string
+          enum: [list, shifts]
+        calendarIds:
+          type: array
+          description: Ids of existing calendars; at least one.
+          items:
+            type: string
+        maxEvents:
+          type: integer
+          description: 1 to 30; 0 means the default 8.
+        lookAheadDays:
+          type: integer
+          description: 1 to 60; 0 means the default 14.
+        shiftDays:
+          type: integer
+          description: 1 to 7; 0 means the default 2.
+        shifts:
+          type: array
+          description: Only for type `shifts`.
+          items:
+            $ref: "#/components/schemas/CalendarShift"
+    CalendarRule:
+      type: object
+      required: [id, calendarIds, matchMode, text, action, icon, renameTo]
+      properties:
+        id:
+          type: string
+        calendarIds:
+          type: array
+          description: Calendars the rule applies to; empty means all.
+          items:
+            type: string
+        matchMode:
+          type: string
+          enum: [contains, startsWith, equals]
+        text:
+          type: string
+          description: At most 80 characters; empty matches every title.
+        action:
+          type: string
+          enum: [hide, icon, rename]
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        renameTo:
+          type: string
+          description: 1 to 80 characters for action `rename`.
+    CalendarSettings:
+      type: object
+      required: [refreshMinutes, calendars, sections, rules]
+      properties:
+        refreshMinutes:
+          type: integer
+          minimum: 5
+          maximum: 1440
+        calendars:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSource"
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSection"
+        rules:
+          type: array
+          description: Evaluated in this order.
+          items:
+            $ref: "#/components/schemas/CalendarRule"
+    CalendarSettingsUpdate:
+      type: object
+      required: [refreshMinutes, calendars, sections, rules]
+      properties:
+        refreshMinutes:
+          type: integer
+          minimum: 5
+          maximum: 1440
+        calendars:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSourceUpdate"
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarSection"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarRule"
+    PreviewItem:
+      type: object
+      description: One candidate event in the admin preview.
+      required: [title, originalTitle, timeLabel, relative, icon, allDay, ongoing, hidden, shown, matchedRules, calendarId, start]
+      properties:
+        title:
+          type: string
+          description: Title after the rules.
+        originalTitle:
+          type: string
+        location:
+          type: string
+        timeLabel:
+          type: string
+        relative:
+          type: string
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        allDay:
+          type: boolean
+        ongoing:
+          type: boolean
+        hidden:
+          type: boolean
+          description: A hide rule removed the event.
+        shown:
+          type: boolean
+          description: The event would appear on the mirror.
+        matchedRules:
+          type: array
+          description: Ids of the rules that matched, in order.
+          items:
+            type: string
+        calendarId:
+          type: string
+        start:
+          type: string
+          format: date-time
+    ShiftDay:
+      type: object
+      description: One day of the compact shift display.
+      required: [date, dayLabel, text, icon, free]
+      properties:
+        date:
+          type: string
+          format: date
+        dayLabel:
+          type: string
+          description: "`Heute`, `Morgen` or the weekday."
+        text:
+          type: string
+          description: For example `Frühdienst 06–14 Uhr` or `frei`.
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        free:
+          type: boolean
+    CalendarPreviewSection:
+      type: object
+      required: [id, title, type]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [list, shifts]
+        error:
+          type: string
+        items:
+          type: array
+          description: Type `list`; all candidates of the look-ahead window.
+          items:
+            $ref: "#/components/schemas/PreviewItem"
+        days:
+          type: array
+          description: Type `shifts`.
+          items:
+            $ref: "#/components/schemas/ShiftDay"
+        summary:
+          type: string
+          description: "Type `shifts`; for example `Heute: Frühdienst 06–14 Uhr · Morgen: frei`."
+    CalendarError:
+      type: object
+      required: [calendarId, message]
+      properties:
+        calendarId:
+          type: string
+        message:
+          type: string
+    CalendarPreview:
+      type: object
+      required: [sections, calendarErrors]
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarPreviewSection"
+        calendarErrors:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarError"
+    DashboardCalendarItem:
+      type: object
+      required: [title, timeLabel, relative, icon, allDay, ongoing]
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+        timeLabel:
+          type: string
+        relative:
+          type: string
+        icon:
+          $ref: "#/components/schemas/IconRef"
+        allDay:
+          type: boolean
+        ongoing:
+          type: boolean
+    DashboardCalendarSection:
+      type: object
+      description: Data of one calendar section for the dashboard.
+      required: [id, title, type]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [list, shifts]
+        error:
+          type: string
+          description: German message when calendars could not be loaded.
+        items:
+          type: array
+          description: Type `list`.
+          items:
+            $ref: "#/components/schemas/DashboardCalendarItem"
+        days:
+          type: array
+          description: Type `shifts`.
+          items:
+            $ref: "#/components/schemas/ShiftDay"

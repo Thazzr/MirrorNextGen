@@ -1,0 +1,20 @@
+[
+  {
+    "name": "HDMI-A-1",
+    "description": "Dell Inc. DELL U2723QE ABCDEFG (HDMI-A-1)",
+    "make": "Dell Inc.",
+    "model": "DELL U2723QE",
+    "serial": "ABCDEFG",
+    "physical_size": { "width": 597, "height": 336 },
+    "enabled": true,
+    "modes": [
+      { "width": 2560, "height": 1440, "refresh": 59.951, "preferred": true, "current": true },
+      { "width": 1920, "height": 1080, "refresh": 60.0, "preferred": false, "current": false },
+      { "width": 1280, "height": 720, "refresh": 60.0, "preferred": false, "current": false }
+    ],
+    "position": { "x": 0, "y": 0 },
+    "transform": "normal",
+    "scale": 1.0,
+    "adaptive_sync": false
+  }
+]

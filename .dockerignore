@@ -1,0 +1,11 @@
+.git
+**/node_modules
+server/internal/web/dist/*
+!server/internal/web/dist/.gitignore
+CHANGELOG.md
+.claude
+deploy
+*.log
+.idea
+.vscode
+*.swp

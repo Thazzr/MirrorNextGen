@@ -1,0 +1,53 @@
+.mirror-dashboard {
+  --mirror-accent: #f6b73c;
+  --mirror-muted: rgba(255, 255, 255, .65);
+  box-sizing: border-box;
+  color: #fff;
+  cursor: none;
+  margin-inline: auto;
+  max-width: 1440px;
+  min-height: 100vh;
+  padding: 0;
+  position: relative;
+}
+
+.mirror-header { align-items: flex-start; display: flex; justify-content: space-between; }
+/* The two header columns: 45 % | 55 % like SmartMirror2. */
+.mirror-region--topLeft { flex: 0 0 45%; max-width: 45%; }
+.mirror-region--topRight {
+  align-items: flex-end;
+  display: flex;
+  flex: 0 0 55%;
+  flex-direction: column;
+  margin-left: auto;
+  max-width: 55%;
+  padding-left: clamp(1.75rem,2.5vw,2.75rem);
+  text-align: right;
+}
+.mirror-region--middle { width: 100%; }
+/* Anchored to the bottom corners; the Wi-Fi code keeps its own black backing. */
+.mirror-region--bottomLeft, .mirror-region--bottomRight {
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  position: fixed;
+  z-index: 10;
+}
+.mirror-region--bottomLeft { align-items: flex-start; left: 0; }
+.mirror-region--bottomRight { align-items: flex-end; right: 0; }
+
+.mirror-muted { color: var(--mirror-muted); }
+.mirror-error { color: #ff6b6b; font-size: clamp(.9rem,1vw,1rem); letter-spacing: .08rem; }
+
+/* Secondary text stays bright enough for the semi-transparent mirror glass. */
+.mirror-dashboard { --mirror-muted: rgba(255,255,255,.92); }
+
+body.mirror-kiosk, body.mirror-kiosk * { cursor: none !important; }
+
+/* Browser rotation: the wrapper has the content size, so the page fills it rather than the window. */
+.rotated-viewport { overflow: hidden; }
+.rotated-viewport .mirror-dashboard { min-height: 100%; }
+
+/* Night schedule: a monitor that ignores the power-off command still shows black. */
+.mirror-blackout { background: #000; inset: 0; position: fixed; z-index: 2147483647; }

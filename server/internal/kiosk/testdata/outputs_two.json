@@ -1,0 +1,34 @@
+[
+  {
+    "name": "HDMI-A-1",
+    "description": "Unknown (HDMI-A-1)",
+    "make": "Unknown",
+    "model": "Unknown",
+    "serial": "Unknown",
+    "physical_size": { "width": 0, "height": 0 },
+    "enabled": false,
+    "modes": [
+      { "width": 1920, "height": 1080, "refresh": 60.0, "preferred": true, "current": false }
+    ],
+    "position": { "x": 0, "y": 0 },
+    "transform": "normal",
+    "scale": 1.0,
+    "adaptive_sync": false
+  },
+  {
+    "name": "HDMI-A-2",
+    "description": "Dell Inc. DELL U2723QE ABCDEFG (HDMI-A-2)",
+    "make": "Dell Inc.",
+    "model": "DELL U2723QE",
+    "serial": "ABCDEFG",
+    "physical_size": { "width": 597, "height": 336 },
+    "enabled": true,
+    "modes": [
+      { "width": 2560, "height": 1440, "refresh": 59.951, "preferred": true, "current": true }
+    ],
+    "position": { "x": 0, "y": 0 },
+    "transform": "normal",
+    "scale": 1.0,
+    "adaptive_sync": false
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "name": "mirrornextgen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify": "node tools/verify.mjs",
+    "generate": "go -C server generate ./... && npm --prefix web run generate:api",
+    "changelog": "node tools/changelog.mjs"
+  }
+}
