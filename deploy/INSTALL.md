@@ -135,6 +135,10 @@ Notiere Abweichungen, besonders den Namen des Ausgangs (z. B. `HDMI-A-1`) und we
 - In `.env` `KIOSK_DISABLE_GPU=true` setzen.
 - Zusätzlich oder stattdessen `WLR_RENDERER=pixman` (reine Software-Darstellung, langsamer).
 
+**Mauszeiger oder Übersetzungsleiste sichtbar**
+- Der Kiosk legt für Cage ein unsichtbares Zeigerbild an, und eine Chromium-Richtlinie im Image schaltet die Übersetzungsleiste ab. Beides kommt mit dem Kiosk-Image ab 0.7.1.
+- Zur Fehlersuche lässt sich der Zeiger wieder einblenden: `KIOSK_SHOW_CURSOR=true` in `.env`, dann neu starten.
+
 **Drehung wird nicht übernommen**
 - Im Log nach Fehlern von `wlr-randr` suchen.
 - Ausweg: `KIOSK_ROTATION=browser` in `.env`. Dann dreht sich das Dashboard selbst (keine Drehung am Compositor). Der Kiosk-Agent schaltet mit `wlr-randr` nur noch den Monitor für die Nachtruhe aus und an. Das Testbild zeigt dann „Drehung: Browser …“ und die Inhaltsgröße 1440 × 2560.

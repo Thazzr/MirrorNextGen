@@ -26,6 +26,7 @@ type Config struct {
 	URL          string // normalised: always ends in "/"
 	PollInterval time.Duration
 	DisableGPU   bool
+	ShowCursor   bool // keep Cage's visible mouse arrow (debugging)
 	Rotation     string
 	ExtraFlags   []string
 	User         string
@@ -67,6 +68,13 @@ func Load(getenv func(string) string) (Config, error) {
 			return Config{}, fmt.Errorf("KIOSK_DISABLE_GPU: %q is not a boolean", v)
 		}
 		cfg.DisableGPU = b
+	}
+	if v := getenv("KIOSK_SHOW_CURSOR"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return Config{}, fmt.Errorf("KIOSK_SHOW_CURSOR: %q is not a boolean", v)
+		}
+		cfg.ShowCursor = b
 	}
 	if v := getenv("KIOSK_ROTATION"); v != "" {
 		if v != RotationCompositor && v != RotationBrowser {

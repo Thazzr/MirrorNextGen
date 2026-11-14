@@ -28,6 +28,7 @@ const (
 	runtimeDir     = "/run/kiosk"
 	seatdSocket    = "/run/seatd.sock"
 	waylandSocket  = runtimeDir + "/wayland-0"
+	cursorDir      = runtimeDir + "/cursors"
 	seatdTimeout   = 10 * time.Second
 	waylandTimeout = 30 * time.Second
 	stopGrace      = 10 * time.Second
@@ -66,7 +67,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) int 
 		return 1
 	}
 
-	seatd, err := startProc(log, "seatd", nil, "seatd", "-u", cfg.User, "-g", cfg.User)
+	seatd, err := startProc(log, "seatd", nil, nil, "seatd", "-u", cfg.User, "-g", cfg.User)
 	if err != nil {
 		log.Error("cannot start seatd", "error", err)
 		return 1
@@ -78,7 +79,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) int 
 	}
 
 	cageArgs := kiosk.CageArgs(kiosk.ChromiumArgs(cfg, kiosk.BrowserURL(cfg)))
-	cage, err := startProc(log, "cage", account, "cage", cageArgs...)
+	cage, err := startProc(log, "cage", account, cursorEnv(log, cfg, cursorDir), "cage", cageArgs...)
 	if err != nil {
 		log.Error("cannot start cage", "error", err)
 		stopProc(seatd, stopGrace, log)
@@ -171,10 +172,10 @@ func (p *execProc) Kill()                 { _ = p.cmd.Process.Kill() }
 
 // startProc starts a child. asUser nil means it runs as the current user
 // (root). Its output is forwarded to the log with the process name.
-func startProc(log *slog.Logger, name string, asUser *account, bin string, args ...string) (*execProc, error) {
+func startProc(log *slog.Logger, name string, asUser *account, extraEnv []string, bin string, args ...string) (*execProc, error) {
 	// Not CommandContext: shutdown order and grace are managed by supervise.
 	cmd := exec.Command(bin, args...)
-	cmd.Env = baseEnv()
+	cmd.Env = append(baseEnv(), extraEnv...)
 	if asUser != nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{Credential: asUser.credential()}
 	}
@@ -190,6 +191,21 @@ func startProc(log *slog.Logger, name string, asUser *account, bin string, args 
 		close(p.done)
 	}()
 	return p, nil
+}
+
+// cursorEnv writes the invisible cursor theme into dir and returns the
+// environment that makes Cage use it. It returns nil when the cursor is meant
+// to be shown or the theme cannot be written: a visible cursor is better than
+// no mirror.
+func cursorEnv(log *slog.Logger, cfg kiosk.Config, dir string) []string {
+	if cfg.ShowCursor {
+		return nil
+	}
+	if err := kiosk.WriteInvisibleCursorTheme(dir); err != nil {
+		log.Warn("cannot write the invisible cursor theme, starting with a visible cursor", "error", err)
+		return nil
+	}
+	return []string{"XCURSOR_PATH=" + dir, "XCURSOR_THEME=default", "XCURSOR_SIZE=24"}
 }
 
 // baseEnv is the environment of cage and its helpers: the runtime dir, the

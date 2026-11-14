@@ -48,6 +48,7 @@ services:
       KIOSK_URL: http://mirror:8080/
       KIOSK_DISABLE_GPU: ${KIOSK_DISABLE_GPU:-false}
       KIOSK_ROTATION: ${KIOSK_ROTATION:-compositor}
+      KIOSK_SHOW_CURSOR: ${KIOSK_SHOW_CURSOR:-false}
       # Optional; values from .env reach the container, empty means unset (kioskd ignores empty values).
       WLR_RENDERER: ${WLR_RENDERER:-}
       WLR_DRM_DEVICES: ${WLR_DRM_DEVICES:-}

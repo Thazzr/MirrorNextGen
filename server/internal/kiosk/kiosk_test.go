@@ -577,3 +577,18 @@ func TestAgentKeepsOutputWhileMonitorIsOff(t *testing.T) {
 		t.Fatalf("commands %v, want %v", cmd.applied, want)
 	}
 }
+
+func TestLoadShowCursor(t *testing.T) {
+	cfg, err := Load(env(nil))
+	if err != nil || cfg.ShowCursor {
+		t.Fatalf("default: %+v, %v", cfg, err)
+	}
+	cfg, err = Load(env(map[string]string{"KIOSK_SHOW_CURSOR": "true"}))
+	if err != nil || !cfg.ShowCursor {
+		t.Fatalf("true: %+v, %v", cfg, err)
+	}
+	_, err = Load(env(map[string]string{"KIOSK_SHOW_CURSOR": "maybe"}))
+	if err == nil || !strings.Contains(err.Error(), "KIOSK_SHOW_CURSOR") {
+		t.Errorf("invalid value: %v", err)
+	}
+}
