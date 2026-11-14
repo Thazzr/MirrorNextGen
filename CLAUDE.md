@@ -112,7 +112,7 @@ Nutzerentscheidung 2026-11-14: Der Spiegel besteht aus **internen Modulen**, und
     - `Widget.tsx` (Dashboard, ohne Mantine),
     - `admin/` (Detailseite und Kachel-Status, nur im Admin-Chunk).
 - **Registrierung:** Zwei getrennte Registries, damit Mantine nie ins Dashboard gelangt:
-  - `features/modules/widgets.ts` ordnet Schlüssel → Widget zu;
+  - `features/modules/widgets.ts` ordnet Schlüssel → Widget zu; Module mit Instanzen (`calendar:<id>`) stehen dort als Präfix, `resolveWidget()` löst beides auf (exakte Schlüssel über `Object.hasOwn`, Präfixe nur mit nicht leerer ID);
   - `features/admin/modules.ts` ordnet Schlüssel → Admin-Seite, Kachel und Status zu.
 
   Im Go-Server kennt ein Modulverzeichnis (`internal/modules`) die gültigen Schlüssel. Die Anordnung wird dagegen validiert.
