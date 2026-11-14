@@ -2,18 +2,17 @@
 
 Der Nachfolger von SmartMirror2: ein schlanker Smart Mirror für einen **Raspberry Pi 5** mit **Ubuntu 26.04 LTS Server** (ohne Desktop). Alles läuft in Docker. Das Dashboard erscheint im Vollbild auf einem WQHD-Monitor im Hochformat (1440×2560). Die Drehung lässt sich in der App einstellen.
 
-> **Stand: Phase 3 (Kiosk) in Arbeit.**
+> **Stand: Phase 3 (Kiosk) abgeschlossen, Phase 4 in Arbeit.**
 > - **Server und Verwaltung:** Der Server liefert API und Oberfläche aus. Die Verwaltung unter `/admin` bietet Anmeldung, Konto und den Bereich „Anzeige“ (Drehung, Monitor-Ausgang, Testbild).
-> - **Dashboard:** zeigt bisher Datum, Uhrzeit und Kalenderwoche sowie auf Wunsch das Testbild.
-> - **Kiosk-Container:** steht bereit, ist aber noch nicht am Gerät abgenommen.
-> - **Inhalte:** Wetter, Kalender, Bring!, Kamera und Nachtruhe folgen (siehe [Roadmap](#roadmap)).
+> - **Kiosk-Container:** Er zeigt das Dashboard per Cage und Chromium im Vollbild und setzt die Drehung zur Laufzeit. Bei Bedarf dreht sich das Dashboard selbst (`KIOSK_ROTATION=browser`). Die Abnahme am Pi steht noch aus (siehe [`deploy/INSTALL.md`](deploy/INSTALL.md)).
+> - **Module:** Uhr, Wetter, WLAN, Kalender, Bring! und Kamera kommen als frei anordenbare Module (siehe [Roadmap](#roadmap)).
 
 ## Architektur
 
 ```text
 Pi 5 · Ubuntu 26.04 Server · Host: nur Docker (docker compose up -d)
 ├─ mirror  Go-Binary: API + eingebettete React-App, :8080, Volume /data
-├─ kiosk   Debian + Cage + Chromium + kioskd             (ab Phase 3)
+├─ kiosk   Debian + Cage + Chromium + kioskd
 │          öffnet http://mirror:8080, setzt Drehung und Monitor an/aus
 └─ camera  go2rtc, nur im internen Docker-Netz           (ab Phase 6)
 ```
@@ -132,8 +131,8 @@ Die Schritt-für-Schritt-Anleitung für den Pi 5 mit Ubuntu 26.04 Server (Anzeig
 | 1 | 0.1.0 | Grundgerüst: Go-Server, React-Oberfläche, Prüfskript, Image und CI |
 | 2 | 0.2.0 | Admin-Zugang und Einstellungen (neu gestaltet), erster Abschnitt „Anzeige“ mit Drehung |
 | 3 | 0.3.0 | Kiosk-Container auf dem Pi: Cage + Chromium, Drehung per `wlr-randr`, Installationsanleitung |
-| 4 | 0.4.0 | Dashboard I: Layout aus SmartMirror2, Wetter, WLAN-QR |
-| 5 | 0.5.0 | Dashboard II: Kalender mit Serienterminen und Filtern, Icon-Bibliothek, Bring! |
+| 4 | 0.4.0 | Module und freie Anordnung (fünf Regionen), Uhr, Wetter, WLAN-QR im Layout von SmartMirror2 |
+| 5 | 0.5.0 | Kalender (Neuentwurf: Bereiche, Regeln mit Vorschau, Schichtanzeige), Icon-Bibliothek, Bring! |
 | 6 | 0.6.0 | Kamera (go2rtc) und Nachtruhe |
 | 7 | 0.7.0 | Update-Knopf und Logbuch |
 
