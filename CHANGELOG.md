@@ -7,6 +7,16 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages generiert –
 **nicht von Hand bearbeiten**.
 
+## [Unreleased]
+
+### Changed
+
+- Tags nur noch für festgehaltene Versionen
+
+### Fixed
+
+- **icons**: Hochgeladene SVG-Symbole nehmen die Textfarbe an
+
 ## [0.9.1] - 2026-11-14
 
 ### Fixed
