@@ -17,6 +17,7 @@ import (
 	_ "time/tzdata" // the distroless image has no zoneinfo
 
 	"github.com/thazzr/mirrornextgen/server/internal/api"
+	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/config"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
 	"github.com/thazzr/mirrornextgen/server/internal/web"
@@ -55,10 +56,23 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return healthcheck(ctx, cfg.Addr, stderr)
 	}
 
-	build := api.BuildInfo{Version: version, Commit: commit, BuildTime: buildTime}
+	// A corrupt admin.json must stop the server: starting as "not set up"
+	// would let anyone run the setup and take over the mirror.
+	admin, err := auth.Load(cfg.DataDir)
+	if err != nil {
+		logger.Error("cannot load admin credentials", "dataDir", cfg.DataDir, "error", err)
+		return 1
+	}
+	deps := api.Deps{
+		Build:    api.BuildInfo{Version: version, Commit: commit, BuildTime: buildTime},
+		Logger:   logger,
+		Admin:    admin,
+		Sessions: auth.NewSessions(time.Now),
+		Throttle: auth.NewThrottle(time.Now),
+	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           httpserver.New(build, web.Dist(), logger),
+		Handler:           httpserver.New(deps, web.Dist()),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}

@@ -3,7 +3,6 @@ package httpserver
 
 import (
 	"io/fs"
-	"log/slog"
 	"net/http"
 
 	"github.com/thazzr/mirrornextgen/server/internal/api"
@@ -11,9 +10,9 @@ import (
 )
 
 // New returns the complete handler of the server.
-func New(build api.BuildInfo, webFS fs.FS, logger *slog.Logger) http.Handler {
+func New(deps api.Deps, webFS fs.FS) http.Handler {
 	mux := http.NewServeMux()
-	api.Register(mux, build, logger)
+	api.Register(mux, deps)
 	// Unknown API paths must answer a JSON 404, never the SPA's index.html.
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		api.WriteProblem(w, http.StatusNotFound, "")

@@ -28,7 +28,169 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Info"
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: Current session state
+      description: >-
+        Tells the web app whether the admin access still has to be set up and whether
+        the caller is signed in. The CSRF token is only returned to a signed-in caller.
+      responses:
+        "200":
+          description: The session state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /api/v1/auth/setup:
+    post:
+      operationId: setupAdmin
+      summary: Set the admin password
+      description: >-
+        Sets the admin password on first start and signs the caller in. Only possible
+        while no admin password is set.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRequest"
+      responses:
+        "200":
+          description: The password was set and a session was started.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Sign in
+      description: >-
+        Signs in with the admin password. After five failed attempts within fifteen
+        minutes the client address is blocked until the oldest failure expires.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRequest"
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          description: Too many failed attempts.
+          headers:
+            Retry-After:
+              description: Seconds until the next attempt is allowed.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Sign out
+      description: Ends the current session and expires the session cookie.
+      security:
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Signed out.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/auth/password:
+    post:
+      operationId: changePassword
+      summary: Change the admin password
+      description: >-
+        Changes the admin password. All other sessions are ended, the current one stays.
+        A wrong current password does not count towards the login throttle.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: The password was changed.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: mirror_session
+      description: >-
+        Session cookie set by setup and login. Unsafe methods also need the session's
+        CSRF token in the X-CSRF-Token header. Enforced by a server middleware that
+        denies every operation not explicitly listed as public.
+  headers:
+    SetCookie:
+      description: Sets or expires the mirror_session cookie.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: The request is invalid; `errors` names the offending fields.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: Not signed in, or the credentials are wrong.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: The CSRF token is missing or wrong.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: The request does not fit the current state of the admin access.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
   schemas:
     Health:
       type: object
@@ -66,3 +228,38 @@ components:
         detail:
           type: string
           description: Explanation specific to this occurrence.
+        errors:
+          type: object
+          description: Validation messages by field name.
+          additionalProperties:
+            type: string
+    Session:
+      type: object
+      description: State of the caller's admin session.
+      required: [setupRequired, authenticated]
+      properties:
+        setupRequired:
+          type: boolean
+          description: True while no admin password is set.
+        authenticated:
+          type: boolean
+          description: True when the caller has a valid session.
+        csrfToken:
+          type: string
+          description: Token for the X-CSRF-Token header, only present when authenticated.
+    PasswordRequest:
+      type: object
+      description: A password to set or to sign in with.
+      required: [password]
+      properties:
+        password:
+          type: string
+    ChangePasswordRequest:
+      type: object
+      description: Current and new admin password.
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string

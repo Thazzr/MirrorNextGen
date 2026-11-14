@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+
+	"github.com/thazzr/mirrornextgen/server/internal/auth"
 )
 
 // BuildInfo describes the running binary; main fills it from -ldflags.
@@ -14,16 +16,28 @@ type BuildInfo struct {
 	BuildTime string
 }
 
+// Deps are the collaborators of the API server.
+type Deps struct {
+	Build    BuildInfo
+	Logger   *slog.Logger
+	Admin    *auth.Store
+	Sessions *auth.Sessions
+	Throttle *auth.Throttle
+}
+
 // Server implements the generated StrictServerInterface.
 type Server struct {
-	build BuildInfo
+	build    BuildInfo
+	admin    *auth.Store
+	sessions *auth.Sessions
+	throttle *auth.Throttle
 }
 
 var _ StrictServerInterface = (*Server)(nil)
 
-// NewServer returns a Server that reports the given build information.
-func NewServer(build BuildInfo) *Server {
-	return &Server{build: build}
+// NewServer returns a Server wired to deps.
+func NewServer(deps Deps) *Server {
+	return &Server{build: deps.Build, admin: deps.Admin, sessions: deps.Sessions, throttle: deps.Throttle}
 }
 
 // GetHealth answers the liveness check.
@@ -55,27 +69,35 @@ func WriteProblem(w http.ResponseWriter, status int, detail string) {
 // Register mounts the API routes on mux. Request errors answer 400 and
 // handler errors 500, both as problem+json; the Go error text of a 500 is
 // only logged, never sent to the client.
-func Register(mux *http.ServeMux, build BuildInfo, logger *slog.Logger) {
+func Register(mux *http.ServeMux, deps Deps) {
+	register(mux, deps)
+}
+
+// register is Register for any router; extra middlewares wrap the auth
+// middleware (tests use that to observe operation IDs).
+func register(router ServeMux, deps Deps, extra ...StrictMiddlewareFunc) {
 	requestError := func(w http.ResponseWriter, _ *http.Request, err error) {
 		WriteProblem(w, http.StatusBadRequest, err.Error())
 	}
 	responseError := func(w http.ResponseWriter, r *http.Request, err error) {
-		logger.Error("api request failed", "method", r.Method, "path", r.URL.Path, "error", err)
+		deps.Logger.Error("api request failed", "method", r.Method, "path", r.URL.Path, "error", err)
 		WriteProblem(w, http.StatusInternalServerError, "")
 	}
-	strict := NewStrictHandlerWithOptions(NewServer(build), nil, StrictHTTPServerOptions{
+	srv := NewServer(deps)
+	middlewares := append([]StrictMiddlewareFunc{srv.authMiddleware}, extra...)
+	strict := NewStrictHandlerWithOptions(srv, middlewares, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		ResponseErrorHandlerFunc: responseError,
 	})
 	HandlerWithOptions(strict, StdHTTPServerOptions{
-		BaseRouter:       mux,
+		BaseRouter:       router,
 		ErrorHandlerFunc: requestError,
 	})
 }
 
 // NewHandler returns a handler serving only the API routes.
-func NewHandler(build BuildInfo, logger *slog.Logger) http.Handler {
+func NewHandler(deps Deps) http.Handler {
 	mux := http.NewServeMux()
-	Register(mux, build, logger)
+	Register(mux, deps)
 	return mux
 }

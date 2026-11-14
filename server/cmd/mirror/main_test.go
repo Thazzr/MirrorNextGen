@@ -5,6 +5,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -117,5 +119,28 @@ func TestRunRejectsInvalidConfig(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "MIRROR_ADDR") {
 		t.Errorf("log %q does not name MIRROR_ADDR", stdout.String())
+	}
+}
+
+func TestRunFailsOnCorruptAdminFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "admin.json"), []byte("{corrupt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	getenv := func(k string) string {
+		switch k {
+		case "MIRROR_DATA_DIR":
+			return dir
+		case "MIRROR_ADDR":
+			return "127.0.0.1:0"
+		}
+		return ""
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), nil, getenv, &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1", code)
+	}
+	if !strings.Contains(stdout.String(), "admin") {
+		t.Errorf("log %q does not name the admin credentials", stdout.String())
 	}
 }

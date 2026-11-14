@@ -2,17 +2,14 @@ package api
 
 import (
 	"encoding/json"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func testHandler() http.Handler {
-	build := BuildInfo{Version: "1.2.3", Commit: "abc123", BuildTime: "2026-01-02T03:04:05Z"}
-	return NewHandler(build, slog.New(slog.NewTextHandler(io.Discard, nil)))
+func testHandler(t *testing.T) http.Handler {
+	return newTestEnv(t).handler
 }
 
 func TestEndpoints(t *testing.T) {
@@ -27,7 +24,7 @@ func TestEndpoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			testHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.path, nil))
+			testHandler(t).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.path, nil))
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200", rec.Code)
@@ -44,7 +41,7 @@ func TestEndpoints(t *testing.T) {
 
 func TestWrongMethodIsRejected(t *testing.T) {
 	rec := httptest.NewRecorder()
-	testHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/health", nil))
+	testHandler(t).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/health", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want 405", rec.Code)
 	}
