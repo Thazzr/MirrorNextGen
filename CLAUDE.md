@@ -146,15 +146,17 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
 `npm run verify` (= `node tools/verify.mjs`) ist das vollständige Gate, lokal und in der CI. Es läuft unter Windows, Linux und macOS.
 
 - **Stränge:** Zwei Stränge laufen parallel und schreiben je ein eigenes Log. Am Ende gibt das Skript beide Logs aus und eine Tabelle mit Dauer und Ergebnis je Schritt.
-  - **Backend:** Drift der erzeugten Go-Dateien, `gofmt`, `go vet`, `go test` (in der CI mit `-race`).
-  - **Frontend:** Drift der API-Typen, `tsc`, ESLint, Vitest, Build.
-- **Fehler:** Ein fehlgeschlagener Schritt beendet nur seinen Strang. Das Skript endet mit einem Exit-Code ungleich 0, sobald ein Ergebnis weder `ok` noch `skipped` ist.
+  - **Backend** (`go-mod-tidy`, `go-generate-drift`, `gofmt`, `go-vet`, `go-test`): `go mod tidy -diff`, Drift des erzeugten Go-Codes, `gofmt -l`, `go vet`, `go test` (in der CI mit `-race`).
+  - **Frontend** (`api-types-drift`, `typecheck`, `lint`, `vitest`, `build`): Drift der API-Typen, `tsc -b`, ESLint, Vitest, Vite-Build.
+- **Fehler:** Ein fehlgeschlagener Schritt beendet nur seinen Strang, dessen restliche Schritte stehen auf `not-run`. Das Skript endet mit einem Exit-Code ungleich 0, sobald ein Ergebnis weder `ok` noch `skipped` ist.
 - **Schalter:**
   - `--sequential` lässt alles nacheinander laufen (zum Eingrenzen);
-  - `--only <schritt>` lässt nur einzelne Schritte laufen (ein unbekannter Name endet mit Exit 2, bevor etwas läuft);
-  - `--skip-build` lässt den Frontend-Build weg.
-- **Das Gate testet sich selbst:** Sein erster Schritt `node --test tools/` prüft die Logik, nach der das Skript über Bestanden oder Fehlgeschlagen entscheidet. Wer diese Logik ändert, ändert den Test mit. Die Umgebungsmarke `VERIFY_SELFTEST_RUNNING` verhindert, dass der Selbsttest das Gate erneut startet.
-- **Drift-Prüfung:** Sie erzeugt die Dateien in ein temporäres Verzeichnis und vergleicht sie mit dem Arbeitsbaum. Sie ändert nichts. Behoben wird Drift mit `npm run generate`.
+  - `--only <schritt>[,<schritt>]` lässt nur einzelne Schritte laufen (ein unbekannter Name endet mit Exit 2, bevor etwas läuft);
+  - `--skip-build` lässt den Frontend-Build weg;
+  - `--race` startet `go test` mit dem Race-Detector (braucht cgo; die CI setzt den Schalter).
+- **Das Gate testet sich selbst:** Sein erster Schritt `selftest` (`node --test 'tools/*.test.mjs'`) prüft die Logik, nach der das Skript über Bestanden oder Fehlgeschlagen entscheidet. Schlägt er fehl, starten die Stränge nicht. Wer diese Logik ändert, ändert den Test mit. Die Umgebungsmarke `VERIFY_SELFTEST_RUNNING` verhindert, dass der Selbsttest das Gate erneut startet. (`node --test tools/` ohne Muster behandelt Node 22 als Modulpfad – deshalb das Muster.)
+- **Drift-Prüfung:** Sie erzeugt die Dateien in ein temporäres Verzeichnis und vergleicht sie mit dem Arbeitsbaum. Sie ändert nichts. Behoben wird Drift mit `npm run generate`. Achtung: oapi-codegen v2.8.2 ignoriert `-o`, sobald die Config ein `output:` hat. Das Gate erzeugt deshalb über eine temporäre Kopie der Config.
+- **Der Gate-Build schreibt nie nach `server/internal/web/dist/`**, sondern in ein temporäres Verzeichnis: Der Backend-Strang kompiliert das eingebettete Verzeichnis gleichzeitig, und ein geleertes Verzeichnis ließe `go vet`/`go test` scheitern. Das Vite-Plugin `keep-dist-gitignore` schreibt die `.gitignore` nur zurück, wenn der Build in genau dieses Verzeichnis geht.
 
 Schnelle Einzelprüfungen:
 - Backend (aus `server/`): `go test ./...`, `go vet ./...`.

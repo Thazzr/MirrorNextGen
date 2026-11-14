@@ -1,1 +1,130 @@
 # MirrorNextGen
+
+Der Nachfolger von SmartMirror2: ein schlanker Smart Mirror für einen **Raspberry Pi 5** mit **Ubuntu 26.04 LTS Server** (ohne Desktop). Alles läuft in Docker. Das Dashboard erscheint im Vollbild auf einem WQHD-Monitor im Hochformat (1440×2560). Die Drehung lässt sich in der App einstellen.
+
+> **Stand: Phase 1 (Grundgerüst).** Der Server liefert API und Oberfläche aus. Das Dashboard zeigt bisher Datum, Uhrzeit und Kalenderwoche, dazu das Testbild unter `/?diagnose`. Kiosk, Admin-Bereich und Dashboard-Inhalte folgen in den nächsten Phasen (siehe [Roadmap](#roadmap)).
+
+## Architektur
+
+```text
+Pi 5 · Ubuntu 26.04 Server · Host: nur Docker (docker compose up -d)
+├─ mirror  Go-Binary: API + eingebettete React-App, :8080, Volume /data
+├─ kiosk   Debian + Cage + Chromium + kioskd             (ab Phase 3)
+│          öffnet http://mirror:8080, setzt Drehung und Monitor an/aus
+└─ camera  go2rtc, nur im internen Docker-Netz           (ab Phase 6)
+```
+
+- **Server (`server/`)**: Go mit der Standardbibliothek (`net/http`, `slog`, `embed`). Das Binary bettet die gebaute React-App ein und liefert sie aus. Unbekannte Client-Routen bekommen `index.html`, unbekannte `/api/`-Pfade einen JSON-404. Gehashte Assets werden ein Jahr gecacht.
+- **Oberfläche (`web/`)**: React 19, Vite, TypeScript, React Query. Layout und Design des Dashboards stammen aus SmartMirror2. Der Admin-Bereich wird neu gestaltet.
+- **API-Vertrag (`api/openapi.yaml`)**: spec-first. Daraus erzeugt `oapi-codegen` den Go-Server-Code und `openapi-typescript` die Client-Typen. Die Oberfläche spricht die API nur über den erzeugten Client an.
+- **Daten**: keine Datenbank. Einstellungen liegen ab Phase 2 als JSON-Datei im Volume `/data`.
+
+| Pfad | Inhalt |
+|---|---|
+| `api/` | OpenAPI-Vertrag |
+| `server/` | Go-Modul: `cmd/mirror`, `internal/{api,config,httpserver,web}` |
+| `web/` | React-App (`src/app`, `src/shared`, `src/features`) |
+| `deploy/` | `compose.yaml` und `.env.example` für den Pi |
+| `tools/` | Prüfskript `verify.mjs`, Changelog-Werkzeug `changelog.mjs` |
+| `.github/workflows/` | CI: Prüfung und Images für GHCR |
+
+## Entwicklung
+
+Voraussetzungen:
+- **Go 1.27**: Mit `GOTOOLCHAIN=auto` (Standard) lädt Go die Version aus `go.mod` selbst nach.
+- **Node.js 22 oder neuer**: Die CI nutzt Node 26.
+- **git**
+
+Abhängigkeiten der Oberfläche einmalig installieren:
+
+```bash
+npm ci --prefix web
+```
+
+Server mit gebauter Oberfläche starten:
+
+```bash
+npm --prefix web run build      # schreibt nach server/internal/web/dist
+cd server
+MIRROR_ADDR=127.0.0.1:8080 MIRROR_DATA_DIR=./data go run ./cmd/mirror
+```
+
+Danach ist das Dashboard unter <http://127.0.0.1:8080/> erreichbar, das Testbild unter <http://127.0.0.1:8080/?diagnose>. Ohne gebaute Oberfläche antwortet der Server mit 503 und einem Hinweis.
+
+Oberfläche mit Hot Reload entwickeln: den Server wie oben starten, dann `npm --prefix web run dev`. Vite leitet `/api` an `:8080` weiter.
+
+| Umgebungsvariable | Standard | Bedeutung |
+|---|---|---|
+| `MIRROR_ADDR` | `:8080` | Listen-Adresse (`host:port`) |
+| `MIRROR_DATA_DIR` | `/data` | Verzeichnis für Einstellungen und Daten |
+
+### API ändern
+
+1. `api/openapi.yaml` anpassen.
+2. `npm run generate` erzeugt den Go-Server-Code und die TypeScript-Typen neu.
+3. Den Handler in Go umsetzen und testen.
+4. In der Oberfläche über `api` und `unwrap()` aus `web/src/shared/api/client.ts` aufrufen.
+
+Erzeugte Dateien (`*.gen.go`, `schema.gen.ts`) werden committet und nie von Hand geändert.
+
+## Prüfen
+
+```bash
+npm run verify
+```
+
+Das Gate läuft unter Windows, Linux und in der CI.
+- **Selbsttest:** Zuerst prüft es seine eigene Logik (`node --test 'tools/*.test.mjs'`).
+- **Zwei Stränge, parallel:**
+  - Backend: `go mod tidy -diff`, Drift des erzeugten Go-Codes, `gofmt`, `go vet`, `go test`.
+  - Frontend: Drift der API-Typen, `tsc`, ESLint, Vitest, Build.
+- **Ergebnis:** Am Ende stehen beide Logs und eine Tabelle mit Dauer und Ergebnis je Schritt.
+
+| Schalter | Wirkung |
+|---|---|
+| `--only <schritt>[,<schritt>]` | nur diese Schritte (unbekannter Name: Exit 2) |
+| `--sequential` | alles nacheinander, zum Eingrenzen |
+| `--skip-build` | ohne Frontend-Build |
+| `--race` | `go test` mit Race-Detector (CI) |
+
+Einzelprüfungen:
+- **Backend** (aus `server/`): `go test ./...`
+- **Frontend** (aus `web/`): `npx tsc -p tsconfig.app.json`, `npm run lint`, `npx vitest run`
+
+## Deployment
+
+Die CI baut bei jedem Push auf `main`, `claude/**` und bei Tags `v*` das Image `ghcr.io/thazzr/mirrornextgen/mirror` für `linux/arm64` und `linux/amd64`. Beide Images entstehen per Cross-Compile, ohne QEMU.
+
+| Tag | Quelle |
+|---|---|
+| Branch-Name | letzter Stand des Branches |
+| `sha-…` | ein bestimmter Commit |
+| Version | bei Tags `v*` |
+| `latest` | `main` |
+
+Auf dem Pi:
+
+```bash
+cp deploy/.env.example deploy/.env     # MIRROR_TAG, MIRROR_PORT, TZ anpassen
+docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
+```
+
+Ist das Repo privat, braucht der Pi einmalig `docker login ghcr.io` mit einem Token mit `read:packages`. Die vollständige Installationsanleitung für Ubuntu 26.04 inklusive Kiosk folgt in Phase 3 (`deploy/INSTALL.md`).
+
+## Roadmap
+
+| Phase | Version | Inhalt |
+|---|---|---|
+| 1 | 0.1.0 | Grundgerüst: Go-Server, React-Oberfläche, Prüfskript, Image und CI |
+| 2 | 0.2.0 | Admin-Zugang und Einstellungen (neu gestaltet), erster Abschnitt „Anzeige“ mit Drehung |
+| 3 | 0.3.0 | Kiosk-Container auf dem Pi: Cage + Chromium, Drehung per `wlr-randr`, Installationsanleitung |
+| 4 | 0.4.0 | Dashboard I: Layout aus SmartMirror2, Wetter, WLAN-QR |
+| 5 | 0.5.0 | Dashboard II: Kalender mit Serienterminen und Filtern, Icon-Bibliothek, Bring! |
+| 6 | 0.6.0 | Kamera (go2rtc) und Nachtruhe |
+| 7 | 0.7.0 | Update-Knopf und Logbuch |
+
+## Mitarbeit
+
+Regeln, Architekturgrenzen und den Ablauf pro Phase beschreibt [`CLAUDE.md`](CLAUDE.md): Planen und Prüfen, Umsetzen durch Subagenten, Gegenproben, Gate, Conventional Commits, SemVer-Tags.
+
+[`CHANGELOG.md`](CHANGELOG.md) wird mit `npm run changelog` aus den Commit-Nachrichten erzeugt und nie von Hand bearbeitet.
