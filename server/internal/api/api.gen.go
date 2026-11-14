@@ -15,6 +15,30 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for DisplaySettingsRotation.
+const (
+	DisplaySettingsRotationN0   DisplaySettingsRotation = 0
+	DisplaySettingsRotationN180 DisplaySettingsRotation = 180
+	DisplaySettingsRotationN270 DisplaySettingsRotation = 270
+	DisplaySettingsRotationN90  DisplaySettingsRotation = 90
+)
+
+// Valid indicates whether the value is a known member of the DisplaySettingsRotation enum.
+func (e DisplaySettingsRotation) Valid() bool {
+	switch e {
+	case DisplaySettingsRotationN0:
+		return true
+	case DisplaySettingsRotationN180:
+		return true
+	case DisplaySettingsRotationN270:
+		return true
+	case DisplaySettingsRotationN90:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	Ok HealthStatus = "ok"
@@ -30,11 +54,50 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for KioskStateRotation.
+const (
+	KioskStateRotationN0   KioskStateRotation = 0
+	KioskStateRotationN180 KioskStateRotation = 180
+	KioskStateRotationN270 KioskStateRotation = 270
+	KioskStateRotationN90  KioskStateRotation = 90
+)
+
+// Valid indicates whether the value is a known member of the KioskStateRotation enum.
+func (e KioskStateRotation) Valid() bool {
+	switch e {
+	case KioskStateRotationN0:
+		return true
+	case KioskStateRotationN180:
+		return true
+	case KioskStateRotationN270:
+		return true
+	case KioskStateRotationN90:
+		return true
+	default:
+		return false
+	}
+}
+
 // ChangePasswordRequest Current and new admin password.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
 }
+
+// DisplaySettings Settings of the mirror's screen.
+type DisplaySettings struct {
+	// Output Connector name such as HDMI-A-1; empty means automatic.
+	Output string `json:"output"`
+
+	// Rotation Rotation in degrees clockwise.
+	Rotation DisplaySettingsRotation `json:"rotation"`
+
+	// TestPattern Shows the diagnose overlay on the mirror.
+	TestPattern bool `json:"testPattern"`
+}
+
+// DisplaySettingsRotation Rotation in degrees clockwise.
+type DisplaySettingsRotation int
 
 // Health Result of the liveness check.
 type Health struct {
@@ -55,6 +118,21 @@ type Info struct {
 	// Version Release version, "dev" for local builds.
 	Version string `json:"version"`
 }
+
+// KioskState Target state of the screen as the kiosk agent applies it.
+type KioskState struct {
+	// Output Connector name such as HDMI-A-1; empty means automatic.
+	Output string `json:"output"`
+
+	// Rotation Rotation in degrees clockwise.
+	Rotation KioskStateRotation `json:"rotation"`
+
+	// TestPattern Shows the diagnose overlay on the mirror.
+	TestPattern bool `json:"testPattern"`
+}
+
+// KioskStateRotation Rotation in degrees clockwise.
+type KioskStateRotation int
 
 // PasswordRequest A password to set or to sign in with.
 type PasswordRequest struct {
@@ -109,6 +187,9 @@ type ChangePasswordJSONRequestBody = ChangePasswordRequest
 // SetupAdminJSONRequestBody defines body for SetupAdmin for application/json ContentType.
 type SetupAdminJSONRequestBody = PasswordRequest
 
+// UpdateDisplaySettingsJSONRequestBody defines body for UpdateDisplaySettings for application/json ContentType.
+type UpdateDisplaySettingsJSONRequestBody = DisplaySettings
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Login Sign in
@@ -132,6 +213,15 @@ type ServerInterface interface {
 	// GetInfo Build information
 	// (GET /api/v1/info)
 	GetInfo(w http.ResponseWriter, r *http.Request)
+	// GetKioskState Target state of the kiosk
+	// (GET /api/v1/kiosk/state)
+	GetKioskState(w http.ResponseWriter, r *http.Request)
+	// GetDisplaySettings Display settings
+	// (GET /api/v1/settings/display)
+	GetDisplaySettings(w http.ResponseWriter, r *http.Request)
+	// UpdateDisplaySettings Change the display settings
+	// (PUT /api/v1/settings/display)
+	UpdateDisplaySettings(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -232,6 +322,48 @@ func (siw *ServerInterfaceWrapper) GetInfo(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetInfo(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetKioskState operation middleware
+func (siw *ServerInterfaceWrapper) GetKioskState(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetKioskState(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDisplaySettings operation middleware
+func (siw *ServerInterfaceWrapper) GetDisplaySettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDisplaySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateDisplaySettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateDisplaySettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateDisplaySettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -368,6 +500,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/login", wrapper.Login)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/password", wrapper.ChangePassword)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/settings/display", wrapper.GetDisplaySettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/settings/display", wrapper.UpdateDisplaySettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/kiosk/state", wrapper.GetKioskState)
 
 	return m
 }
@@ -730,6 +865,134 @@ func (response GetInfo200JSONResponse) VisitGetInfoResponse(w http.ResponseWrite
 	return err
 }
 
+type GetKioskStateRequestObject struct {
+}
+
+type GetKioskStateResponseObject interface {
+	VisitGetKioskStateResponse(w http.ResponseWriter) error
+}
+
+type GetKioskState200JSONResponse KioskState
+
+func (response GetKioskState200JSONResponse) VisitGetKioskStateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDisplaySettingsRequestObject struct {
+}
+
+type GetDisplaySettingsResponseObject interface {
+	VisitGetDisplaySettingsResponse(w http.ResponseWriter) error
+}
+
+type GetDisplaySettings200JSONResponse DisplaySettings
+
+func (response GetDisplaySettings200JSONResponse) VisitGetDisplaySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDisplaySettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetDisplaySettings401ApplicationProblemPlusJSONResponse) VisitGetDisplaySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateDisplaySettingsRequestObject struct {
+	Body *UpdateDisplaySettingsJSONRequestBody
+}
+
+type UpdateDisplaySettingsResponseObject interface {
+	VisitUpdateDisplaySettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateDisplaySettings200JSONResponse DisplaySettings
+
+func (response UpdateDisplaySettings200JSONResponse) VisitUpdateDisplaySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateDisplaySettings400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateDisplaySettings400ApplicationProblemPlusJSONResponse) VisitUpdateDisplaySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateDisplaySettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateDisplaySettings401ApplicationProblemPlusJSONResponse) VisitUpdateDisplaySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateDisplaySettings403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateDisplaySettings403ApplicationProblemPlusJSONResponse) VisitUpdateDisplaySettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Login Sign in
@@ -753,6 +1016,15 @@ type StrictServerInterface interface {
 	// GetInfo Build information
 	// (GET /api/v1/info)
 	GetInfo(ctx context.Context, request GetInfoRequestObject) (GetInfoResponseObject, error)
+	// GetKioskState Target state of the kiosk
+	// (GET /api/v1/kiosk/state)
+	GetKioskState(ctx context.Context, request GetKioskStateRequestObject) (GetKioskStateResponseObject, error)
+	// GetDisplaySettings Display settings
+	// (GET /api/v1/settings/display)
+	GetDisplaySettings(ctx context.Context, request GetDisplaySettingsRequestObject) (GetDisplaySettingsResponseObject, error)
+	// UpdateDisplaySettings Change the display settings
+	// (PUT /api/v1/settings/display)
+	UpdateDisplaySettings(ctx context.Context, request UpdateDisplaySettingsRequestObject) (UpdateDisplaySettingsResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -976,6 +1248,85 @@ func (sh *strictHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetInfoResponseObject); ok {
 		if err := validResponse.VisitGetInfoResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKioskState operation middleware
+func (sh *strictHandler) GetKioskState(w http.ResponseWriter, r *http.Request) {
+	var request GetKioskStateRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKioskState(ctx, request.(GetKioskStateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKioskState")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKioskStateResponseObject); ok {
+		if err := validResponse.VisitGetKioskStateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDisplaySettings operation middleware
+func (sh *strictHandler) GetDisplaySettings(w http.ResponseWriter, r *http.Request) {
+	var request GetDisplaySettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDisplaySettings(ctx, request.(GetDisplaySettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDisplaySettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDisplaySettingsResponseObject); ok {
+		if err := validResponse.VisitGetDisplaySettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateDisplaySettings operation middleware
+func (sh *strictHandler) UpdateDisplaySettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateDisplaySettingsRequestObject
+
+	var body UpdateDisplaySettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateDisplaySettings(ctx, request.(UpdateDisplaySettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateDisplaySettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateDisplaySettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateDisplaySettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

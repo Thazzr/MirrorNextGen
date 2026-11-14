@@ -151,6 +151,63 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/display:
+    get:
+      operationId: getDisplaySettings
+      summary: Display settings
+      description: Returns the stored display settings (rotation, output, test pattern).
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The stored display settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplaySettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateDisplaySettings
+      summary: Change the display settings
+      description: >-
+        Validates and stores the display settings. Invalid values answer 400 with
+        `errors` keyed by field name (`rotation`, `output`); nothing is stored then.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisplaySettings"
+      responses:
+        "200":
+          description: The stored display settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisplaySettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/kiosk/state:
+    get:
+      operationId: getKioskState
+      summary: Target state of the kiosk
+      description: >-
+        Returns what the kiosk agent applies to the screen. Public, because the kiosk
+        container and the dashboard read it without a session; it contains no secrets.
+      responses:
+        "200":
+          description: The target state of the screen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KioskState"
 components:
   securitySchemes:
     sessionCookie:
@@ -263,3 +320,33 @@ components:
           type: string
         newPassword:
           type: string
+    DisplaySettings:
+      type: object
+      description: Settings of the mirror's screen.
+      required: [rotation, output, testPattern]
+      properties:
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotation in degrees clockwise.
+        output:
+          type: string
+          description: Connector name such as HDMI-A-1; empty means automatic.
+        testPattern:
+          type: boolean
+          description: Shows the diagnose overlay on the mirror.
+    KioskState:
+      type: object
+      description: Target state of the screen as the kiosk agent applies it.
+      required: [rotation, output, testPattern]
+      properties:
+        rotation:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: Rotation in degrees clockwise.
+        output:
+          type: string
+          description: Connector name such as HDMI-A-1; empty means automatic.
+        testPattern:
+          type: boolean
+          description: Shows the diagnose overlay on the mirror.

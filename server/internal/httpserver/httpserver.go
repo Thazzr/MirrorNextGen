@@ -12,11 +12,15 @@ import (
 // New returns the complete handler of the server.
 func New(deps api.Deps, webFS fs.FS) http.Handler {
 	mux := http.NewServeMux()
-	api.Register(mux, deps)
+	// The API subtree gets its own mux so no-store covers every API answer,
+	// including the JSON 404, while the web app keeps its own caching rules.
+	apiMux := http.NewServeMux()
+	api.Register(apiMux, deps)
 	// Unknown API paths must answer a JSON 404, never the SPA's index.html.
-	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
+	apiMux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		api.WriteProblem(w, http.StatusNotFound, "")
 	})
+	mux.Handle("/api/", noStore(apiMux))
 	mux.Handle("/", web.Handler(webFS))
 	return noSniff(mux)
 }
@@ -24,6 +28,15 @@ func New(deps api.Deps, webFS fs.FS) http.Handler {
 func noSniff(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// noStore keeps browsers from caching API answers: they carry CSRF tokens
+// and live state.
+func noStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }

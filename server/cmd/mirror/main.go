@@ -20,6 +20,7 @@ import (
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
 	"github.com/thazzr/mirrornextgen/server/internal/config"
 	"github.com/thazzr/mirrornextgen/server/internal/httpserver"
+	"github.com/thazzr/mirrornextgen/server/internal/settings"
 	"github.com/thazzr/mirrornextgen/server/internal/web"
 )
 
@@ -63,12 +64,20 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		logger.Error("cannot load admin credentials", "dataDir", cfg.DataDir, "error", err)
 		return 1
 	}
+	// Bad settings content never stops the server (it is moved aside); only
+	// an I/O failure does.
+	settingsStore, err := settings.Load(cfg.DataDir, logger)
+	if err != nil {
+		logger.Error("cannot load settings", "dataDir", cfg.DataDir, "error", err)
+		return 1
+	}
 	deps := api.Deps{
 		Build:    api.BuildInfo{Version: version, Commit: commit, BuildTime: buildTime},
 		Logger:   logger,
 		Admin:    admin,
 		Sessions: auth.NewSessions(time.Now),
 		Throttle: auth.NewThrottle(time.Now),
+		Settings: settingsStore,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,

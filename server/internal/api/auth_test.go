@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
+	"github.com/thazzr/mirrornextgen/server/internal/settings"
 )
 
 const (
@@ -69,6 +70,10 @@ func newTestEnv(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
+	settingsStore, err := settings.Load(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
 	clock := &testClock{t: time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)}
 	deps := Deps{
 		Build:    BuildInfo{Version: "1.2.3", Commit: "abc123", BuildTime: "2026-01-02T03:04:05Z"},
@@ -76,6 +81,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		Admin:    admin,
 		Sessions: auth.NewSessions(clock.now),
 		Throttle: auth.NewThrottle(clock.now),
+		Settings: settingsStore,
 	}
 	mux := &recordingMux{ServeMux: http.NewServeMux()}
 	lastOp := new(string)
@@ -559,7 +565,7 @@ func TestEveryOperationIsProtectedUnlessPublic(t *testing.T) {
 	if protected < 2 {
 		t.Errorf("only %d protected operations found; the walk is not testing anything", protected)
 	}
-	if want := []string{"ChangePassword", "GetHealth", "GetInfo", "GetSession", "Login", "Logout", "SetupAdmin"}; len(seen) < len(want) {
+	if want := []string{"ChangePassword", "GetDisplaySettings", "GetKioskState", "UpdateDisplaySettings", "GetHealth", "GetInfo", "GetSession", "Login", "Logout", "SetupAdmin"}; len(seen) < len(want) {
 		var got []string
 		for op := range seen {
 			got = append(got, op)

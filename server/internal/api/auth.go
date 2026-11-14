@@ -37,6 +37,9 @@ var publicOperations = map[string]bool{
 	"GetSession": true,
 	"SetupAdmin": true,
 	"Login":      true,
+	// Read by the kiosk container and the dashboard without a session; the
+	// state (rotation, output, test pattern) contains no secrets.
+	"GetKioskState": true,
 }
 
 type ctxKey struct{}

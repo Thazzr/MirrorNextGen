@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/thazzr/mirrornextgen/server/internal/fsutil"
 )
 
 const adminFile = "admin.json"
@@ -129,37 +131,9 @@ func (s *Store) store(pw string) error {
 	if err != nil {
 		return fmt.Errorf("encode admin record: %w", err)
 	}
-	if err := writeFileAtomic(s.path, data, 0o600); err != nil {
+	if err := fsutil.WriteFileAtomic(s.path, data, 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", s.path, err)
 	}
 	s.hash = hash
 	return nil
-}
-
-// writeFileAtomic writes to a temp file in the same directory, syncs it and
-// renames it over path, so a crash leaves either the old or the new file.
-func writeFileAtomic(path string, data []byte, perm os.FileMode) (err error) {
-	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmp.Name())
-		}
-	}()
-	if err = tmp.Chmod(perm); err != nil {
-		return err
-	}
-	if _, err = tmp.Write(data); err != nil {
-		return err
-	}
-	if err = tmp.Sync(); err != nil {
-		return err
-	}
-	if err = tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), path)
 }

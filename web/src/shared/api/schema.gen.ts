@@ -144,6 +144,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/display": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Display settings
+         * @description Returns the stored display settings (rotation, output, test pattern).
+         */
+        get: operations["getDisplaySettings"];
+        /**
+         * Change the display settings
+         * @description Validates and stores the display settings. Invalid values answer 400 with `errors` keyed by field name (`rotation`, `output`); nothing is stored then.
+         */
+        put: operations["updateDisplaySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kiosk/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Target state of the kiosk
+         * @description Returns what the kiosk agent applies to the screen. Public, because the kiosk container and the dashboard read it without a session; it contains no secrets.
+         */
+        get: operations["getKioskState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -192,6 +236,30 @@ export interface components {
         ChangePasswordRequest: {
             currentPassword: string;
             newPassword: string;
+        };
+        /** @description Settings of the mirror's screen. */
+        DisplaySettings: {
+            /**
+             * @description Rotation in degrees clockwise.
+             * @enum {integer}
+             */
+            rotation: 0 | 90 | 180 | 270;
+            /** @description Connector name such as HDMI-A-1; empty means automatic. */
+            output: string;
+            /** @description Shows the diagnose overlay on the mirror. */
+            testPattern: boolean;
+        };
+        /** @description Target state of the screen as the kiosk agent applies it. */
+        KioskState: {
+            /**
+             * @description Rotation in degrees clockwise.
+             * @enum {integer}
+             */
+            rotation: 0 | 90 | 180 | 270;
+            /** @description Connector name such as HDMI-A-1; empty means automatic. */
+            output: string;
+            /** @description Shows the diagnose overlay on the mirror. */
+            testPattern: boolean;
         };
     };
     responses: {
@@ -412,6 +480,74 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getDisplaySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored display settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisplaySettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateDisplaySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisplaySettings"];
+            };
+        };
+        responses: {
+            /** @description The stored display settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisplaySettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getKioskState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The target state of the screen. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KioskState"];
+                };
+            };
         };
     };
 }

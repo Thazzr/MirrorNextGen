@@ -13,6 +13,7 @@ import (
 
 	"github.com/thazzr/mirrornextgen/server/internal/api"
 	"github.com/thazzr/mirrornextgen/server/internal/auth"
+	"github.com/thazzr/mirrornextgen/server/internal/settings"
 )
 
 const indexHTML = "<!doctype html><title>SPA</title>"
@@ -23,12 +24,17 @@ func newHandler(t *testing.T, files fstest.MapFS) http.Handler {
 	if err != nil {
 		panic(err)
 	}
+	st, err := settings.Load(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		panic(err)
+	}
 	return New(api.Deps{
 		Build:    api.BuildInfo{Version: "dev", Commit: "unknown"},
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Admin:    admin,
 		Sessions: auth.NewSessions(time.Now),
 		Throttle: auth.NewThrottle(time.Now),
+		Settings: st,
 	}, files)
 }
 
@@ -97,5 +103,27 @@ func TestProtectedEndpointNeedsSessionThroughComposedHandler(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestAPIAnswersAreNoStoreButWebAssetsAreNot(t *testing.T) {
+	h := newHandler(t, fstest.MapFS{"index.html": {Data: []byte(indexHTML)}, "assets/app.js": {Data: []byte("x")}, "assets/app-AbCd1234.js": {Data: []byte("y")}})
+	for _, path := range []string{"/api/v1/health", "/api/v1/auth/session", "/api/v1/kiosk/state", "/api/v1/settings/display", "/api/v1/nope"} {
+		rec := get(h, path)
+		if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+			t.Errorf("%s (%d): Cache-Control = %q", path, rec.Code, got)
+		}
+	}
+	// 200, 401 and the JSON 404 were all covered above.
+	if get(h, "/api/v1/settings/display").Code != http.StatusUnauthorized || get(h, "/api/v1/nope").Code != http.StatusNotFound {
+		t.Error("expected a 401 and a 404 among the checked paths")
+	}
+	if got := get(h, "/assets/app-AbCd1234.js").Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+		t.Errorf("hashed asset Cache-Control = %q", got)
+	}
+	for _, path := range []string{"/", "/admin/display"} {
+		if got := get(h, path).Header().Get("Cache-Control"); got != "no-cache" {
+			t.Errorf("%s: Cache-Control = %q, want no-cache", path, got)
+		}
 	}
 }
