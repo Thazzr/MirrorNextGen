@@ -397,7 +397,7 @@ describe('calendar preview', () => {
         title: 'Dienst',
         type: 'shifts',
         days: [
-          { date: '2026-11-14', dayLabel: 'Heute', title: 'Frühdienst', timeRange: '06–14', icon: none, free: false, ongoing: true, highlightColor: '#ff8a65' },
+          { date: '2026-11-14', dayLabel: 'Heute', title: 'Frühdienst', timeRange: '06:00–14:00', icon: none, free: false, ongoing: true, highlightColor: '#ff8a65' },
           { date: '2026-11-15', dayLabel: 'Morgen', title: 'frei', icon: none, free: true, ongoing: false },
         ],
       },
@@ -446,7 +446,7 @@ describe('calendar preview', () => {
     const shifts = within(screen.getByRole('group', { name: 'Vorschau Dienst' }))
     expect(shifts.getByText('Frühdienst')).toBeInTheDocument()
     // The time text carries the colour the server computed; rows without one stay plain.
-    expect(shifts.getByText('06–14')).toHaveStyle({ color: '#ff8a65' })
+    expect(shifts.getByText('06:00–14:00')).toHaveStyle({ color: '#ff8a65' })
     expect(shifts.getByText('Heute')).toHaveStyle({ color: '#ff8a65' })
     expect(shifts.getByText('Morgen').getAttribute('style') ?? '').not.toContain('color')
     expect(shifts.getByText('frei')).toBeInTheDocument()

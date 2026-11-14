@@ -305,7 +305,7 @@ func TestDashboardCalendarSections(t *testing.T) {
 	if days[0].DayLabel != "Heute" || !days[0].Free || days[0].Title != "frei" || days[0].Ongoing || days[0].TimeRange != nil {
 		t.Errorf("day 0 = %+v", days[0])
 	}
-	if days[3].Title != "Spätdienst" || days[3].TimeRange == nil || *days[3].TimeRange != "14–22" || days[3].Free || days[3].Icon.Kind != Bootstrap || *days[3].Icon.Name != "moon" || days[3].Date.Format("2006-01-02") != "2026-11-17" {
+	if days[3].Title != "Spätdienst" || days[3].TimeRange == nil || *days[3].TimeRange != "14:00–22:00" || days[3].Free || days[3].Icon.Kind != Bootstrap || *days[3].Icon.Name != "moon" || days[3].Date.Format("2006-01-02") != "2026-11-17" {
 		t.Errorf("day 3 = %+v", days[3])
 	}
 	if strings.Contains(rec.Body.String(), "secret-token") {

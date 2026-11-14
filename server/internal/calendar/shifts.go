@@ -24,7 +24,7 @@ type ShiftDay struct {
 	Date      string // yyyy-MM-dd
 	DayLabel  string
 	Title     string
-	TimeRange string // "06–14" or "06:30–19:00"; empty when unknown
+	TimeRange string // "06:00–14:00" or "06:30–19:00"; empty when unknown
 	Icon      IconRef
 	Free      bool
 	Ongoing   bool
@@ -48,11 +48,9 @@ func parseHM(s string) (h, m int, ok bool) {
 	return t.Hour(), t.Minute(), true
 }
 
-// formatRange renders "06–14" or, with minutes, "06:30–14:15".
+// formatRange always renders "HH:MM–HH:MM" (e.g. "11:00–19:00"), never
+// dropping zero minutes, and without a trailing "Uhr".
 func formatRange(sh, sm, eh, em int) string {
-	if sm == 0 && em == 0 {
-		return fmt.Sprintf("%02d–%02d", sh, eh)
-	}
 	return fmt.Sprintf("%02d:%02d–%02d:%02d", sh, sm, eh, em)
 }
 
