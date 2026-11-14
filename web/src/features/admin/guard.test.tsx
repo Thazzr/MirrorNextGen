@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { anonymousSession, authedSession, info, json, mockApi, problem } from '../../test/mockApi.ts'
 import { expectSinglePageTitle } from '../../test/pageTitle.ts'
+import { preloadAdmin } from '../../test/preloadAdmin.ts'
 import { renderWithProviders } from '../../test/renderWithProviders.tsx'
 
+preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
 
 const settings = { rotation: 0, output: '', testPattern: false }

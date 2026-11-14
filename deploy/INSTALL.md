@@ -64,7 +64,9 @@ docker compose version
 
 ## 4. Zugriff auf die Images (GHCR)
 
-Die Images liegen privat in der GitHub Container Registry.
+Die Images liegen öffentlich in der GitHub Container Registry, `docker compose pull` braucht keine Anmeldung.
+
+Nur wenn die Pakete privat sind (z. B. in einem Fork), melde dich vorher an:
 
 1. Erzeuge auf GitHub ein **Personal Access Token (classic)** mit der Berechtigung `read:packages` (Einstellungen → Developer settings → Personal access tokens).
 2. Melde dich am Pi an der Registry an. Das Token gibst du erst auf Nachfrage ein, nicht in den Befehl:
@@ -123,7 +125,7 @@ Notiere Abweichungen, besonders den Namen des Ausgangs (z. B. `HDMI-A-1`) und we
 
 **Drehung wird nicht übernommen**
 - Im Log nach Fehlern von `wlr-randr` suchen.
-- Ausweg: `KIOSK_ROTATION=browser` in `.env`. Dann dreht sich das Dashboard selbst, und der Kiosk-Agent ruft kein `wlr-randr` auf.
+- Ausweg: `KIOSK_ROTATION=browser` in `.env`. Dann dreht sich das Dashboard selbst (keine Drehung am Compositor), und der Kiosk-Agent ruft kein `wlr-randr` auf. Das Testbild zeigt dann „Drehung: Browser …“ und die Inhaltsgröße 1440 × 2560.
 
 **Login-Prompt oder Konsolentext sichtbar, Anzeige hängt am Umschalten der Konsole**
 - Prüfe, dass `getty@tty1` abgeschaltet ist: `systemctl status getty@tty1`.

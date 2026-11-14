@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router-dom'
 import { api, unwrap } from '../../shared/api/client.ts'
 import { isoWeek, useClock } from './clock.ts'
 import { DiagnoseOverlay } from './DiagnoseOverlay.tsx'
+import { RotatedViewport } from './RotatedViewport.tsx'
+import { normalizeRotation, useBrowserRotation } from './useBrowserRotation.ts'
 import './dashboard.css'
 
 const kioskStateInterval = 5000
@@ -21,12 +23,17 @@ export function DashboardPage() {
     refetchInterval: kioskStateInterval,
   })
 
+  // Not loaded yet or failed: rotation 0.
+  const rotation = normalizeRotation(kioskState.data?.rotation)
+  const browserMode = searchParams.get('rotation') === 'browser'
+  const browser = useBrowserRotation(browserMode ? rotation : 0)
+
   useEffect(() => {
     document.body.classList.add('mirror-kiosk')
     return () => document.body.classList.remove('mirror-kiosk')
   }, [])
 
-  return (
+  const page = (
     <main className="mirror-dashboard">
       <h1 className="visually-hidden">Spiegel</h1>
       <header className="mirror-header">
@@ -39,7 +46,13 @@ export function DashboardPage() {
           <div className="mirror-clock__meta">KW {calendarWeek}</div>
         </section>
       </header>
-      {(kioskState.data?.testPattern || searchParams.has('diagnose')) && <DiagnoseOverlay />}
+      {(kioskState.data?.testPattern || searchParams.has('diagnose')) && (
+        <DiagnoseOverlay
+          size={browserMode ? browser.size : undefined}
+          rotation={{ mode: browserMode ? 'browser' : 'monitor', degrees: rotation }}
+        />
+      )}
     </main>
   )
+  return browserMode ? <RotatedViewport style={browser.style}>{page}</RotatedViewport> : page
 }

@@ -27,3 +27,7 @@
 .mirror-clock { max-width: 45%; min-width: 45%; }
 
 body.mirror-kiosk, body.mirror-kiosk * { cursor: none !important; }
+
+/* Browser rotation: the wrapper has the content size, so the page fills it rather than the window. */
+.rotated-viewport { overflow: hidden; }
+.rotated-viewport .mirror-dashboard { min-height: 100%; }

@@ -25,9 +25,16 @@ function useViewport(): Viewport {
   return viewport
 }
 
+type Props = {
+  /** Content size when the browser rotates the dashboard; defaults to the window size. */
+  size?: Viewport
+  rotation?: { mode: 'browser' | 'monitor'; degrees: number }
+}
+
 /** Test pattern for aligning and checking the kiosk on the real display. */
-export function DiagnoseOverlay() {
-  const viewport = useViewport()
+export function DiagnoseOverlay({ size, rotation }: Props) {
+  const windowViewport = useViewport()
+  const viewport = size ?? windowViewport
   const info = useQuery({ queryKey: ['info'], queryFn: async () => unwrap(await api.GET('/api/v1/info')) })
 
   let server: string
@@ -56,6 +63,12 @@ export function DiagnoseOverlay() {
           <dd>{window.devicePixelRatio}</dd>
           <dt>Ausrichtung</dt>
           <dd>{orientation(viewport)}</dd>
+          {rotation && (
+            <>
+              <dt>Drehung</dt>
+              <dd>{rotation.mode === 'browser' ? 'Browser' : 'Monitor'} {rotation.degrees}°</dd>
+            </>
+          )}
           <dt>Server-Version</dt>
           <dd>{server}</dd>
         </dl>

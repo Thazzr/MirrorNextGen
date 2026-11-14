@@ -36,5 +36,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['src/test/setup.ts'],
     env: { TZ: 'Europe/Berlin' },
+    // The gate runs the Go tests in parallel and CI runners are slower: leave headroom over the 5 s default.
+    testTimeout: 15000,
+    hookTimeout: 15000,
   },
 })

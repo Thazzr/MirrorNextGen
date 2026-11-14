@@ -2,8 +2,10 @@ import { screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { authedSession, info, json, mockApi, problem } from '../../test/mockApi.ts'
 import { expectSinglePageTitle } from '../../test/pageTitle.ts'
+import { preloadAdmin } from '../../test/preloadAdmin.ts'
 import { renderWithProviders } from '../../test/renderWithProviders.tsx'
 
+preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
 
 function arrange(display: () => Response) {
