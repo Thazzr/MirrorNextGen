@@ -1,4 +1,4 @@
-import { createTheme, MantineProvider } from '@mantine/core'
+import { createTheme, MantineProvider, Menu } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
@@ -19,6 +19,10 @@ const theme = createTheme({
   fontFamily: font,
   headings: { fontFamily: font },
   defaultRadius: 'md',
+  components: {
+    // Opens at once: no timers to wait for, in the browser as in the tests.
+    Menu: Menu.extend({ defaultProps: { transitionProps: { duration: 0 } } }),
+  },
 })
 
 /** Root of the lazily loaded admin chunk: the only place that brings Mantine in. */

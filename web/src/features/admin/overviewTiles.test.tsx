@@ -7,6 +7,8 @@ import { renderWithProviders } from '../../test/renderWithProviders.tsx'
 preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
 
+const cal = (id: string, name: string) => ({ id, name, icon: { kind: 'none' }, hasUrl: true, urlHint: 'https://x/.../a.ics' })
+const section = (id: string) => ({ id, title: 'Familie', type: 'list', calendarIds: ['a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, shifts: [] })
 const emptyLayout = { topLeft: [], topRight: [], middle: [], bottomLeft: [], bottomRight: [] }
 
 function arrange(over: Record<string, Handler> = {}) {
@@ -19,6 +21,8 @@ function arrange(over: Record<string, Handler> = {}) {
       json({ configured: true, stale: false, data: { location: 'Berlin', temperatureC: 12, condition: 'Leichter Regen' } }),
     'GET /api/v1/dashboard/wifi': () => json({ configured: true, ssid: 'Gäste' }),
     'GET /api/v1/dashboard/bring': () => json({ configured: true, stale: false, items: [{ name: 'Milch', iconUrl: '' }, { name: 'Brot', iconUrl: '' }] }),
+    'GET /api/v1/settings/calendar': () => json({ refreshMinutes: 15, calendars: [cal('a', 'Familie'), cal('b', 'Arbeit')], sections: [section('s1')], rules: [] }),
+    'GET /api/v1/icons': () => json([{ id: 'i1', name: 'Logo', contentType: 'image/png', size: 10 }]),
     ...over,
   })
 }
@@ -38,6 +42,8 @@ describe('overview tiles of the module registry', () => {
       '/admin/display',
       '/admin/weather',
       '/admin/wifi',
+      '/admin/calendar',
+      '/admin/icons',
       '/admin/bring',
       '/admin/account',
     ])
@@ -110,5 +116,23 @@ describe('overview tiles of the module registry', () => {
     })
     renderWithProviders('/admin')
     expect(await within(await tile(/^Bring!-Einkaufsliste/)).findByText('Fehler: Anmeldung bei Bring! fehlgeschlagen.')).toBeInTheDocument()
+  })
+
+  it('shows calendar and section counts and the icon count', async () => {
+    arrange()
+    renderWithProviders('/admin')
+    expect(await within(await tile(/^Kalender/)).findByText('2 Kalender · 1 Bereich')).toBeInTheDocument()
+    expect(await within(await tile(/^Symbole/)).findByText('1 eigenes Symbol')).toBeInTheDocument()
+  })
+
+  it('says "Keine eigenen Symbole" and uses the plural forms', async () => {
+    arrange({
+      'GET /api/v1/icons': () => json([]),
+      'GET /api/v1/settings/calendar': () =>
+        json({ refreshMinutes: 15, calendars: [cal('a', 'Familie')], sections: [section('s1'), section('s2')], rules: [] }),
+    })
+    renderWithProviders('/admin')
+    expect(await within(await tile(/^Symbole/)).findByText('Keine eigenen Symbole')).toBeInTheDocument()
+    expect(await within(await tile(/^Kalender/)).findByText('1 Kalender · 2 Bereiche')).toBeInTheDocument()
   })
 })

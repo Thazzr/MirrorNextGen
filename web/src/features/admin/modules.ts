@@ -1,9 +1,20 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { IconCloud, IconDeviceDesktop, IconLayoutDashboard, IconShoppingCart, IconUserShield, IconWifi } from '@tabler/icons-react'
+import {
+  IconCalendar,
+  IconCloud,
+  IconDeviceDesktop,
+  IconIcons,
+  IconLayoutDashboard,
+  IconShoppingCart,
+  IconUserShield,
+  IconWifi,
+} from '@tabler/icons-react'
+import { useCalendarTileStatus } from '../modules/calendar/admin/status.ts'
 import { useWeatherTileStatus } from '../modules/weather/admin/status.ts'
 import { useBringTileStatus } from '../modules/bring/admin/status.ts'
 import { useWifiTileStatus } from '../modules/wifi/admin/status.ts'
+import { useIconsTileStatus } from './api/iconsStatus.ts'
 import { displaySettingsQueryKey, fetchDisplaySettings } from './api/display.ts'
 import { fetchLayout, layoutQueryKey } from './api/layout.ts'
 import { placedKeys } from './pages/layoutEdit.ts'
@@ -83,6 +94,22 @@ export const adminModules: AdminModule[] = [
     path: 'wifi',
     load: () => import('../modules/wifi/admin/WifiPage.tsx').then((m) => ({ default: m.WifiPage })),
     useStatus: useWifiTileStatus,
+  }),
+  entry({
+    key: 'calendar',
+    title: 'Kalender',
+    icon: IconCalendar,
+    path: 'calendar',
+    load: () => import('../modules/calendar/admin/CalendarPage.tsx').then((m) => ({ default: m.CalendarPage })),
+    useStatus: useCalendarTileStatus,
+  }),
+  entry({
+    key: 'icons',
+    title: 'Symbole',
+    icon: IconIcons,
+    path: 'icons',
+    load: () => import('./pages/IconsPage.tsx').then((m) => ({ default: m.IconsPage })),
+    useStatus: useIconsTileStatus,
   }),
   entry({
     key: 'bring',

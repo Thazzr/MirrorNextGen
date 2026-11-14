@@ -21,12 +21,15 @@ export function mockApi(initial: Record<string, Handler> = {}) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: Request) => {
-      const text = await input.text()
+      // Multipart bodies (icon upload) are kept as FormData, everything else is parsed as JSON.
+      const multipart = (input.headers.get('Content-Type') ?? '').startsWith('multipart/form-data')
+      const form = multipart ? await input.clone().formData() : undefined
+      const text = multipart ? '' : await input.text()
       const call: RecordedCall = {
         method: input.method,
         path: new URL(input.url).pathname,
         csrf: input.headers.get('X-CSRF-Token'),
-        body: text ? JSON.parse(text) : undefined,
+        body: form ?? (text ? JSON.parse(text) : undefined),
       }
       calls.push(call)
       const handler = handlers[`${call.method} ${call.path}`]

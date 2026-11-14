@@ -76,7 +76,8 @@ describe('layout page', () => {
     arrange()
     await open()
     await userEvent.click(region('Oben links').getByRole('button', { name: 'Verschieben nach …: Uhr' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Mitte' }))
+    // hidden: true skips the visibility check, which walks computed styles of the whole page in jsdom.
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Mitte', hidden: true }))
     expect(itemNames('Oben links')).toEqual(['Wetter'])
     expect(itemNames('Mitte')).toEqual(['Uhr'])
   })
