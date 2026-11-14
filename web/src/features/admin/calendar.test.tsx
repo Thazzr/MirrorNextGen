@@ -10,6 +10,12 @@ preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
 
 const none = { kind: 'none' }
+const defaultHighlight = {
+  enabled: true,
+  ongoing: { enabled: true, color: '#f6b73c' },
+  soon: { enabled: false, color: '#ff8a65', hours: 2 },
+  today: { enabled: false, color: '#8fd3ff' },
+}
 const stored = {
   refreshMinutes: 15,
   calendars: [
@@ -17,7 +23,7 @@ const stored = {
     { id: 'cal-b', name: 'Arbeit', icon: { kind: 'bootstrap', name: 'briefcase' }, hasUrl: true, urlHint: 'https://work.example/.../x.ics' },
   ],
   sections: [
-    { id: 's-list', title: 'Familie', type: 'list', calendarIds: ['cal-a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, showFreeDays: false, shifts: [] },
+    { id: 's-list', title: 'Familie', type: 'list', calendarIds: ['cal-a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, showFreeDays: false, shifts: [], highlight: defaultHighlight },
     {
       id: 's-shift',
       title: 'Dienst',
@@ -27,6 +33,7 @@ const stored = {
       lookAheadDays: 14,
       shiftDays: 2,
       showFreeDays: false,
+      highlight: defaultHighlight,
       shifts: [{ id: 'sh1', match: 'F', matchMode: 'equals', label: 'Frühdienst', start: '06:00', end: '14:00', icon: none }],
     },
   ],
@@ -150,6 +157,103 @@ describe('calendar page', () => {
     const plan = sent.sections.find((x) => x.id === 's-shift')
     expect(plan).toMatchObject({ showFreeDays: true, shiftDays: 4 })
     expect(sent.sections.find((x) => x.id === 's-list')?.showFreeDays).toBe(false)
+  })
+
+  it('highlight: master switch hides the three tier rows, each row has switch and colour', async () => {
+    arrange()
+    await open()
+    await tab('Bereiche')
+    for (const name of ['Bereich 1', 'Bereich 2']) {
+      const sec = group(name)
+      const master = sec.getByRole('switch', { name: /Zeitangabe einfärben/ })
+      expect(master).toBeChecked()
+      expect(sec.getByText('Färbt rechts die Zeit ein, je nachdem wie bald ein Termin beginnt.')).toBeInTheDocument()
+      for (const tier of ['Läuft gerade', 'Beginnt bald', 'Beginnt heute']) {
+        const row = within(sec.getByRole('group', { name: tier }))
+        expect(row.getByRole('switch', { name: new RegExp(tier) })).toBeInTheDocument()
+        expect(row.getByRole('textbox', { name: `Farbe für ${tier}` })).toBeInTheDocument()
+      }
+      expect(within(sec.getByRole('group', { name: 'Läuft gerade' })).getByRole('switch')).toBeChecked()
+      expect(within(sec.getByRole('group', { name: 'Beginnt bald' })).getByRole('switch')).not.toBeChecked()
+      expect(sec.getByLabelText('Stunden vorher')).toHaveValue('2')
+      expect(sec.getByText('in weniger als X Stunden')).toBeInTheDocument()
+      expect(sec.getByText('später am heutigen Tag')).toBeInTheDocument()
+    }
+    await userEvent.click(group('Bereich 1').getByRole('switch', { name: /Zeitangabe einfärben/ }))
+    expect(group('Bereich 1').queryByRole('group', { name: 'Läuft gerade' })).not.toBeInTheDocument()
+    expect(group('Bereich 1').queryByLabelText('Stunden vorher')).not.toBeInTheDocument()
+    expect(group('Bereich 2').getByRole('group', { name: 'Läuft gerade' })).toBeInTheDocument()
+    expect(bar()).toHaveTextContent('Ungespeicherte Änderungen: Bereiche')
+  })
+
+  it('highlight: colour, tier switch and hours are sent in the PUT body', async () => {
+    const api = arrange({ 'PUT /api/v1/settings/calendar': (c) => json({ ...stored, ...(c.body as object) }) })
+    await open()
+    await tab('Bereiche')
+    const sec = group('Bereich 2')
+    const ongoing = within(sec.getByRole('group', { name: 'Läuft gerade' }))
+    await userEvent.clear(ongoing.getByRole('textbox', { name: 'Farbe für Läuft gerade' }))
+    await userEvent.type(ongoing.getByRole('textbox', { name: 'Farbe für Läuft gerade' }), '#7ee787')
+    await userEvent.click(within(sec.getByRole('group', { name: 'Beginnt bald' })).getByRole('switch'))
+    const hours = sec.getByLabelText('Stunden vorher')
+    await userEvent.clear(hours)
+    await userEvent.type(hours, '6')
+    await userEvent.click(within(sec.getByRole('group', { name: 'Beginnt heute' })).getByRole('switch'))
+    expect(bar()).toHaveTextContent('Ungespeicherte Änderungen: Bereiche')
+    await saveButton()
+    await waitFor(() => expect(puts(api)).toHaveLength(1))
+    const sent = puts(api)[0].body as { sections: Array<{ id: string; highlight: unknown }> }
+    expect(sent.sections.find((x) => x.id === 's-shift')?.highlight).toEqual({
+      enabled: true,
+      ongoing: { enabled: true, color: '#7ee787' },
+      soon: { enabled: true, color: '#ff8a65', hours: 6 },
+      today: { enabled: true, color: '#8fd3ff' },
+    })
+    expect(sent.sections.find((x) => x.id === 's-list')?.highlight).toEqual(defaultHighlight)
+  })
+
+  it('highlight: a new section is created with the default highlight', async () => {
+    const api = arrange({ 'PUT /api/v1/settings/calendar': (c) => json({ ...stored, ...(c.body as object) }) })
+    await open()
+    await tab('Bereiche')
+    await userEvent.click(screen.getByRole('button', { name: 'Bereich hinzufügen' }))
+    const fresh = group('Bereich 3')
+    expect(within(fresh.getByRole('group', { name: 'Läuft gerade' })).getByRole('switch')).toBeChecked()
+    await userEvent.type(fresh.getByLabelText('Titel'), 'Neu')
+    await saveButton()
+    await waitFor(() => expect(puts(api)).toHaveLength(1))
+    const sent = puts(api)[0].body as { sections: Array<{ title: string; highlight: unknown }> }
+    expect(sent.sections.find((x) => x.title === 'Neu')?.highlight).toEqual(defaultHighlight)
+  })
+
+  it('highlight: a server error on the hours is shown at the hours field', async () => {
+    arrange({
+      'PUT /api/v1/settings/calendar': () =>
+        problem(400, 'Ungültig', { errors: { 'sections.0.highlight.soon.hours': 'Erlaubt sind 1 bis 48 Stunden.' } }),
+    })
+    await open()
+    await tab('Bereiche')
+    const hours = group('Bereich 1').getByLabelText('Stunden vorher')
+    await userEvent.clear(hours)
+    await userEvent.type(hours, '9')
+    await saveButton()
+    expect(await group('Bereich 1').findByText('Erlaubt sind 1 bis 48 Stunden.')).toBeInTheDocument()
+    expect(hours).toHaveAttribute('aria-invalid', 'true')
+    expect(bar()).toHaveTextContent('Bitte prüfe die Eingaben in: Bereiche')
+  })
+
+  it('shift section: the highlight block comes before the shift list and its add button', async () => {
+    arrange()
+    await open()
+    await tab('Bereiche')
+    const sec = group('Bereich 2')
+    const highlight = sec.getByRole('switch', { name: /Zeitangabe einfärben/ })
+    const free = sec.getByRole('switch', { name: /Freie Tage anzeigen/ })
+    const add = sec.getByRole('button', { name: 'Schicht hinzufügen' })
+    const follows = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(follows(free, highlight)).toBe(true)
+    expect(follows(highlight, sec.getByText('Schichten', { selector: 'p' }))).toBe(true)
+    expect(follows(highlight, add)).toBe(true)
   })
 
   it('shift rows can be added and removed and warn when only one time is set', async () => {
@@ -293,7 +397,7 @@ describe('calendar preview', () => {
         title: 'Dienst',
         type: 'shifts',
         days: [
-          { date: '2026-11-14', dayLabel: 'Heute', title: 'Frühdienst', timeRange: '06–14', icon: none, free: false, ongoing: true },
+          { date: '2026-11-14', dayLabel: 'Heute', title: 'Frühdienst', timeRange: '06–14', icon: none, free: false, ongoing: true, highlightColor: '#ff8a65' },
           { date: '2026-11-15', dayLabel: 'Morgen', title: 'frei', icon: none, free: true, ongoing: false },
         ],
       },
@@ -340,11 +444,51 @@ describe('calendar preview', () => {
     expect(s.getByText('über dem Limit')).toBeInTheDocument()
 
     const shifts = within(screen.getByRole('group', { name: 'Vorschau Dienst' }))
-    expect(shifts.getByText('Frühdienst 06–14')).toBeInTheDocument()
+    expect(shifts.getByText('Frühdienst')).toBeInTheDocument()
+    // The time text carries the colour the server computed; rows without one stay plain.
+    expect(shifts.getByText('06–14')).toHaveStyle({ color: '#ff8a65' })
+    expect(shifts.getByText('Heute')).toHaveStyle({ color: '#ff8a65' })
+    expect(shifts.getByText('Morgen').getAttribute('style') ?? '').not.toContain('color')
     expect(shifts.getByText('frei')).toBeInTheDocument()
     expect(shifts.getByText('Morgen')).toBeInTheDocument()
     expect(screen.getByText('Kalender nicht erreichbar.')).toBeInTheDocument()
     expect(screen.getByText('Kalender „Arbeit“')).toBeInTheDocument()
+  })
+
+  it('shows the relative time like the mirror, falls back to the label and colours only shown items', async () => {
+    const colored = {
+      sections: [
+        {
+          id: 's-list',
+          title: 'Familie',
+          type: 'list',
+          items: [
+            item({ title: 'Zahnarzt', originalTitle: 'Zahnarzt', timeLabel: 'Ganztägig', relative: 'Montag um 16:30', highlightColor: '#ff8a65' }),
+            item({ title: 'Ferien', originalTitle: 'Ferien', timeLabel: 'Ganztägig', relative: '' }),
+            item({ title: 'Versteckt', originalTitle: 'Versteckt', hidden: true, shown: false, relative: 'Noch 2 Tage', highlightColor: '#ff8a65', matchedRules: ['r1'] }),
+            item({ title: 'Zu viel', originalTitle: 'Zu viel', shown: false, relative: 'In 9 Tagen' }),
+          ],
+        },
+      ],
+      calendarErrors: [],
+    }
+    arrange({ 'POST /api/v1/settings/calendar/preview': () => json(colored) })
+    await open()
+    await tab('Vorschau')
+    const s = within(await screen.findByRole('group', { name: 'Vorschau Familie' }))
+    expect(s.getByText('Montag um 16:30')).toHaveStyle({ color: '#ff8a65' })
+    expect(s.getByText('Ganztägig')).toBeInTheDocument()
+    expect(s.queryByText('Ferien')?.closest('[data-testid="preview-item"]')?.textContent).toContain('Ganztägig')
+    expect(s.getByText('Noch 2 Tage')).not.toHaveStyle({ color: '#ff8a65' })
+    expect(s.getByText('Noch 2 Tage').getAttribute('style') ?? '').toContain('--mantine-color-dimmed')
+    expect(s.getByText('ausgeblendet')).toBeInTheDocument()
+    expect(s.getByText('über dem Limit')).toBeInTheDocument()
+    expect(s.getByText('Regel 1')).toBeInTheDocument()
+    // No fixed-width column: long titles must use the whole row on a phone.
+    for (const el of s.getAllByTestId('preview-item').flatMap((row) => [row, ...Array.from(row.querySelectorAll('*'))])) {
+      expect((el as HTMLElement).style.width).toBe('')
+      expect((el as HTMLElement).getAttribute('style') ?? '').not.toContain('110px')
+    }
   })
 
   it('sends the whole current draft, and the refresh carries the newer state', async () => {

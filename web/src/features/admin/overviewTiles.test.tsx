@@ -8,7 +8,13 @@ preloadAdmin()
 afterEach(() => vi.unstubAllGlobals())
 
 const cal = (id: string, name: string) => ({ id, name, icon: { kind: 'none' }, hasUrl: true, urlHint: 'https://x/.../a.ics' })
-const section = (id: string) => ({ id, title: 'Familie', type: 'list', calendarIds: ['a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, showFreeDays: false, shifts: [] })
+const defaultHighlight = {
+  enabled: true,
+  ongoing: { enabled: true, color: '#f6b73c' },
+  soon: { enabled: false, color: '#ff8a65', hours: 2 },
+  today: { enabled: false, color: '#8fd3ff' },
+}
+const section = (id: string) => ({ id, title: 'Familie', type: 'list', calendarIds: ['a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, showFreeDays: false, shifts: [], highlight: defaultHighlight })
 const cameraSettings = { enabled: false, title: 'Kamera', hasStreamUrl: false, streamUrlHint: '', brightness: 100, contrast: 100, saturation: 100, grayscale: false }
 const emptyLayout = { topLeft: [], topRight: [], middle: [], bottomLeft: [], bottomRight: [] }
 

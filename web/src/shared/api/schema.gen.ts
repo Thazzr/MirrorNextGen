@@ -1109,6 +1109,29 @@ export interface components {
             end: string;
             icon: components["schemas"]["IconRef"];
         };
+        /** @description A colour as `#rrggbb`. */
+        HighlightColor: string;
+        /**
+         * @description Colours the time text of a section by how soon an item starts. Tiers by
+         *     priority: `ongoing` (running now, all-day today counts), `soon` (starts
+         *     within `hours` hours), `today` (starts later today). `enabled` is the
+         *     master switch.
+         */
+        CalendarHighlight: {
+            enabled: boolean;
+            ongoing: components["schemas"]["HighlightTier"];
+            soon: components["schemas"]["HighlightSoon"];
+            today: components["schemas"]["HighlightTier"];
+        };
+        HighlightTier: {
+            enabled: boolean;
+            color: components["schemas"]["HighlightColor"];
+        };
+        HighlightSoon: {
+            enabled: boolean;
+            color: components["schemas"]["HighlightColor"];
+            hours: number;
+        };
         /** @description A calendar area of the mirror, one module instance (`calendar:<id>`). */
         CalendarSection: {
             id: string;
@@ -1128,6 +1151,7 @@ export interface components {
             showFreeDays: boolean;
             /** @description Only for type `shifts`. */
             shifts: components["schemas"]["CalendarShift"][];
+            highlight: components["schemas"]["CalendarHighlight"];
         };
         CalendarRule: {
             id: string;
@@ -1167,6 +1191,8 @@ export interface components {
             icon: components["schemas"]["IconRef"];
             allDay: boolean;
             ongoing: boolean;
+            /** @description Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none. */
+            highlightColor?: string;
             /** @description A hide rule removed the event. */
             hidden: boolean;
             /** @description The event would appear on the mirror. */
@@ -1191,6 +1217,8 @@ export interface components {
             free: boolean;
             /** @description The shift is running now (all-day: today). */
             ongoing: boolean;
+            /** @description Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none. */
+            highlightColor?: string;
         };
         CalendarPreviewSection: {
             id: string;
@@ -1219,6 +1247,8 @@ export interface components {
             icon: components["schemas"]["IconRef"];
             allDay: boolean;
             ongoing: boolean;
+            /** @description Colour (`#rrggbb`) of the time text per the section's highlight settings; absent for none. */
+            highlightColor?: string;
         };
         /** @description Data of one calendar section for the dashboard. */
         DashboardCalendarSection: {

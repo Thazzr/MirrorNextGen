@@ -28,6 +28,8 @@ type ShiftDay struct {
 	Icon      IconRef
 	Free      bool
 	Ongoing   bool
+	// HighlightColor tints the time text; empty for none and for free days.
+	HighlightColor string
 }
 
 // ShiftOptions are the section settings BuildShifts needs.
@@ -35,6 +37,7 @@ type ShiftOptions struct {
 	ShowFreeDays bool
 	Rows         int // number of rows to show
 	HorizonDays  int // how many days from today are searched for work days
+	Highlight    Highlight
 }
 
 func parseHM(s string) (h, m int, ok bool) {
@@ -157,6 +160,7 @@ func BuildShifts(occs []SourcedOccurrence, rules []Rule, shifts []Shift, opt Shi
 			}
 			d.Ongoing = chosen.AllDay || (!ended && !chosen.Start.After(now))
 		}
+		d.HighlightColor = HighlightColor(opt.Highlight, chosen.Start, chosen.End, chosen.AllDay, now, loc)
 		out = append(out, d)
 	}
 	return out

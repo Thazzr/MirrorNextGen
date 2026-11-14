@@ -1,8 +1,10 @@
+import { useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '../../../shared/api/client.ts'
 import type { components } from '../../../shared/api/schema.gen.ts'
+import { useElementWidth } from '../../../shared/useElementWidth.ts'
 import type { WidgetProps } from '../widgets.ts'
-import { buildMonotonePath, chartLeft, chartWidth, chartX, chartXPercent, type ChartPoint } from './chart.ts'
+import { buildSmoothPath, chartLayout, chartX, chartXPercent, type ChartPoint } from './chart.ts'
 import { getMeteocon, type MeteoconVariant } from './meteocon.ts'
 import './weather.css'
 
@@ -69,14 +71,7 @@ function Weather({ data, now }: { data: WeatherData; now: number }) {
           </div>
         )}
       </div>
-      <section className="mirror-weather__hourly">
-        <WeatherChart entries={data.hourly} now={now} />
-        <div className="mirror-weather__hour-labels">
-          {data.hourly.map((entry, index) => (
-            <HourLabel key={entry.time} entry={entry} index={index} pointCount={data.hourly.length} now={now} />
-          ))}
-        </div>
-      </section>
+      <HourlySection entries={data.hourly} now={now} />
       <section className="mirror-weather__forecast">
         <h2>3 Tage Vorhersage</h2>
         {data.forecast.length > 0 && (
@@ -113,12 +108,30 @@ function isPast(time: string, now: number) {
   return new Date(time).getTime() < now
 }
 
-function HourLabel({ entry, index, pointCount, now }: { entry: Hourly; index: number; pointCount: number; now: number }) {
+// Width used until the container has been measured (and where ResizeObserver is missing): about the widget's width at 1440 px.
+const fallbackChartWidth = 760
+const chartHeight = 265
+
+function HourlySection({ entries, now }: { entries: Hourly[]; now: number }) {
+  const [ref, width] = useElementWidth<HTMLElement>(fallbackChartWidth)
+  return (
+    <section className="mirror-weather__hourly" ref={ref}>
+      <WeatherChart entries={entries} now={now} width={width} />
+      <div className="mirror-weather__hour-labels">
+        {entries.map((entry, index) => (
+          <HourLabel key={entry.time} entry={entry} index={index} pointCount={entries.length} now={now} width={width} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function HourLabel({ entry, index, pointCount, now, width }: { entry: Hourly; index: number; pointCount: number; now: number; width: number }) {
   const date = new Date(entry.time)
   // The chart ends at midnight: the last point reads 24:00 rather than 00:00.
   const label = index === pointCount - 1 && date.getHours() === 0 ? '24:00' : clockTime.format(date)
   return (
-    <div className={isPast(entry.time, now) ? 'mirror-weather__hour-label--past' : undefined} style={{ left: `${chartXPercent(index, pointCount)}%` }}>
+    <div className={isPast(entry.time, now) ? 'mirror-weather__hour-label--past' : undefined} style={{ left: `${chartXPercent(index, pointCount, width)}%` }}>
       <span>{label}</span>
       <WeatherIcon condition={entry.condition} iconCode={entry.iconCode} variant="monochrome" />
     </div>
@@ -133,39 +146,53 @@ function forecastDayLabel(date: string, index: number, now: number) {
   return index === 0 && forecastDate.toDateString() === tomorrow.toDateString() ? 'Morgen' : weekday.format(forecastDate)
 }
 
-function WeatherChart({ entries, now }: { entries: Hourly[]; now: number }) {
+function WeatherChart({ entries, now, width }: { entries: Hourly[]; now: number; width: number }) {
+  const clipId = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   if (entries.length < 2) return null
   const values = entries.map((entry) => entry.temperatureC)
   const low = Math.floor(Math.min(...values) / 5) * 5
   const high = Math.ceil(Math.max(...values) / 5) * 5 + 5
   const mid = Math.round((low + high) / 2)
-  const xAt = (index: number) => chartX(index, entries.length)
-  const point = (value: number, index: number): ChartPoint => ({ x: xAt(index), y: 210 - ((value - low) / (high - low || 1)) * 160 })
+  const { left, plotWidth } = chartLayout(width)
+  const right = left + plotWidth
+  const yTop = 50
+  const yBottom = 210
+  const xAt = (index: number) => chartX(index, entries.length, width)
+  const point = (value: number, index: number): ChartPoint => ({ x: xAt(index), y: yBottom - ((value - low) / (high - low || 1)) * (yBottom - yTop) })
   const temperatures = entries.map((entry, index) => point(entry.temperatureC, index))
-  const firstFuture = entries.findIndex((entry) => !isPast(entry.time, now))
-  // The past line reaches one point into the future so that both parts join.
-  const pastEnd = firstFuture < 0 ? entries.length : Math.min(entries.length, firstFuture + 1)
-  const pastEntries = entries.slice(0, pastEnd)
-  const futureEntries = firstFuture < 0 ? [] : entries.slice(firstFuture)
-  const pointRange = (items: Hourly[]) => items.map((entry) => point(entry.temperatureC, entries.indexOf(entry)))
+  const path = buildSmoothPath(temperatures, { minY: yTop, maxY: yBottom })
   const firstTime = new Date(entries[0].time).getTime()
   const lastTime = new Date(entries[entries.length - 1].time).getTime()
   const currentProgress = Math.max(0, Math.min(1, (now - firstTime) / (lastTime - firstTime || 1)))
-  const currentX = chartLeft + chartWidth * currentProgress
+  const currentX = left + plotWidth * currentProgress
   return (
-    <svg className="mirror-weather__chart" viewBox="0 0 1000 265" preserveAspectRatio="none" aria-label="Temperatur- und Niederschlagsverlauf">
-      <line x1="80" y1="210" x2="930" y2="210" />
-      <line x1="80" y1="130" x2="930" y2="130" />
-      <line x1="80" y1="50" x2="930" y2="50" />
-      <text className="mirror-weather__chart-scale" x="0" y="215">{low}°</text>
-      <text className="mirror-weather__chart-scale" x="0" y="135">{mid}°</text>
-      <text className="mirror-weather__chart-scale" x="0" y="55">{high}°</text>
+    <svg
+      className="mirror-weather__chart"
+      viewBox={`0 0 ${width} ${chartHeight}`}
+      width={width}
+      height={chartHeight}
+      aria-label="Temperatur- und Niederschlagsverlauf"
+    >
+      <defs>
+        <clipPath id={`${clipId}-past`}>
+          <rect x="-20" y="0" width={currentX + 20} height={chartHeight} />
+        </clipPath>
+        <clipPath id={`${clipId}-future`}>
+          <rect x={currentX} y="0" width={width - currentX + 20} height={chartHeight} />
+        </clipPath>
+      </defs>
+      <line x1={left} y1={yBottom} x2={right} y2={yBottom} />
+      <line x1={left} y1="130" x2={right} y2="130" />
+      <line x1={left} y1={yTop} x2={right} y2={yTop} />
+      <text className="mirror-weather__chart-scale" x="0" y="217">{low}°</text>
+      <text className="mirror-weather__chart-scale" x="0" y="137">{mid}°</text>
+      <text className="mirror-weather__chart-scale" x="0" y="57">{high}°</text>
       <g className="mirror-weather__rain-bars">
         {entries.map((entry, index) => {
           const height = Math.max(0, entry.precipitationProbability * 0.28)
           return height > 0 ? (
             <g className={isPast(entry.time, now) ? 'mirror-weather__chart-past' : undefined} key={entry.time}>
-              <rect x={xAt(index) - 7} y={244 - height} width="14" height={height} rx="2">
+              <rect x={xAt(index) - 5} y={244 - height} width="10" height={height} rx="2">
                 <title>{entry.precipitationProbability}% Regenwahrscheinlichkeit</title>
               </rect>
               <text x={xAt(index)} y={240 - height}>{entry.precipitationProbability}%</text>
@@ -173,18 +200,19 @@ function WeatherChart({ entries, now }: { entries: Hourly[]; now: number }) {
           ) : null
         })}
       </g>
-      {pastEntries.length > 1 && (
-        <g className="mirror-weather__chart-past">
-          <path className="mirror-weather__chart-temp" d={buildMonotonePath(pointRange(pastEntries))} />
-        </g>
-      )}
-      {futureEntries.length > 1 && <path className="mirror-weather__chart-temp" d={buildMonotonePath(pointRange(futureEntries))} />}
+      {/* The same curve twice, clipped at "now": the past part is dimmed and there is no join to kink. */}
+      <g className="mirror-weather__chart-past" clipPath={`url(#${clipId}-past)`}>
+        <path className="mirror-weather__chart-temp" d={path} />
+      </g>
+      <g clipPath={`url(#${clipId}-future)`}>
+        <path className="mirror-weather__chart-temp" d={path} />
+      </g>
       <line className="mirror-weather__chart-now" x1={currentX} y1="32" x2={currentX} y2="244" />
       <circle className="mirror-weather__chart-now-marker" cx={currentX} cy="244" r="3" />
       {temperatures.map((value, index) => (
         <g className={isPast(entries[index].time, now) ? 'mirror-weather__chart-past' : undefined} key={entries[index].time}>
           <circle cx={value.x} cy={value.y} r="4" />
-          <text className="mirror-weather__chart-value" x={value.x} y={value.y - 13}>{entries[index].temperatureC}°</text>
+          <text className="mirror-weather__chart-value" x={value.x} y={value.y - 11}>{entries[index].temperatureC}°</text>
         </g>
       ))}
     </svg>

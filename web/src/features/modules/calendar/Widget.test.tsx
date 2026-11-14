@@ -105,11 +105,29 @@ describe('calendar widget (list)', () => {
     expect(screen.queryByText('Termine sind nicht verfügbar.')).not.toBeInTheDocument()
   })
 
-  it('marks an ongoing event with the accent class and leaves others plain', async () => {
-    setup(listSection({ items: [item({ title: 'Läuft', relative: 'noch 1 Std.', ongoing: true }), item({ title: 'Später', relative: 'in 3 Std.' })] }))
+  it('colours the relative text with highlightColor and leaves items without one unstyled', async () => {
+    setup(
+      listSection({
+        items: [
+          item({ title: 'Läuft', relative: 'noch 1 Std.', ongoing: true, highlightColor: '#f6b73c' }),
+          item({ title: 'Bald', relative: 'in 1 Std.', highlightColor: '#ff8a65' }),
+          item({ title: 'Später', relative: 'in 3 Std.' }),
+        ],
+      }),
+    )
     renderWithProviders('/')
-    expect(await screen.findByText('noch 1 Std.')).toHaveClass('mirror-agenda__relative--ongoing')
-    expect(screen.getByText('in 3 Std.')).not.toHaveClass('mirror-agenda__relative--ongoing')
+    expect(await screen.findByText('noch 1 Std.')).toHaveStyle({ color: '#f6b73c' })
+    expect(screen.getByText('in 1 Std.')).toHaveStyle({ color: '#ff8a65' })
+    expect(screen.getByText('in 3 Std.').getAttribute('style') ?? '').not.toContain('color')
+    // Ongoing alone no longer colours: the server decides through highlightColor.
+    expect(screen.getByText('noch 1 Std.').className).not.toContain('ongoing')
+  })
+
+  it('colours only the time text, not the title', async () => {
+    setup(listSection({ items: [item({ title: 'Bald', relative: 'in 1 Std.', highlightColor: '#8fd3ff' })] }))
+    renderWithProviders('/')
+    await screen.findByText('in 1 Std.')
+    expect(screen.getByText('Bald').getAttribute('style') ?? '').not.toContain('color')
   })
 
   it('aligns right in right regions and left in left and middle regions', async () => {
@@ -181,13 +199,15 @@ describe('calendar widget (shifts)', () => {
     expect(container.querySelector('.mirror-shifts')).toBeNull()
   })
 
-  it('accents only the ongoing shift', async () => {
-    setup(shifts())
+  it('colours the time text of a shift row by highlightColor only', async () => {
+    const base = shifts()
+    setup(shifts({ days: [{ ...base.days![0], highlightColor: '#ff8a65' }, base.days![1]] }))
     const { container } = renderWithProviders('/')
     await screen.findByText('Frühdienst')
-    const moments = container.querySelectorAll('.mirror-agenda__relative')
-    expect(moments[0]).toHaveClass('mirror-agenda__relative--ongoing')
-    expect(moments[1]).not.toHaveClass('mirror-agenda__relative--ongoing')
+    const moments = container.querySelectorAll<HTMLElement>('.mirror-agenda__relative')
+    expect(moments[0]).toHaveStyle({ color: '#ff8a65' })
+    expect(moments[1].getAttribute('style') ?? '').not.toContain('color')
+    expect(screen.getByText('Frühdienst').getAttribute('style') ?? '').not.toContain('color')
   })
 
   it('shows just the day label when there is no time range', async () => {

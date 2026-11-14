@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { json, mockApi, problem } from '../../../test/mockApi.ts'
 import { layoutOf, weatherData } from '../../../test/dashboardFixtures.ts'
@@ -81,6 +81,61 @@ describe('weather widget', () => {
     const bars = container.querySelectorAll('.mirror-weather__rain-bars rect')
     expect(bars).toHaveLength(1)
     expect(within(container.querySelector('.mirror-weather__rain-bars') as HTMLElement).getByText('40%')).toBeInTheDocument()
+  })
+
+  describe('temperature chart', () => {
+    function stubObserver(width: number) {
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          callback: ResizeObserverCallback
+          constructor(callback: ResizeObserverCallback) {
+            this.callback = callback
+          }
+          observe() {
+            this.callback([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+          }
+          unobserve() {}
+          disconnect() {}
+        },
+      )
+    }
+
+    it('draws in real pixels: viewBox follows the measured width and is not stretched', async () => {
+      stubObserver(640)
+      setup({ configured: true, stale: false, data: weatherData() })
+      const { container } = renderWithProviders('/')
+      await screen.findByText('17°')
+      const svg = container.querySelector('svg.mirror-weather__chart') as SVGSVGElement
+      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 265'))
+      expect(svg.hasAttribute('preserveAspectRatio')).toBe(false)
+    })
+
+    it('draws one continuous temperature curve, dimmed before "now" through a clip of the same path', async () => {
+      setup({ configured: true, stale: false, data: weatherData() })
+      const { container } = renderWithProviders('/')
+      await screen.findByText('17°')
+      const paths = [...container.querySelectorAll('path.mirror-weather__chart-temp')]
+      expect(paths).toHaveLength(2)
+      expect(paths[0].getAttribute('d')).toBe(paths[1].getAttribute('d'))
+      expect(paths[0].getAttribute('d')).toMatch(/^M [\d.]+,[\d.]+ C /)
+      expect(paths[0].closest('[clip-path]')?.classList.contains('mirror-weather__chart-past')).toBe(true)
+      expect(paths[1].closest('[clip-path]')?.classList.contains('mirror-weather__chart-past')).toBe(false)
+    })
+
+    it('puts every hour label at the x position of its point', async () => {
+      stubObserver(640)
+      setup({ configured: true, stale: false, data: weatherData() })
+      const { container } = renderWithProviders('/')
+      await screen.findByText('17°')
+      const svg = container.querySelector('svg.mirror-weather__chart') as SVGSVGElement
+      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 265'))
+      const pointXs = [...svg.querySelectorAll(':scope > g:not(.mirror-weather__rain-bars) > circle')].map((c) => Number(c.getAttribute('cx')))
+      const labelLefts = [...container.querySelectorAll<HTMLElement>('.mirror-weather__hour-labels > div')].map((el) => parseFloat(el.style.left))
+      expect(pointXs).toHaveLength(9)
+      expect(labelLefts).toHaveLength(9)
+      pointXs.forEach((x, i) => expect(labelLefts[i]).toBeCloseTo((x / 640) * 100, 3))
+    })
   })
 
   it('shows the alert line', async () => {

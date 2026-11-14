@@ -27,12 +27,21 @@ func calBody(e *testEnv) CalendarSettingsUpdate {
 			{Id: "dienst", Name: "Dienst", Icon: none(), Url: sptr(e.feed.url("google.ics"))},
 		},
 		Sections: []CalendarSection{
-			{Id: "termine", Title: "Termine", Type: CalendarSectionType("list"), CalendarIds: []string{"familie"}, MaxEvents: 3, LookAheadDays: 14, ShiftDays: 2, Shifts: []CalendarShift{}},
-			{Id: "plan", Title: "Dienstplan", Type: CalendarSectionType("shifts"), CalendarIds: []string{"dienst"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 4, ShowFreeDays: true, Shifts: []CalendarShift{
+			{Id: "termine", Title: "Termine", Type: CalendarSectionType("list"), CalendarIds: []string{"familie"}, MaxEvents: 3, LookAheadDays: 14, ShiftDays: 2, Shifts: []CalendarShift{}, Highlight: defaultHighlightBody()},
+			{Id: "plan", Title: "Dienstplan", Type: CalendarSectionType("shifts"), CalendarIds: []string{"dienst"}, MaxEvents: 8, LookAheadDays: 14, ShiftDays: 4, ShowFreeDays: true, Highlight: defaultHighlightBody(), Shifts: []CalendarShift{
 				{Id: "sync", Match: "Sync", MatchMode: "contains", Label: "Spätdienst", Start: "14:00", End: "22:00", Icon: IconRef{Kind: Bootstrap, Name: sptr("moon")}},
 			}},
 		},
 		Rules: []CalendarRule{},
+	}
+}
+
+func defaultHighlightBody() CalendarHighlight {
+	return CalendarHighlight{
+		Enabled: true,
+		Ongoing: HighlightTier{Enabled: true, Color: "#f6b73c"},
+		Soon:    HighlightSoon{Color: "#ff8a65", Hours: 2},
+		Today:   HighlightTier{Color: "#8fd3ff"},
 	}
 }
 
@@ -245,6 +254,19 @@ func TestCalendarPreviewShowsRuleEffectsOfAnUnsavedDraft(t *testing.T) {
 			t.Error("the draft rule leaked into the stored settings")
 		}
 	}
+	// The preview shows the very text the dashboard shows for the same event
+	// (a title can recur on several days, so compare against all its candidates).
+	for _, d := range *dash.Items {
+		found := false
+		for _, it := range items {
+			if it.OriginalTitle == d.Title && it.TimeLabel == d.TimeLabel && it.Relative == d.Relative && d.Relative != "" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("no preview item with the dashboard text %q for %q", d.Relative, d.Title)
+		}
+	}
 	// Invalid drafts answer like the PUT.
 	draft.Sections[0].CalendarIds = []string{"nope"}
 	p := wantProblem(t, e.do(http.MethodPost, calPreviewPath, draft, o), http.StatusBadRequest, "")
@@ -365,5 +387,77 @@ func TestShowFreeDaysRoundTripsAndChangesTheDashboard(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"ongoing"`) {
 		t.Error("answer lacks ongoing")
+	}
+}
+
+func TestDashboardCarriesHighlightColors(t *testing.T) {
+	e := newTestEnv(t)
+	c := e.setup(t)
+	body := calBody(e)
+	// The test clock is Sat 2026-11-14 13:00 Berlin: Monday's standup (08:00)
+	// starts in 43 hours, not today, so only a 48-hour soon window colours it.
+	soon := HighlightSoon{Enabled: true, Color: "#ff8a65", Hours: 48}
+	for i := range body.Sections {
+		body.Sections[i].Highlight.Soon = soon
+	}
+	putCalendar(t, e, c, body)
+
+	list := decode[DashboardCalendarSection](t, e.do(http.MethodGet, "/api/v1/dashboard/calendar/termine", nil, opts{}))
+	first := (*list.Items)[0]
+	if first.Title != "Standup" || first.HighlightColor == nil || *first.HighlightColor != "#ff8a65" {
+		t.Errorf("list item = %+v", first)
+	}
+	days := *decode[DashboardCalendarSection](t, e.do(http.MethodGet, "/api/v1/dashboard/calendar/plan", nil, opts{})).Days
+	for _, i := range []int{0, 1} {
+		if !days[i].Free || days[i].HighlightColor != nil {
+			t.Errorf("free row %d = %+v", i, days[i])
+		}
+	}
+	if days[2].Free || days[2].HighlightColor == nil || *days[2].HighlightColor != "#ff8a65" {
+		t.Errorf("monday row = %+v", days[2])
+	}
+
+	// Master switch off: nothing is coloured any more.
+	for i := range body.Sections {
+		body.Sections[i].Highlight.Enabled = false
+	}
+	putCalendar(t, e, c, body)
+	list = decode[DashboardCalendarSection](t, e.do(http.MethodGet, "/api/v1/dashboard/calendar/termine", nil, opts{}))
+	for _, it := range *list.Items {
+		if it.HighlightColor != nil {
+			t.Errorf("coloured although off: %+v", it)
+		}
+	}
+	days = *decode[DashboardCalendarSection](t, e.do(http.MethodGet, "/api/v1/dashboard/calendar/plan", nil, opts{})).Days
+	for _, d := range days {
+		if d.HighlightColor != nil {
+			t.Errorf("row coloured although off: %+v", d)
+		}
+	}
+}
+
+func TestCalendarHighlightRoundTripsAndReportsFieldErrors(t *testing.T) {
+	e := newTestEnv(t)
+	c := e.setup(t)
+	o := opts{cookie: c.cookie, csrf: c.csrf}
+	body := calBody(e)
+	body.Sections[0].Highlight = CalendarHighlight{
+		Enabled: false,
+		Ongoing: HighlightTier{Enabled: false, Color: "#ffffff"},
+		Soon:    HighlightSoon{Enabled: true, Color: "#7ee787", Hours: 6},
+		Today:   HighlightTier{Enabled: true, Color: "#ff5c5c"},
+	}
+	putCalendar(t, e, c, body)
+	got := decode[CalendarSettings](t, e.do(http.MethodGet, calSettingsPath, nil, opts{cookie: c.cookie}))
+	if got.Sections[0].Highlight != body.Sections[0].Highlight {
+		t.Errorf("highlight = %+v", got.Sections[0].Highlight)
+	}
+
+	body.Sections[1].Highlight.Soon.Hours = 49
+	body.Sections[1].Highlight.Today.Color = "rot"
+	p := wantProblem(t, e.do(http.MethodPut, calSettingsPath, body, o), http.StatusBadRequest, "")
+	if (*p.Errors)["sections.1.highlight.soon.hours"] != "Erlaubt sind 1 bis 48 Stunden." ||
+		(*p.Errors)["sections.1.highlight.today.color"] != "Erlaubt ist eine Farbe im Format #rrggbb." {
+		t.Errorf("errors = %v", *p.Errors)
 	}
 }

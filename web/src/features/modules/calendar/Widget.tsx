@@ -71,7 +71,9 @@ function AgendaItem({ item }: { item: Item }) {
       <span className="mirror-agenda__time">
         <span className="mirror-agenda__moment">{item.timeLabel}</span>
         {item.relative && (
-          <span className={`mirror-agenda__relative${item.ongoing ? ' mirror-agenda__relative--ongoing' : ''}`}>{item.relative}</span>
+          <span className="mirror-agenda__relative" style={{ color: item.highlightColor }}>
+            {item.relative}
+          </span>
         )}
       </span>
     </li>
@@ -107,7 +109,7 @@ function ShiftRow({ day }: { day: Day }) {
         <span className={`mirror-agenda__title${day.free ? ' mirror-muted' : ''}`}>{day.title}</span>
       </span>
       <span className="mirror-agenda__time">
-        <span className={`mirror-agenda__relative${day.ongoing ? ' mirror-agenda__relative--ongoing' : ''}`}>
+        <span className="mirror-agenda__relative" style={{ color: day.highlightColor }}>
           {day.timeRange ? `${day.dayLabel} ${day.timeRange}` : day.dayLabel}
         </span>
       </span>

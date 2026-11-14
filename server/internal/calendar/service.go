@@ -44,6 +44,7 @@ type Section struct {
 	ShiftDays     int
 	ShowFreeDays  bool
 	Shifts        []Shift
+	Highlight     Highlight
 }
 
 // Config is the part of the settings the service evaluates.
@@ -220,7 +221,7 @@ func (s *Service) evaluate(ctx context.Context, cfg Config, sec Section) (Sectio
 		res.Days = BuildShifts(sourced, cfg.Rules, sec.Shifts, shiftOptions(sec), now, s.loc)
 		return res, errs
 	}
-	res.Candidates = BuildPreview(ListInput{Occurrences: sourced, Rules: cfg.Rules, MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays}, now, s.loc)
+	res.Candidates = BuildPreview(ListInput{Occurrences: sourced, Rules: cfg.Rules, MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, Highlight: sec.Highlight}, now, s.loc)
 	for _, p := range res.Candidates {
 		if p.Shown {
 			res.Items = append(res.Items, p.ListItem)
@@ -231,7 +232,7 @@ func (s *Service) evaluate(ctx context.Context, cfg Config, sec Section) (Sectio
 
 // shiftOptions maps the section settings to the shift builder's options.
 func shiftOptions(sec Section) ShiftOptions {
-	return ShiftOptions{ShowFreeDays: sec.ShowFreeDays, Rows: max(sec.ShiftDays, 1), HorizonDays: max(sec.LookAheadDays, 1)}
+	return ShiftOptions{ShowFreeDays: sec.ShowFreeDays, Rows: max(sec.ShiftDays, 1), HorizonDays: max(sec.LookAheadDays, 1), Highlight: sec.Highlight}
 }
 
 // shiftHorizon is how many days from today a shift section needs expanded:

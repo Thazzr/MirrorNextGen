@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -63,10 +64,13 @@ const (
 	msgIconKind      = "Erlaubt sind kein Symbol, ein Bootstrap-Symbol und eine hochgeladene Datei."
 	msgIconName      = "Erlaubt sind 1 bis 40 Zeichen: Kleinbuchstaben, Ziffern und Bindestrich."
 	msgIconFile      = "Dieses Symbol gibt es nicht."
+	msgHighColor     = "Erlaubt ist eine Farbe im Format #rrggbb."
+	msgHighHours     = "Erlaubt sind 1 bis 48 Stunden."
 )
 
 var (
 	calIDPattern   = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
+	colorPattern   = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	iconNamePatten = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
 )
 
@@ -97,6 +101,47 @@ type CalendarShift struct {
 	Icon      IconRef `json:"icon"`
 }
 
+// Default colours of the time highlight.
+const (
+	defaultOngoingColor = "#f6b73c"
+	defaultSoonColor    = "#ff8a65"
+	defaultTodayColor   = "#8fd3ff"
+	defaultSoonHours    = 2
+)
+
+// HighlightTier is one switchable colour of the time highlight.
+type HighlightTier struct {
+	Enabled bool   `json:"enabled"`
+	Color   string `json:"color"`
+}
+
+// HighlightSoon colours items that start within Hours hours.
+type HighlightSoon struct {
+	Enabled bool   `json:"enabled"`
+	Color   string `json:"color"`
+	Hours   int    `json:"hours"`
+}
+
+// CalendarHighlight colours the time text of a section by how soon an item
+// starts: running now, within a few hours, later today.
+type CalendarHighlight struct {
+	Enabled bool          `json:"enabled"`
+	Ongoing HighlightTier `json:"ongoing"`
+	Soon    HighlightSoon `json:"soon"`
+	Today   HighlightTier `json:"today"`
+}
+
+// DefaultHighlight is what a new section and a section stored without a
+// highlight get: only the running item is coloured.
+func DefaultHighlight() CalendarHighlight {
+	return CalendarHighlight{
+		Enabled: true,
+		Ongoing: HighlightTier{Enabled: true, Color: defaultOngoingColor},
+		Soon:    HighlightSoon{Color: defaultSoonColor, Hours: defaultSoonHours},
+		Today:   HighlightTier{Color: defaultTodayColor},
+	}
+}
+
 // CalendarSection is one area of the mirror and one module instance.
 type CalendarSection struct {
 	ID            string   `json:"id"`
@@ -107,8 +152,22 @@ type CalendarSection struct {
 	LookAheadDays int      `json:"lookAheadDays"`
 	ShiftDays     int      `json:"shiftDays"`
 	// ShowFreeDays also lists days without a shift; absent in older files, so false.
-	ShowFreeDays bool            `json:"showFreeDays"`
-	Shifts       []CalendarShift `json:"shifts"`
+	ShowFreeDays bool              `json:"showFreeDays"`
+	Shifts       []CalendarShift   `json:"shifts"`
+	Highlight    CalendarHighlight `json:"highlight"`
+}
+
+// UnmarshalJSON decodes on top of the default highlight, so a section stored
+// before the highlight existed (or with only part of it) keeps the defaults
+// instead of an all-false zero value.
+func (s *CalendarSection) UnmarshalJSON(data []byte) error {
+	type plain CalendarSection
+	p := plain{Highlight: DefaultHighlight()}
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*s = CalendarSection(p)
+	return nil
 }
 
 // CalendarRule is one entry of the ordered rule list.
@@ -326,6 +385,7 @@ func (c CalendarSettings) validate(errs map[string]string, iconExists func(strin
 			errs[p+"shifts"] = msgCalTooMany
 		}
 		validateShifts(errs, p, sec.Shifts, iconExists)
+		sec.Highlight.validate(errs, p+"highlight.")
 	}
 
 	ruleIDs := map[string]bool{}
@@ -368,6 +428,17 @@ func (c CalendarSettings) validate(errs map[string]string, iconExists func(strin
 		if n := utf8.RuneCountInString(strings.TrimSpace(r.RenameTo)); (r.Action == "rename" && n < 1) || n > 80 {
 			errs[p+"renameTo"] = msgRuleRename
 		}
+	}
+}
+
+func (h CalendarHighlight) validate(errs map[string]string, p string) {
+	for key, color := range map[string]string{"ongoing.color": h.Ongoing.Color, "soon.color": h.Soon.Color, "today.color": h.Today.Color} {
+		if !colorPattern.MatchString(color) {
+			errs[p+key] = msgHighColor
+		}
+	}
+	if rangeErr(h.Soon.Hours, 1, 48) {
+		errs[p+"soon.hours"] = msgHighHours
 	}
 }
 
