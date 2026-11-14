@@ -12,6 +12,7 @@ automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages gener
 ### Fixed
 
 - **kiosk**: Kein Mauszeiger und keine Übersetzungsleiste am Spiegel
+- **dashboard**: Spiegel übernimmt Änderungen ohne Neustart
 
 ## [0.7.0] - 2026-11-14
 
