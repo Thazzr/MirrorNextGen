@@ -440,12 +440,9 @@ type CalendarPreviewSection struct {
 	Id    string      `json:"id"`
 
 	// Items Type `list`; all candidates of the look-ahead window.
-	Items *[]PreviewItem `json:"items,omitempty"`
-
-	// Summary Type `shifts`; for example `Heute: Frühdienst 06–14 Uhr · Morgen: frei`.
-	Summary *string                    `json:"summary,omitempty"`
-	Title   string                     `json:"title"`
-	Type    CalendarPreviewSectionType `json:"type"`
+	Items *[]PreviewItem             `json:"items,omitempty"`
+	Title string                     `json:"title"`
+	Type  CalendarPreviewSectionType `json:"type"`
 }
 
 // CalendarPreviewSectionType defines model for CalendarPreviewSection.Type.
@@ -482,17 +479,20 @@ type CalendarSection struct {
 	CalendarIds []string `json:"calendarIds"`
 	Id          string   `json:"id"`
 
-	// LookAheadDays 1 to 60; 0 means the default 14.
+	// LookAheadDays 1 to 60; 0 means the default 14. For type `shifts` it is the search horizon for work days.
 	LookAheadDays int `json:"lookAheadDays"`
 
 	// MaxEvents 1 to 30; 0 means the default 8.
 	MaxEvents int `json:"maxEvents"`
 
-	// ShiftDays 1 to 7; 0 means the default 2.
+	// ShiftDays Type `shifts`: number of rows. 1 to 14; 0 means the default 5.
 	ShiftDays int `json:"shiftDays"`
 
 	// Shifts Only for type `shifts`.
 	Shifts []CalendarShift `json:"shifts"`
+
+	// ShowFreeDays Type `shifts`: also show days without a shift as `frei` (consecutive days from today). Off: only the next work days.
+	ShowFreeDays bool `json:"showFreeDays"`
 
 	// Title 1 to 60 characters.
 	Title string              `json:"title"`
@@ -960,15 +960,21 @@ type Session struct {
 type ShiftDay struct {
 	Date openapi_types.Date `json:"date"`
 
-	// DayLabel `Heute`, `Morgen` or the weekday.
+	// DayLabel `Heute`, `Morgen`, the weekday for the next days up to six days ahead, then for example `Mo, 23.11.`.
 	DayLabel string `json:"dayLabel"`
 	Free     bool   `json:"free"`
 
 	// Icon A symbol - a Bootstrap icon by name, an uploaded file by icon id, or none.
 	Icon IconRef `json:"icon"`
 
-	// Text For example `Frühdienst 06–14 Uhr` or `frei`.
-	Text string `json:"text"`
+	// Ongoing The shift is running now (all-day: today).
+	Ongoing bool `json:"ongoing"`
+
+	// TimeRange For example `06–14` or `06:30–19:00`; absent when unknown.
+	TimeRange *string `json:"timeRange,omitempty"`
+
+	// Title Shift name, the event title when no shift matches, or `frei`.
+	Title string `json:"title"`
 }
 
 // UpdateStatus State of the update button.

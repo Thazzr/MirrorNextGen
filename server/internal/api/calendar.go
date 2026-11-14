@@ -40,7 +40,7 @@ func toCalendarSettings(c settings.CalendarSettings) CalendarSettings {
 	for _, sec := range c.Sections {
 		o := CalendarSection{
 			Id: sec.ID, Title: sec.Title, Type: CalendarSectionType(sec.Type), CalendarIds: sec.CalendarIDs,
-			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays,
+			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays, ShowFreeDays: sec.ShowFreeDays,
 			Shifts: make([]CalendarShift, 0, len(sec.Shifts)),
 		}
 		for _, sh := range sec.Shifts {
@@ -68,7 +68,7 @@ func toCalendarUpdate(b CalendarSettingsUpdate) settings.CalendarUpdate {
 	for _, sec := range b.Sections {
 		o := settings.CalendarSection{
 			ID: sec.Id, Title: sec.Title, Type: string(sec.Type), CalendarIDs: sec.CalendarIds,
-			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays,
+			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays, ShowFreeDays: sec.ShowFreeDays,
 		}
 		for _, sh := range sec.Shifts {
 			o.Shifts = append(o.Shifts, settings.CalendarShift{
@@ -100,7 +100,7 @@ func calendarConfig(c settings.CalendarSettings) calendar.Config {
 	for _, sec := range c.Sections {
 		o := calendar.Section{
 			ID: sec.ID, Title: sec.Title, Type: sec.Type, CalendarIDs: sec.CalendarIDs,
-			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays,
+			MaxEvents: sec.MaxEvents, LookAheadDays: sec.LookAheadDays, ShiftDays: sec.ShiftDays, ShowFreeDays: sec.ShowFreeDays,
 		}
 		for _, sh := range sec.Shifts {
 			o.Shifts = append(o.Shifts, calendar.Shift{
@@ -127,7 +127,7 @@ func toShiftDays(days []calendar.ShiftDay) []ShiftDay {
 		if err != nil {
 			continue // the engine formats the date itself; cannot happen
 		}
-		out = append(out, ShiftDay{Date: openapi_types.Date{Time: date}, DayLabel: d.DayLabel, Text: d.Text, Icon: calIcon(d.Icon), Free: d.Free})
+		out = append(out, ShiftDay{Date: openapi_types.Date{Time: date}, DayLabel: d.DayLabel, Title: d.Title, TimeRange: optional(d.TimeRange), Icon: calIcon(d.Icon), Free: d.Free, Ongoing: d.Ongoing})
 	}
 	return out
 }
@@ -174,7 +174,7 @@ func (s *Server) PreviewCalendar(ctx context.Context, request PreviewCalendarReq
 		switch {
 		case sec.Type == calendar.TypeShifts && sec.Days != nil:
 			days := toShiftDays(sec.Days)
-			o.Days, o.Summary = &days, optional(sec.Summary)
+			o.Days = &days
 		case sec.Type == calendar.TypeList:
 			items := make([]PreviewItem, 0, len(sec.Candidates))
 			for _, p := range sec.Candidates {

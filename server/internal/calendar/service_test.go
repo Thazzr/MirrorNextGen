@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -69,15 +70,19 @@ func TestServiceShiftsSection(t *testing.T) {
 	cfg := Config{
 		RefreshMinutes: 15,
 		Calendars:      []Calendar{{ID: "dienst", Name: "Dienst", URL: base + "/google.ics"}},
-		Sections: []Section{{ID: "plan", Title: "Dienstplan", Type: TypeShifts, CalendarIDs: []string{"dienst"}, ShiftDays: 4,
+		Sections: []Section{{ID: "plan", Title: "Dienstplan", Type: TypeShifts, CalendarIDs: []string{"dienst"}, ShiftDays: 4, LookAheadDays: 7,
 			Shifts: []Shift{{ID: "sync", Match: "Sync", MatchMode: MatchContains, Label: "Spätdienst", Start: "14:00", End: "22:00"}}}},
 	}
 	res, _ := svc.Section(context.Background(), cfg, "plan")
-	want := "Heute: frei · Morgen: frei · Montag: Standup · Dienstag: Spätdienst 14–22 Uhr"
-	if res.Summary != want {
-		t.Errorf("summary = %q\nwant      %q", res.Summary, want)
+	got := make([]string, 0, len(res.Days))
+	for _, d := range res.Days {
+		got = append(got, d.DayLabel+": "+d.Title+" "+d.TimeRange)
 	}
-	if len(res.Days) != 4 || res.Days[3].Free {
+	want := []string{"Montag: Standup ", "Dienstag: Spätdienst 14–22"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("rows = %q\nwant   %q", got, want)
+	}
+	if len(res.Days) != 2 || res.Days[1].Free {
 		t.Errorf("days = %+v", res.Days)
 	}
 }

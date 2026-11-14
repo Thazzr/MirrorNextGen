@@ -19,13 +19,22 @@ type Shift struct {
 	Icon      IconRef
 }
 
-// ShiftDay is one day of the compact shift display.
+// ShiftDay is one row of the shift display.
 type ShiftDay struct {
-	Date     string // yyyy-MM-dd
-	DayLabel string
-	Text     string
-	Icon     IconRef
-	Free     bool
+	Date      string // yyyy-MM-dd
+	DayLabel  string
+	Title     string
+	TimeRange string // "06–14" or "06:30–19:00"; empty when unknown
+	Icon      IconRef
+	Free      bool
+	Ongoing   bool
+}
+
+// ShiftOptions are the section settings BuildShifts needs.
+type ShiftOptions struct {
+	ShowFreeDays bool
+	Rows         int // number of rows to show
+	HorizonDays  int // how many days from today are searched for work days
 }
 
 func parseHM(s string) (h, m int, ok bool) {
@@ -36,12 +45,12 @@ func parseHM(s string) (h, m int, ok bool) {
 	return t.Hour(), t.Minute(), true
 }
 
-// formatRange renders "06–14 Uhr" or, with minutes, "06:30–14:15 Uhr".
+// formatRange renders "06–14" or, with minutes, "06:30–14:15".
 func formatRange(sh, sm, eh, em int) string {
 	if sm == 0 && em == 0 {
-		return fmt.Sprintf("%02d–%02d Uhr", sh, eh)
+		return fmt.Sprintf("%02d–%02d", sh, eh)
 	}
-	return fmt.Sprintf("%02d:%02d–%02d:%02d Uhr", sh, sm, eh, em)
+	return fmt.Sprintf("%02d:%02d–%02d:%02d", sh, sm, eh, em)
 }
 
 func (s Shift) matches(title string) bool {
@@ -51,10 +60,29 @@ func (s Shift) matches(title string) bool {
 	return textMatches(s.MatchMode, title, s.Match)
 }
 
-// BuildShifts builds the display for today and the following days-1 local
-// days. A shift is recognised on the original title or, failing that, on the
-// title after rename rules.
-func BuildShifts(occs []SourcedOccurrence, rules []Rule, shifts []Shift, days int, now time.Time, loc *time.Location) []ShiftDay {
+var germanDaysShort = [...]string{"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"}
+
+// ShiftDayLabel names the local day relative to today: "Heute", "Morgen", the
+// weekday for the following days up to six days ahead, and from there on
+// "Mo, 23.11.".
+func ShiftDayLabel(day, today time.Time) string {
+	switch diff := dayCount(today, day); {
+	case diff == 0:
+		return "Heute"
+	case diff == 1:
+		return "Morgen"
+	case diff > 1 && diff < 7:
+		return FormatDayOfWeek(day)
+	default:
+		return fmt.Sprintf("%s, %02d.%02d.", germanDaysShort[day.Weekday()], day.Day(), int(day.Month()))
+	}
+}
+
+// BuildShifts builds the shift rows. Without ShowFreeDays it collects the
+// first Rows days within the horizon that have a visible event; with it, Rows
+// consecutive days from today including free ones. A shift is recognised on
+// the original title or, failing that, on the title after rename rules.
+func BuildShifts(occs []SourcedOccurrence, rules []Rule, shifts []Shift, opt ShiftOptions, now time.Time, loc *time.Location) []ShiftDay {
 	if loc == nil {
 		loc = time.UTC
 	}
@@ -73,19 +101,17 @@ func BuildShifts(occs []SourcedOccurrence, rules []Rule, shifts []Shift, days in
 	}
 	sort.SliceStable(vis, func(i, j int) bool { return vis[i].Start.Before(vis[j].Start) })
 
-	var out []ShiftDay
-	for i := 0; i < days; i++ {
+	days := opt.Rows
+	if !opt.ShowFreeDays {
+		days = opt.HorizonDays
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	out := []ShiftDay{}
+	for i := 0; i < days && len(out) < opt.Rows; i++ {
 		dayStart := time.Date(now.Year(), now.Month(), now.Day()+i, 0, 0, 0, 0, loc)
 		win := Window{From: dayStart, To: time.Date(now.Year(), now.Month(), now.Day()+i+1, 0, 0, 0, 0, loc)}
-		d := ShiftDay{Date: dayStart.Format("2006-01-02")}
-		switch i {
-		case 0:
-			d.DayLabel = "Heute"
-		case 1:
-			d.DayLabel = "Morgen"
-		default:
-			d.DayLabel = FormatDayOfWeek(dayStart)
-		}
+		d := ShiftDay{Date: dayStart.Format("2006-01-02"), DayLabel: ShiftDayLabel(dayStart, today)}
 
 		var day []visible
 		for _, v := range vis {
@@ -94,11 +120,14 @@ func BuildShifts(occs []SourcedOccurrence, rules []Rule, shifts []Shift, days in
 			}
 		}
 		if len(day) == 0 {
-			d.Text, d.Free = "frei", true
-			out = append(out, d)
+			if opt.ShowFreeDays {
+				d.Title, d.Free = "frei", true
+				out = append(out, d)
+			}
 			continue
 		}
 
+		chosen := day[0]
 		matched := false
 	search:
 		for _, v := range day {
@@ -106,20 +135,27 @@ func BuildShifts(occs []SourcedOccurrence, rules []Rule, shifts []Shift, days in
 				if !sh.matches(v.Title) && !sh.matches(v.res.Title) {
 					continue
 				}
-				d.Text = sh.Label
+				d.Title = sh.Label
 				d.Icon = v.res.Icon
 				if sh.Icon.set() {
 					d.Icon = sh.Icon
 				}
-				if r := shiftRange(sh, v.Occurrence, loc); r != "" {
-					d.Text += " " + r
-				}
+				d.TimeRange = shiftRange(sh, v.Occurrence, loc)
+				chosen = v
 				matched = true
 				break search
 			}
 		}
 		if !matched {
-			d.Text, d.Icon = day[0].res.Title, day[0].res.Icon
+			d.Title, d.Icon = chosen.res.Title, chosen.res.Icon
+		}
+		if i == 0 {
+			// All-day events last the whole day, so they never count as ended.
+			ended := !chosen.AllDay && !chosen.End.After(now)
+			if ended && !opt.ShowFreeDays {
+				continue
+			}
+			d.Ongoing = chosen.AllDay || (!ended && !chosen.Start.After(now))
 		}
 		out = append(out, d)
 	}
@@ -137,13 +173,4 @@ func shiftRange(sh Shift, o Occurrence, loc *time.Location) string {
 	}
 	s, e := o.Start.In(loc), o.End.In(loc)
 	return formatRange(s.Hour(), s.Minute(), e.Hour(), e.Minute())
-}
-
-// ShiftSummary joins the days to "Heute: Frühdienst 06–14 Uhr · Morgen: frei".
-func ShiftSummary(days []ShiftDay) string {
-	parts := make([]string, 0, len(days))
-	for _, d := range days {
-		parts = append(parts, d.DayLabel+": "+d.Text)
-	}
-	return strings.Join(parts, " · ")
 }

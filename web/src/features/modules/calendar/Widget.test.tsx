@@ -162,31 +162,61 @@ describe('calendar widget (shifts)', () => {
     title: 'Dienst',
     type: 'shifts',
     days: [
-      { date: '2026-11-14', dayLabel: 'Heute', text: 'Frühdienst 06–14 Uhr', icon: { kind: 'bootstrap', name: 'sunrise' }, free: false },
-      { date: '2026-11-15', dayLabel: 'Morgen', text: '', icon: none, free: true },
+      { date: '2026-11-14', dayLabel: 'Heute', title: 'Frühdienst', timeRange: '06:30–19:00', icon: { kind: 'bootstrap', name: 'sunrise' }, free: false, ongoing: true },
+      { date: '2026-11-16', dayLabel: 'Montag', title: 'Spätdienst', timeRange: '14–22', icon: none, free: false, ongoing: false },
     ],
     ...parts,
   })
 
-  it('renders one row per day with label and text, free days muted as "frei"', async () => {
+  it('renders work days with the agenda row markup: title left, day and time right', async () => {
     setup(shifts())
     const { container } = renderWithProviders('/')
     expect(await screen.findByRole('heading', { name: 'Dienst' })).toBeInTheDocument()
-    const rows = [...container.querySelectorAll('.mirror-shifts__day')]
+    const rows = [...container.querySelectorAll('li.mirror-agenda__item')]
     expect(rows).toHaveLength(2)
-    expect(rows[0]).toHaveTextContent('HeuteFrühdienst 06–14 Uhr')
-    expect(rows[0]).not.toHaveClass('mirror-shifts__day--free')
-    expect(rows[0].querySelector('i')).toHaveClass('bi-sunrise')
-    expect(rows[1]).toHaveTextContent('Morgenfrei')
-    expect(rows[1]).toHaveClass('mirror-shifts__day--free')
-    expect(rows[1].querySelector('i')).toBeNull()
+    expect(rows[0].querySelector('.mirror-agenda__title')).toHaveTextContent('Frühdienst')
+    expect(rows[0].querySelector('.mirror-agenda__time .mirror-agenda__relative')).toHaveTextContent('Heute 06:30–19:00')
+    expect(rows[0].querySelector('.mirror-agenda__symbol i')).toHaveClass('bi-sunrise')
+    expect(rows[1].querySelector('.mirror-agenda__relative')).toHaveTextContent('Montag 14–22')
+    expect(container.querySelector('.mirror-shifts')).toBeNull()
+  })
+
+  it('accents only the ongoing shift', async () => {
+    setup(shifts())
+    const { container } = renderWithProviders('/')
+    await screen.findByText('Frühdienst')
+    const moments = container.querySelectorAll('.mirror-agenda__relative')
+    expect(moments[0]).toHaveClass('mirror-agenda__relative--ongoing')
+    expect(moments[1]).not.toHaveClass('mirror-agenda__relative--ongoing')
+  })
+
+  it('shows just the day label when there is no time range', async () => {
+    setup(shifts({ days: [{ date: '2026-11-14', dayLabel: 'Morgen', title: 'Zahnarzt', icon: none, free: false, ongoing: false }] }))
+    const { container } = renderWithProviders('/')
+    await screen.findByText('Zahnarzt')
+    expect(container.querySelector('.mirror-agenda__relative')?.textContent).toBe('Morgen')
+  })
+
+  it('shows a free row muted without a symbol, only when the server sends one', async () => {
+    setup(shifts({ days: [{ date: '2026-11-15', dayLabel: 'Morgen', title: 'frei', icon: none, free: true, ongoing: false }] }))
+    const { container } = renderWithProviders('/')
+    const title = await screen.findByText('frei')
+    expect(title).toHaveClass('mirror-muted')
+    expect(container.querySelector('.mirror-agenda__symbol i, .mirror-agenda__symbol img')).toBeNull()
+    expect(container.querySelector('.mirror-agenda__relative')).toHaveTextContent('Morgen')
+  })
+
+  it('shows the empty text when there are no work days', async () => {
+    setup(shifts({ days: [] }))
+    renderWithProviders('/')
+    expect(await screen.findByText('Keine Schichten im ausgewählten Zeitraum.')).toBeInTheDocument()
   })
 
   it('shows an uploaded shift icon', async () => {
-    setup(shifts({ days: [{ date: '2026-11-14', dayLabel: 'Heute', text: 'Spät', icon: { kind: 'upload', file: 'zz' }, free: false }] }))
+    setup(shifts({ days: [{ date: '2026-11-14', dayLabel: 'Heute', title: 'Spät', icon: { kind: 'upload', file: 'zz' }, free: false, ongoing: false }] }))
     const { container } = renderWithProviders('/')
     await screen.findByText('Spät')
-    expect(container.querySelector('.mirror-shifts__text img')).toHaveAttribute('src', '/api/v1/icons/zz/file')
+    expect(container.querySelector('.mirror-agenda__symbol img')).toHaveAttribute('src', '/api/v1/icons/zz/file')
   })
 
   it('shows the error line and renders nothing on 404', async () => {

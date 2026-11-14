@@ -1,4 +1,4 @@
-import { Button, Card, Group, MultiSelect, NumberInput, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
+import { Button, Card, Group, MultiSelect, NumberInput, SegmentedControl, Select, SimpleGrid, Stack, Switch, Text, TextInput } from '@mantine/core'
 import { IconPlus } from '@tabler/icons-react'
 import { IconPicker } from '../../../admin/components/IconPicker.tsx'
 import type { CalendarSection, CalendarSettingsUpdate, CalendarShift } from './api.ts'
@@ -185,14 +185,33 @@ export function SectionsTab({ draft, onChange, errors }: Props) {
                 </SimpleGrid>
               ) : (
                 <Stack gap="sm">
-                  <NumberInput
-                    label="Tage"
-                    min={1}
-                    max={7}
-                    allowDecimal={false}
-                    value={section.shiftDays}
-                    onChange={(v) => set({ shiftDays: num(v) })}
-                    error={errors[`${path}.shiftDays`]}
+                  <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                    <NumberInput
+                      label="Anzahl Einträge"
+                      description="So viele Arbeitstage zeigt der Spiegel – mit freien Tagen: so viele Tage ab heute."
+                      min={1}
+                      max={14}
+                      allowDecimal={false}
+                      value={section.shiftDays}
+                      onChange={(v) => set({ shiftDays: num(v) })}
+                      error={errors[`${path}.shiftDays`]}
+                    />
+                    <NumberInput
+                      label="Vorschau-Tage"
+                      description="So weit voraus sucht der Spiegel nach Arbeitstagen."
+                      min={1}
+                      max={60}
+                      allowDecimal={false}
+                      value={section.lookAheadDays}
+                      onChange={(v) => set({ lookAheadDays: num(v) })}
+                      error={errors[`${path}.lookAheadDays`]}
+                    />
+                  </SimpleGrid>
+                  <Switch
+                    label="Freie Tage anzeigen"
+                    description="Zeigt auch Tage ohne Schicht als „frei“. Aus: nur die nächsten Arbeitstage."
+                    checked={section.showFreeDays}
+                    onChange={(e) => set({ showFreeDays: e.currentTarget.checked })}
                   />
                   <Text size="sm" fw={500}>
                     Schichten

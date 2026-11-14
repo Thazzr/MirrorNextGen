@@ -22,7 +22,7 @@ const (
 	defaultRefreshMinutes = 15
 	defaultMaxEvents      = 8
 	defaultLookAheadDays  = 14
-	defaultShiftDays      = 2
+	defaultShiftDays      = 5
 )
 
 // Limits that keep the settings file and the dashboard reasonable.
@@ -48,7 +48,7 @@ const (
 	msgSecCalendars  = "Wähle mindestens einen Kalender."
 	msgSecMaxEvents  = "Erlaubt sind 1 bis 30 Termine."
 	msgSecLookAhead  = "Erlaubt sind 1 bis 60 Tage."
-	msgSecShiftDays  = "Erlaubt sind 1 bis 7 Tage."
+	msgSecShiftDays  = "Erlaubt sind 1 bis 14 Einträge."
 	msgSecShiftsOnly = "Schichten gibt es nur bei Bereichen vom Typ „Schichten“."
 	msgShiftMatch    = "Das Stichwort muss 1 bis 40 Zeichen haben."
 	msgShiftMode     = "Erlaubt sind „gleich“, „beginnt mit“ und „enthält“."
@@ -99,14 +99,16 @@ type CalendarShift struct {
 
 // CalendarSection is one area of the mirror and one module instance.
 type CalendarSection struct {
-	ID            string          `json:"id"`
-	Title         string          `json:"title"`
-	Type          string          `json:"type"`
-	CalendarIDs   []string        `json:"calendarIds"`
-	MaxEvents     int             `json:"maxEvents"`
-	LookAheadDays int             `json:"lookAheadDays"`
-	ShiftDays     int             `json:"shiftDays"`
-	Shifts        []CalendarShift `json:"shifts"`
+	ID            string   `json:"id"`
+	Title         string   `json:"title"`
+	Type          string   `json:"type"`
+	CalendarIDs   []string `json:"calendarIds"`
+	MaxEvents     int      `json:"maxEvents"`
+	LookAheadDays int      `json:"lookAheadDays"`
+	ShiftDays     int      `json:"shiftDays"`
+	// ShowFreeDays also lists days without a shift; absent in older files, so false.
+	ShowFreeDays bool            `json:"showFreeDays"`
+	Shifts       []CalendarShift `json:"shifts"`
 }
 
 // CalendarRule is one entry of the ordered rule list.
@@ -314,7 +316,7 @@ func (c CalendarSettings) validate(errs map[string]string, iconExists func(strin
 		if rangeErr(sec.LookAheadDays, 1, 60) {
 			errs[p+"lookAheadDays"] = msgSecLookAhead
 		}
-		if rangeErr(sec.ShiftDays, 1, 7) {
+		if rangeErr(sec.ShiftDays, 1, 14) {
 			errs[p+"shiftDays"] = msgSecShiftDays
 		}
 		if sec.Type != SectionShifts && len(sec.Shifts) > 0 {

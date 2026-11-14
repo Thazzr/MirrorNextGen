@@ -65,14 +65,15 @@ export function PreviewTab({ draft, active }: Props) {
             {section.error && <Alert color="red">{section.error}</Alert>}
             {section.type === 'shifts' ? (
               <>
-                {section.summary && <Text size="sm">{section.summary}</Text>}
+                {section.days?.length === 0 && !section.error && <Text size="sm" c="dimmed">Keine Schichten im Zeitraum.</Text>}
                 {section.days?.map((day) => (
                   <Group key={day.date} gap="xs">
                     <Text size="sm" fw={500} w={90}>
                       {day.dayLabel}
                     </Text>
-                    <Text size="sm" c={day.free ? 'dimmed' : undefined}>
-                      {day.text}
+                    <Text size="sm" c={day.free ? 'dimmed' : undefined} fw={day.ongoing ? 700 : undefined}>
+                      {day.title}
+                      {day.timeRange ? ` ${day.timeRange}` : ''}
                     </Text>
                   </Group>
                 ))}

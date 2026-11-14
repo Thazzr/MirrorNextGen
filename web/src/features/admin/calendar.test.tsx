@@ -17,15 +17,16 @@ const stored = {
     { id: 'cal-b', name: 'Arbeit', icon: { kind: 'bootstrap', name: 'briefcase' }, hasUrl: true, urlHint: 'https://work.example/.../x.ics' },
   ],
   sections: [
-    { id: 's-list', title: 'Familie', type: 'list', calendarIds: ['cal-a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, shifts: [] },
+    { id: 's-list', title: 'Familie', type: 'list', calendarIds: ['cal-a'], maxEvents: 8, lookAheadDays: 14, shiftDays: 2, showFreeDays: false, shifts: [] },
     {
       id: 's-shift',
       title: 'Dienst',
       type: 'shifts',
       calendarIds: ['cal-b'],
       maxEvents: 0,
-      lookAheadDays: 0,
+      lookAheadDays: 14,
       shiftDays: 2,
+      showFreeDays: false,
       shifts: [{ id: 'sh1', match: 'F', matchMode: 'equals', label: 'Frühdienst', start: '06:00', end: '14:00', icon: none }],
     },
   ],
@@ -121,15 +122,34 @@ describe('calendar page', () => {
     const list = group('Bereich 1')
     expect(list.getByLabelText('Höchstens N Termine')).toHaveValue('8')
     expect(list.getByLabelText('Vorschau-Tage')).toHaveValue('14')
-    expect(list.queryByLabelText('Tage')).not.toBeInTheDocument()
+    expect(list.queryByLabelText('Anzahl Einträge')).not.toBeInTheDocument()
     const shifts = group('Bereich 2')
-    expect(shifts.getByLabelText('Tage')).toHaveValue('2')
+    expect(shifts.getByLabelText('Anzahl Einträge')).toHaveValue('2')
+    expect(shifts.getByLabelText('Vorschau-Tage')).toHaveValue('14')
+    expect(shifts.getByRole('switch', { name: /Freie Tage anzeigen/ })).not.toBeChecked()
     expect(shifts.queryByLabelText('Höchstens N Termine')).not.toBeInTheDocument()
     await userEvent.click(list.getByRole('radio', { name: 'Schichten' }))
-    expect(list.getByLabelText('Tage')).toBeInTheDocument()
+    expect(list.getByLabelText('Anzahl Einträge')).toBeInTheDocument()
     expect(list.queryByLabelText('Höchstens N Termine')).not.toBeInTheDocument()
     expect(bar()).toHaveTextContent('Ungespeicherte Änderungen: Bereiche')
     expect(screen.getByText(/Neue Bereiche erscheinen oben links am Spiegel/)).toBeInTheDocument()
+  })
+
+  it('the free-days switch and the row count are saved and named in the bar', async () => {
+    const api = arrange({ 'PUT /api/v1/settings/calendar': (c) => json({ ...stored, ...(c.body as object) }) })
+    await open()
+    await tab('Bereiche')
+    const shifts = group('Bereich 2')
+    await userEvent.click(shifts.getByRole('switch', { name: /Freie Tage anzeigen/ }))
+    expect(bar()).toHaveTextContent('Ungespeicherte Änderungen: Bereiche')
+    const count = shifts.getByLabelText('Anzahl Einträge')
+    await userEvent.type(count, '{ArrowUp}{ArrowUp}')
+    await saveButton()
+    await waitFor(() => expect(puts(api)).toHaveLength(1))
+    const sent = puts(api)[0].body as { sections: Array<{ id: string; showFreeDays: boolean; shiftDays: number }> }
+    const plan = sent.sections.find((x) => x.id === 's-shift')
+    expect(plan).toMatchObject({ showFreeDays: true, shiftDays: 4 })
+    expect(sent.sections.find((x) => x.id === 's-list')?.showFreeDays).toBe(false)
   })
 
   it('shift rows can be added and removed and warn when only one time is set', async () => {
@@ -273,10 +293,9 @@ describe('calendar preview', () => {
         title: 'Dienst',
         type: 'shifts',
         days: [
-          { date: '2026-11-14', dayLabel: 'Heute', text: 'Frühdienst 06–14 Uhr', icon: none, free: false },
-          { date: '2026-11-15', dayLabel: 'Morgen', text: 'frei', icon: none, free: true },
+          { date: '2026-11-14', dayLabel: 'Heute', title: 'Frühdienst', timeRange: '06–14', icon: none, free: false, ongoing: true },
+          { date: '2026-11-15', dayLabel: 'Morgen', title: 'frei', icon: none, free: true, ongoing: false },
         ],
-        summary: 'Heute: Frühdienst 06–14 Uhr · Morgen: frei',
       },
     ],
     calendarErrors: [{ calendarId: 'cal-b', message: 'Kalender nicht erreichbar.' }],
@@ -321,7 +340,8 @@ describe('calendar preview', () => {
     expect(s.getByText('über dem Limit')).toBeInTheDocument()
 
     const shifts = within(screen.getByRole('group', { name: 'Vorschau Dienst' }))
-    expect(shifts.getByText('Heute: Frühdienst 06–14 Uhr · Morgen: frei')).toBeInTheDocument()
+    expect(shifts.getByText('Frühdienst 06–14')).toBeInTheDocument()
+    expect(shifts.getByText('frei')).toBeInTheDocument()
     expect(shifts.getByText('Morgen')).toBeInTheDocument()
     expect(screen.getByText('Kalender nicht erreichbar.')).toBeInTheDocument()
     expect(screen.getByText('Kalender „Arbeit“')).toBeInTheDocument()
