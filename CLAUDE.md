@@ -87,6 +87,7 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
   3. Handler in Go implementieren und testen;
   4. Feature-API-Funktion im Frontend über den erzeugten Client schreiben.
 - **Jeder Frontend-API-Aufruf läuft über den erzeugten Client** (`web/src/shared/api/client.ts`). Rohes `fetch` auf `/api/*` ist verboten.
+- **Einzige Ausnahme: der Kamera-Stream** `GET /api/v1/camera/stream`. Er ist ein WebSocket-Proxy (`httputil.ReverseProxy`) und kein Strict-Server-Endpunkt. Er steht im Vertrag (101/404/426/502), ist per `exclude-operation-ids` von der Erzeugung ausgenommen und wird in `api.Register` von Hand registriert, bewusst öffentlich wie das Dashboard. Er leitet nur zur festen Quelle `mirror-camera` weiter, nichts aus der Anfrage des Browsers bestimmt die Quelle. Der Player `web/src/vendor/go2rtc/video-rtc.js` (MIT, unverändert bis auf den Herkunftskopf) öffnet ihn direkt.
 - **Keine Datenbank.**
   - Persistenter Zustand liegt unter `MIRROR_DATA_DIR` (Container: `/data`, ein Docker-Volume).
   - Einstellungen liegen in `settings.json` mit `schemaVersion`.
@@ -96,8 +97,14 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
   - Geheimnisse erscheinen nicht im Log.
   - Einzige bewusste Ausnahme: das Gast-WLAN-Passwort steckt im QR-Code des WLAN-Moduls, denn ihn anzuzeigen ist der Zweck des Moduls. Der öffentliche Endpunkt liefert nur die QR-Matrix, nie das Passwort als Text.
 - **Keine frei konfigurierbaren Befehle.** Der Server führt keine Shell-Befehle aus Einstellungen aus. Monitor an/aus, Drehung und Updates sind feste, im Code benannte Funktionen. Prozesse werden nur mit fester Argumentliste gestartet (`exec.Command(name, args...)`), nie über eine Shell.
-- **Drehung und Monitor-Schaltung gehören dem Kiosk-Agenten.** `kioskd` liest den Sollzustand vom Server (`GET /api/v1/kiosk/state`) und setzt ihn per `wlr-randr` am Compositor. Der `mirror`-Container braucht dafür keine Rechte.
+- **Drehung und Monitor-Schaltung gehören dem Kiosk-Agenten.** `kioskd` liest den Sollzustand vom Server (`GET /api/v1/kiosk/state`, mit `rotation` und `powerOn`) und setzt ihn per `wlr-randr` am Compositor. Der `mirror`-Container braucht dafür keine Rechte.
+  - Die Nachtruhe berechnet der Server (`internal/display`, reine Funktionen mit `now`, Aus-Zeit inklusive, Ein-Zeit exklusive).
+  - `kioskd` schaltet mit `--off`/`--on`, setzt nach `--on` die Drehung neu und bleibt beim zuletzt geschalteten Ausgang, auch wenn er ausgeschaltet als `enabled: false` erscheint.
+  - Das Dashboard rendert bei `powerOn: false` nur eine schwarze Fläche (Rückfall für Monitore, die das Abschalten ignorieren, und keine Arbeit in der Nacht).
 - **Interne Dienste bleiben intern.** go2rtc und andere Hilfsdienste werden nicht ins LAN veröffentlicht. Was der Browser davon braucht, reicht `mirror` gezielt durch.
+  - go2rtcs API hat keine Anmeldung und kann Befehle ausführen (`exec:`-Quellen). Der Server registriert deshalb nur `rtsp://`/`rtsps://`-Adressen unter einem festen Namen.
+  - go2rtcs eigener RTSP-Server ist in `deploy/compose.yaml` abgeschaltet.
+  - Die Stream-Adresse enthält meist Zugangsdaten: Sie ist ein Geheimnis und erscheint in keinem Fehler und keinem Log.
 - **Zeitzone:** `TZ` wird einmal in `deploy/.env` gesetzt (Standard `Europe/Berlin`) und gilt für alle Container. Das Go-Binary bettet `time/tzdata` ein, damit es auch im distroless-Image funktioniert.
 
 ## Module und Anordnung

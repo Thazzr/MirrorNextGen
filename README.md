@@ -2,11 +2,11 @@
 
 Der Nachfolger von SmartMirror2: ein schlanker Smart Mirror für einen **Raspberry Pi 5** mit **Ubuntu 26.04 LTS Server** (ohne Desktop). Alles läuft in Docker. Das Dashboard erscheint im Vollbild auf einem WQHD-Monitor im Hochformat (1440×2560). Die Drehung lässt sich in der App einstellen.
 
-> **Stand: Phase 5 (Kalender, Bring!) abgeschlossen, Phase 6 (Kamera, Nachtruhe) in Arbeit.**
-> - **Verwaltung unter `/admin`:** Anordnung, Anzeige, Wetter, WLAN-QR-Code, Kalender (Kalender, Bereiche, Regeln, Vorschau), Symbole, Bring!-Einkaufsliste und Konto.
-> - **Dashboard:** Es zeigt die Module Uhr, Wetter, Kalender-Bereiche, Schichten, Bring! und WLAN-QR-Code in der eingestellten Anordnung, im Look von SmartMirror2.
-> - **Kiosk-Container:** Er zeigt das Dashboard per Cage und Chromium im Vollbild und dreht es zur Laufzeit. Die Abnahme am Pi steht noch aus (siehe [`deploy/INSTALL.md`](deploy/INSTALL.md)).
-> - **Noch offen:** Kamera, Nachtruhe, Logbuch und Update-Knopf. Der Host-Dienst für den Update-Knopf ist schon da (siehe [Roadmap](#roadmap)).
+> **Stand: Phase 6 (Kamera, Nachtruhe) abgeschlossen, Phase 7 (Logbuch, Update-Knopf) in Arbeit.**
+> - **Verwaltung unter `/admin`:** Anordnung, Anzeige (mit Nachtruhe), Wetter, Kamera, WLAN-QR-Code, Kalender (Kalender, Bereiche, Regeln, Vorschau), Symbole, Bring!-Einkaufsliste und Konto.
+> - **Dashboard:** Es zeigt die Module Uhr, Wetter, Kamera, Kalender-Bereiche, Schichten, Bring! und WLAN-QR-Code in der eingestellten Anordnung, im Look von SmartMirror2.
+> - **Kiosk-Container:** Er zeigt das Dashboard per Cage und Chromium im Vollbild, dreht es zur Laufzeit und schaltet den Monitor zur Nachtruhe aus. Die Abnahme am Pi steht noch aus (siehe [`deploy/INSTALL.md`](deploy/INSTALL.md)).
+> - **Noch offen:** Logbuch und Update-Knopf in der Verwaltung. Der Host-Dienst für den Update-Knopf ist schon da (siehe [Roadmap](#roadmap)).
 
 ## Architektur
 
@@ -15,7 +15,7 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker (docker compose up -d)
 ├─ mirror  Go-Binary: API + eingebettete React-App, :8080, Volume /data
 ├─ kiosk   Debian + Cage + Chromium + kioskd
 │          öffnet http://mirror:8080, setzt Drehung und Monitor an/aus
-└─ camera  go2rtc, nur im internen Docker-Netz           (ab Phase 6)
+└─ camera  go2rtc, nur im internen Docker-Netz; mirror reicht das Video durch
 ```
 
 - **Server (`server/`)**: Go mit der Standardbibliothek (`net/http`, `slog`, `embed`). Das Binary bettet die gebaute React-App ein und liefert sie aus. Unbekannte Client-Routen bekommen `index.html`, unbekannte `/api/`-Pfade einen JSON-404. Gehashte Assets werden ein Jahr gecacht.
@@ -26,8 +26,8 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker (docker compose up -d)
 | Pfad | Inhalt |
 |---|---|
 | `api/` | OpenAPI-Vertrag |
-| `server/` | Go-Modul: `cmd/mirror` (Server), `cmd/kioskd` (Kiosk-Agent), `internal/{api,auth,bring,calendar,config,fsutil,httpserver,icons,kiosk,modules,settings,weather,web,wifi}` |
-| `web/` | React-App (`src/app`, `src/shared`, `src/features/{dashboard,admin,modules}`); je Modul ein Ordner mit Widget und Admin-Seite; die Verwaltung (Mantine) lädt als eigener Chunk |
+| `server/` | Go-Modul: `cmd/mirror` (Server), `cmd/kioskd` (Kiosk-Agent), `internal/{api,auth,bring,calendar,camera,config,display,fsutil,httpserver,icons,kiosk,modules,settings,weather,web,wifi}` |
+| `web/` | React-App (`src/app`, `src/shared`, `src/features/{dashboard,admin,modules}`); je Modul ein Ordner mit Widget und Admin-Seite; die Verwaltung (Mantine) lädt als eigener Chunk; `src/vendor/go2rtc` ist der Player von go2rtc (MIT) |
 | `kiosk/` | Dockerfile des Kiosk-Images (Cage, Chromium, kioskd) |
 | `deploy/` | `compose.yaml`, `.env.example`, `INSTALL.md` (Installation auf dem Pi) und `host/` (Update-Dienst für den Host) |
 | `tools/` | Prüfskript `verify.mjs`, Changelog-Werkzeug `changelog.mjs` |
@@ -65,6 +65,8 @@ Oberfläche mit Hot Reload entwickeln: den Server wie oben starten, dann `npm --
 | `MIRROR_OPENWEATHER_URL` | `https://api.openweathermap.org/` | Basis-URL von OpenWeather (nur für Tests mit einem nachgebauten Server) |
 | `MIRROR_BRING_URL` | `https://api.getbring.com/rest/v2/` | Basis-URL von Bring! (nur für Tests) |
 | `MIRROR_CONTROL_DIR` | – | Gemeinsames Verzeichnis mit dem Host-Update-Dienst (im Container `/control`) |
+| `MIRROR_GO2RTC_URL` | `http://camera:1984/` | API von go2rtc im internen Netz |
+| `TZ` | – | Zeitzone des Spiegels (Nachtruhe, Kalender); Standard in `deploy/.env` ist `Europe/Berlin` |
 
 ### Verwaltung
 
@@ -74,7 +76,7 @@ Die Verwaltung liegt unter `/admin` und funktioniert am Handy wie am Rechner.
 - **Fehlversuche:** Nach 5 falschen Passwörtern in 15 Minuten sperrt der Server weitere Versuche dieser Adresse vorübergehend.
 - **Einstellungen:** Sie liegen in `<MIRROR_DATA_DIR>/settings.json`. Eine unlesbare oder fremde Datei wird als `settings.json.discarded-<Zeit>` beiseitegelegt, und der Server startet mit Standardwerten.
 - **Passwort vergessen:** Server stoppen, `admin.json` im Datenverzeichnis löschen, neu starten und neu einrichten.
-- **Module und Anordnung:** Der Spiegel besteht aus Modulen: Uhr, Wetter, WLAN-QR-Code, je ein Modul pro Kalender-Bereich und Bring!. Die Kamera folgt. Unter „Anordnung“ legst du fest, welches Modul in welcher der fünf Regionen steht: oben links, oben rechts, Mitte, unten links, unten rechts. Was nicht eingeordnet ist, bleibt aus.
+- **Module und Anordnung:** Der Spiegel besteht aus Modulen: Uhr, Wetter, Kamera, WLAN-QR-Code, je ein Modul pro Kalender-Bereich und Bring!. Unter „Anordnung“ legst du fest, welches Modul in welcher der fünf Regionen steht: oben links, oben rechts, Mitte, unten links, unten rechts. Was nicht eingeordnet ist, bleibt aus.
 - **Wetter:** Es braucht einen OpenWeather-API-Key mit dem Abo „One Call API 3.0“ (1.000 Abrufe am Tag sind kostenlos).
 - **Kalender:**
   - Du trägst beliebig viele private iCal-Links ein (Google, iCloud, Outlook) und legst Bereiche an, entweder Terminlisten oder eine Schichtanzeige für den Dienstplan. Neue Bereiche erscheinen oben links.
@@ -83,6 +85,8 @@ Die Verwaltung liegt unter `/admin` und funktioniert am Handy wie am Rechner.
   - Die iCal-Adressen bleiben auf dem Server.
 - **Symbole:** eigene SVG- oder PNG-Dateien bis 256 KB. SVGs werden auf aktive Inhalte geprüft.
 - **Bring!:** Anmeldung mit E-Mail und Passwort deines Bring!-Kontos; die Liste wählst du aus. Am Spiegel erscheinen bis zu 18 Einträge.
+- **Nachtruhe (unter „Anzeige“):** Aus- und Einschaltzeit, auch über Mitternacht, in der Zeitzone aus `TZ`. Der Kiosk schaltet den Monitor per `wlr-randr` aus, das Dashboard zeigt in der Zeit nur Schwarz und arbeitet nicht. Ein Knopf schaltet den Monitor zum Test 10 Sekunden aus.
+- **Kamera:** Eine RTSP- oder RTSPS-Adresse (sie bleibt auf dem Server). Der Dienst `camera` (go2rtc) gibt das Video ohne Umkodierung weiter, der Server reicht es per WebSocket an das Dashboard durch. Helligkeit, Kontrast, Sättigung und Schwarzweiß stellst du in der Verwaltung ein.
 
 ### API ändern
 
@@ -119,7 +123,7 @@ Einzelprüfungen:
 
 ## Deployment
 
-Die CI baut bei jedem Push auf `main`, `claude/**` und bei Tags `v*` das Image `ghcr.io/thazzr/mirrornextgen/mirror` für `linux/arm64` und `linux/amd64`. Beide Images entstehen per Cross-Compile, ohne QEMU.
+Die CI baut bei jedem Push auf `main`, `claude/**` und bei Tags `v*` die Images `ghcr.io/thazzr/mirrornextgen/mirror` (für `linux/arm64` und `linux/amd64`, per Cross-Compile ohne QEMU) und `ghcr.io/thazzr/mirrornextgen/kiosk` (`linux/arm64`, auf einem arm64-Runner). Die Kamera nutzt das fertige Image `alexxit/go2rtc`.
 
 | Tag | Quelle |
 |---|---|
@@ -157,4 +161,4 @@ Regeln, Architekturgrenzen und den Ablauf pro Phase beschreibt [`CLAUDE.md`](CLA
 
 ## Lizenz
 
-MirrorNextGen steht unter der [MIT-Lizenz](LICENSE). Mitgelieferte Fremdbestandteile behalten ihre eigenen Lizenzen: IBM Plex Sans (SIL Open Font License 1.1), Bootstrap Icons, Tabler Icons und Mantine (MIT). Die Lizenzen der npm- und Go-Abhängigkeiten liegen bei den jeweiligen Paketen.
+MirrorNextGen steht unter der [MIT-Lizenz](LICENSE). Mitgelieferte Fremdbestandteile behalten ihre eigenen Lizenzen: IBM Plex Sans (SIL Open Font License 1.1), Bootstrap Icons, Tabler Icons, Mantine, die Meteocons-Wettersymbole und der Player `video-rtc.js` von go2rtc (alle MIT). Die Lizenzen der npm- und Go-Abhängigkeiten liegen bei den jeweiligen Paketen.
