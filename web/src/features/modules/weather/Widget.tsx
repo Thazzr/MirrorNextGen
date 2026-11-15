@@ -4,7 +4,7 @@ import { api, unwrap } from '../../../shared/api/client.ts'
 import type { components } from '../../../shared/api/schema.gen.ts'
 import { useElementWidth } from '../../../shared/useElementWidth.ts'
 import type { WidgetProps } from '../widgets.ts'
-import { buildSmoothPath, chartLayout, chartX, chartXPercent, type ChartPoint } from './chart.ts'
+import { buildSmoothPath, chartLayout, chartX, chartXPercent, temperatureStops, valueRange, type ChartPoint } from './chart.ts'
 import { getMeteocon, type MeteoconVariant } from './meteocon.ts'
 import './weather.css'
 
@@ -110,7 +110,11 @@ function isPast(time: string, now: number) {
 
 // Width used until the container has been measured (and where ResizeObserver is missing): about the widget's width at 1440 px.
 const fallbackChartWidth = 760
-const chartHeight = 265
+const chartHeight = 290
+// Rain columns: 100 % is this tall and they stand on the baseline at the bottom of the chart.
+const rainMaxHeight = 75
+const rainBaseline = 280
+const rainColumnWidth = 28
 
 function HourlySection({ entries, now }: { entries: Hourly[]; now: number }) {
   const [ref, width] = useElementWidth<HTMLElement>(fallbackChartWidth)
@@ -150,13 +154,12 @@ function WeatherChart({ entries, now, width }: { entries: Hourly[]; now: number;
   const clipId = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   if (entries.length < 2) return null
   const values = entries.map((entry) => entry.temperatureC)
-  const low = Math.floor(Math.min(...values) / 5) * 5
-  const high = Math.ceil(Math.max(...values) / 5) * 5 + 5
-  const mid = Math.round((low + high) / 2)
+  const { low, high } = valueRange(values)
   const { left, plotWidth } = chartLayout(width)
   const right = left + plotWidth
-  const yTop = 50
-  const yBottom = 210
+  // The curve lives in the upper part; the lower ~90 px belong to the rain columns and their labels.
+  const yTop = 45
+  const yBottom = 175
   const xAt = (index: number) => chartX(index, entries.length, width)
   const point = (value: number, index: number): ChartPoint => ({ x: xAt(index), y: yBottom - ((value - low) / (high - low || 1)) * (yBottom - yTop) })
   const temperatures = entries.map((entry, index) => point(entry.temperatureC, index))
@@ -169,11 +172,8 @@ function WeatherChart({ entries, now, width }: { entries: Hourly[]; now: number;
   const last = temperatures[temperatures.length - 1]
   // Closed shape below the curve down to the bottom plot line; the gradient fades it out towards that line.
   const areaPath = `${path} L ${last.x},${yBottom} L ${first.x},${yBottom} Z`
-  const scaleLabels = [
-    { value: high, y: yTop },
-    { value: mid, y: 130 },
-    { value: low, y: yBottom },
-  ]
+  const stops = temperatureStops(low, high)
+  const rainHeight = (entry: Hourly) => (Math.max(0, entry.precipitationProbability) * rainMaxHeight) / 100
   const pct = (x: number) => `${(x / width) * 100}%`
   // Text is HTML on top of the SVG: Chromium draws SVG text without the hinting and weight of HTML text.
   return (
@@ -196,17 +196,31 @@ function WeatherChart({ entries, now, width }: { entries: Hourly[]; now: number;
             <stop offset="0" stopColor="#fff" stopOpacity="0.16" />
             <stop offset="1" stopColor="#fff" stopOpacity="0" />
           </linearGradient>
+          {/* Same value-to-y mapping as the curve: the lowest value sits at yBottom, the highest at yTop. */}
+          <linearGradient id={`${clipId}-temp`} gradientUnits="userSpaceOnUse" x1="0" y1={yBottom} x2="0" y2={yTop}>
+            {stops.map((stop) => (
+              <stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
+            ))}
+          </linearGradient>
         </defs>
-        <line x1={left} y1={yBottom} x2={right} y2={yBottom} />
-        <line x1={left} y1="130" x2={right} y2="130" />
-        <line x1={left} y1={yTop} x2={right} y2={yTop} />
+        <line className="mirror-weather__chart-baseline" x1={left} y1={rainBaseline} x2={right} y2={rainBaseline} />
         <g className="mirror-weather__rain-bars">
           {entries.map((entry, index) => {
-            const height = Math.max(0, entry.precipitationProbability * 0.28)
+            const height = rainHeight(entry)
+            const p = entry.precipitationProbability
             return height > 0 ? (
               <g className={isPast(entry.time, now) ? 'mirror-weather__chart-past' : undefined} key={entry.time}>
-                <rect x={xAt(index) - 5} y={244 - height} width="10" height={height} rx="2">
-                  <title>{entry.precipitationProbability}% Regenwahrscheinlichkeit</title>
+                <rect
+                  className="mirror-weather__rain-col"
+                  x={xAt(index) - rainColumnWidth / 2}
+                  y={rainBaseline - height}
+                  width={rainColumnWidth}
+                  height={height}
+                  rx="8"
+                  fill="#5aa9ff"
+                  opacity={Math.min(1, 0.35 + p / 100)}
+                >
+                  <title>{p}% Regenwahrscheinlichkeit</title>
                 </rect>
               </g>
             ) : null
@@ -215,14 +229,14 @@ function WeatherChart({ entries, now, width }: { entries: Hourly[]; now: number;
         {/* The same curve twice, clipped at "now": the past part is dimmed and there is no join to kink. */}
         <g className="mirror-weather__chart-past" clipPath={`url(#${clipId}-past)`}>
           <path className="mirror-weather__chart-area" d={areaPath} fill={`url(#${clipId}-area)`} />
-          <path className="mirror-weather__chart-temp" d={path} />
+          <path className="mirror-weather__chart-temp" d={path} stroke={`url(#${clipId}-temp)`} />
         </g>
         <g clipPath={`url(#${clipId}-future)`}>
           <path className="mirror-weather__chart-area" d={areaPath} fill={`url(#${clipId}-area)`} />
-          <path className="mirror-weather__chart-temp" d={path} />
+          <path className="mirror-weather__chart-temp" d={path} stroke={`url(#${clipId}-temp)`} />
         </g>
-        <line className="mirror-weather__chart-now" x1={currentX} y1="32" x2={currentX} y2="244" />
-        <circle className="mirror-weather__chart-now-marker" cx={currentX} cy="244" r="3" />
+        <line className="mirror-weather__chart-now" x1={currentX} y1="12" x2={currentX} y2={rainBaseline} />
+        <circle className="mirror-weather__chart-now-marker" cx={currentX} cy={rainBaseline} r="3" />
         {temperatures.map((value, index) => (
           <g className={isPast(entries[index].time, now) ? 'mirror-weather__chart-past' : undefined} key={entries[index].time}>
             <circle className="mirror-weather__chart-point" cx={value.x} cy={value.y} r="4.5" stroke="#000" strokeWidth="2" />
@@ -230,18 +244,13 @@ function WeatherChart({ entries, now, width }: { entries: Hourly[]; now: number;
         ))}
       </svg>
       <div className="mirror-weather__chart-labels" aria-hidden="true">
-        {scaleLabels.map((label) => (
-          <span className="mirror-weather__chart-scale" key={label.y} style={{ left: pct(first.x - 12), top: label.y }}>
-            {label.value}°
-          </span>
-        ))}
         {entries.map((entry, index) => {
-          const height = Math.max(0, entry.precipitationProbability * 0.28)
+          const height = rainHeight(entry)
           return height > 0 ? (
             <span
               className={`mirror-weather__chart-rain${isPast(entry.time, now) ? ' mirror-weather__chart-past' : ''}`}
               key={`rain-${entry.time}`}
-              style={{ left: pct(xAt(index)), top: 240 - height }}
+              style={{ left: pct(xAt(index)), top: rainBaseline - height - 4 }}
             >
               {entry.precipitationProbability}%
             </span>

@@ -1,10 +1,9 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { json, mockApi, problem } from '../../../test/mockApi.ts'
 import { layoutOf, weatherData } from '../../../test/dashboardFixtures.ts'
 import { renderWithProviders } from '../../../test/renderWithProviders.tsx'
+import { temperatureStops, valueRange } from './chart.ts'
 
 function setup(weather: unknown | Response, layout = layoutOf({ topRight: ['weather'] })) {
   return mockApi({
@@ -76,7 +75,7 @@ describe('weather widget', () => {
     expect(container.querySelectorAll('.mirror-weather__hour-label--past')).toHaveLength(4)
   })
 
-  it('draws rain bars with their percentage', async () => {
+  it('draws rain columns with their percentage', async () => {
     setup({ configured: true, stale: false, data: weatherData() })
     const { container } = renderWithProviders('/')
     await screen.findByText('17°')
@@ -109,7 +108,7 @@ describe('weather widget', () => {
       const { container } = renderWithProviders('/')
       await screen.findByText('17°')
       const svg = container.querySelector('svg.mirror-weather__chart') as SVGSVGElement
-      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 265'))
+      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 290'))
       expect(svg.hasAttribute('preserveAspectRatio')).toBe(false)
     })
 
@@ -131,7 +130,7 @@ describe('weather widget', () => {
       const { container } = renderWithProviders('/')
       await screen.findByText('17°')
       const svg = container.querySelector('svg.mirror-weather__chart') as SVGSVGElement
-      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 265'))
+      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 290'))
       const pointXs = [...svg.querySelectorAll(':scope > g:not(.mirror-weather__rain-bars) > circle')].map((c) => Number(c.getAttribute('cx')))
       const labelLefts = [...container.querySelectorAll<HTMLElement>('.mirror-weather__hour-labels > div')].map((el) => parseFloat(el.style.left))
       expect(pointXs).toHaveLength(9)
@@ -146,7 +145,7 @@ describe('weather widget', () => {
       const { container } = renderWithProviders('/')
       await screen.findByText('17°')
       const svg = container.querySelector('svg.mirror-weather__chart') as SVGSVGElement
-      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 265'))
+      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 290'))
       expect(svg.querySelectorAll('text')).toHaveLength(0)
       const overlay = container.querySelector('.mirror-weather__chart-labels') as HTMLElement
       expect(overlay.tagName).toBe('DIV')
@@ -156,36 +155,85 @@ describe('weather widget', () => {
       values.forEach((el, i) => expect(parseFloat(el.style.left)).toBeCloseTo((pointXs[i] / 640) * 100, 3))
     })
 
-    it('shows the three scale labels and the rain percentage as HTML in the overlay', async () => {
-      setup({ configured: true, stale: false, data: weatherData() })
-      const { container } = renderWithProviders('/')
-      await screen.findByText('17°')
-      const overlay = container.querySelector('.mirror-weather__chart-labels') as HTMLElement
-      const scale = [...overlay.querySelectorAll('.mirror-weather__chart-scale')].map((el) => el.textContent)
-      expect(scale).toHaveLength(3)
-      scale.forEach((text) => expect(text).toMatch(/^-?\d+°$/))
-      expect([...overlay.querySelectorAll('.mirror-weather__chart-rain')].map((el) => el.textContent)).toEqual(['40%'])
-    })
-
-    it('right-aligns the scale labels in the left gutter, ending 12 px before the first point', async () => {
-      stubObserver(640)
+    it('has no grid lines and no scale labels, only the baseline and the "now" line', async () => {
       setup({ configured: true, stale: false, data: weatherData() })
       const { container } = renderWithProviders('/')
       await screen.findByText('17°')
       const svg = container.querySelector('svg.mirror-weather__chart') as SVGSVGElement
-      await waitFor(() => expect(svg.getAttribute('viewBox')).toBe('0 0 640 265'))
-      const firstX = Number(svg.querySelector(':scope > g:not(.mirror-weather__rain-bars) > circle')?.getAttribute('cx'))
-      const labels = [...container.querySelectorAll<HTMLElement>('.mirror-weather__chart-scale')]
-      expect(labels).toHaveLength(3)
-      // The CSS rule translates by -100%, so left is the right edge of the label.
-      labels.forEach((el) => expect(parseFloat(el.style.left)).toBeCloseTo(((firstX - 12) / 640) * 100, 3))
-      // Vertical anchor: top is the grid line's y, and the CSS lifts the label so its bottom edge sits 4 px above it.
-      const lineYs = [...svg.querySelectorAll(':scope > line:not(.mirror-weather__chart-now)')].map((l) => Number(l.getAttribute('y1')))
-      expect(lineYs).toHaveLength(3)
-      expect(labels.map((el) => parseFloat(el.style.top)).sort((a, b) => a - b)).toEqual([...lineYs].sort((a, b) => a - b))
-      const css = readFileSync(resolve(process.cwd(), 'src/features/modules/weather/weather.css'), 'utf8')
-      const rule = /\.mirror-weather__chart-scale\s*\{[^}]*\}/.exec(css)?.[0] ?? ''
-      expect(rule).toContain('transform: translate(-100%, calc(-100% - 4px))')
+      const lines = [...svg.querySelectorAll('line')]
+      expect(lines.map((l) => l.getAttribute('class')).sort()).toEqual(['mirror-weather__chart-baseline', 'mirror-weather__chart-now'])
+      expect(container.querySelectorAll('.mirror-weather__chart-scale')).toHaveLength(0)
+    })
+
+    it('colours the line with a vertical gradient whose stops follow the fixed thresholds of the data', async () => {
+      stubObserver(640)
+      const data = weatherData()
+      data.hourly.forEach((h, i) => (h.temperatureC = [-2, 4, 12, 25, 18, 9, 1, -1, 3][i]))
+      setup({ configured: true, stale: false, data })
+      const { container } = renderWithProviders('/')
+      await screen.findByText('17°')
+      const paths = [...container.querySelectorAll('path.mirror-weather__chart-temp')]
+      expect(paths).toHaveLength(2)
+      const expected = temperatureStops(-2, 25)
+      expect(expected.length).toBeGreaterThan(2)
+      for (const path of paths) {
+        const id = /^url\(#(.+)\)$/.exec(path.getAttribute('stroke') ?? '')?.[1]
+        expect(id).toBeTruthy()
+        const gradient = container.querySelector(`linearGradient[id="${id}"]`) as Element
+        expect(gradient.getAttribute('gradientUnits')).toBe('userSpaceOnUse')
+        const stops = [...gradient.querySelectorAll('stop')].map((st) => ({ offset: Number(st.getAttribute('offset')), color: st.getAttribute('stop-color') }))
+        expect(stops).toEqual(expected)
+        // Lowest value at the gradient start, highest at its end: same mapping as the points.
+        const ys = [...container.querySelectorAll('circle.mirror-weather__chart-point')].map((c) => Number(c.getAttribute('cy')))
+        expect(Number(gradient.getAttribute('y1'))).toBeCloseTo(Math.max(...ys), 6)
+        expect(Number(gradient.getAttribute('y2'))).toBeCloseTo(Math.min(...ys), 6)
+      }
+    })
+
+    it('does not blow a flat day up to the full plot height: the padded range drives points and gradient', async () => {
+      stubObserver(640)
+      const data = weatherData()
+      data.hourly.forEach((h, i) => (h.temperatureC = [1, 1, 2, 1, 1, 2, 1, 1, 1][i]))
+      setup({ configured: true, stale: false, data })
+      const { container } = renderWithProviders('/')
+      await screen.findByText('17°')
+      const ys = [...container.querySelectorAll('circle.mirror-weather__chart-point')].map((c) => Number(c.getAttribute('cy')))
+      const plotHeight = 175 - 45
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(plotHeight / 10 + 1e-6)
+      const { low, high } = valueRange([1, 2])
+      const expected = temperatureStops(low, high)
+      for (const path of container.querySelectorAll('path.mirror-weather__chart-temp')) {
+        const id = /^url\(#(.+)\)$/.exec(path.getAttribute('stroke') ?? '')?.[1]
+        const gradient = container.querySelector(`linearGradient[id="${id}"]`) as Element
+        const stops = [...gradient.querySelectorAll('stop')].map((st) => ({ offset: Number(st.getAttribute('offset')), color: st.getAttribute('stop-color') }))
+        expect(stops).toEqual(expected)
+        // Gradient spans the padded range: its ends are the plot's bottom and top, the points sit in between.
+        expect(Number(gradient.getAttribute('y1'))).toBe(175)
+        expect(Number(gradient.getAttribute('y2'))).toBe(45)
+      }
+    })
+
+    it('draws a rain column only for p > 0: p x 0.75 high, labelled "p%", dimmed when past', async () => {
+      const data = weatherData()
+      data.hourly[6].precipitationProbability = 60 // 18:00, in the future
+      setup({ configured: true, stale: false, data })
+      const { container } = renderWithProviders('/')
+      await screen.findByText('17°')
+      const columns = [...container.querySelectorAll<SVGRectElement>('rect.mirror-weather__rain-col')]
+      expect(columns).toHaveLength(2)
+      const [past, future] = columns // 09:00 with 40 %, 18:00 with 60 %
+      expect(Number(past.getAttribute('height'))).toBeCloseTo(30, 6)
+      expect(Number(future.getAttribute('height'))).toBeCloseTo(45, 6)
+      expect(future.getAttribute('width')).toBe('28')
+      expect(future.getAttribute('rx')).toBe('8')
+      expect(future.getAttribute('fill')).toBe('#5aa9ff')
+      expect(Number(future.getAttribute('opacity'))).toBeCloseTo(0.95, 6)
+      expect(past.parentElement?.classList.contains('mirror-weather__chart-past')).toBe(true)
+      expect(future.parentElement?.classList.contains('mirror-weather__chart-past')).toBe(false)
+      const labels = [...container.querySelectorAll('.mirror-weather__chart-rain')]
+      expect(labels.map((el) => el.textContent)).toEqual(['40%', '60%'])
+      expect(labels[0].classList.contains('mirror-weather__chart-past')).toBe(true)
+      expect(labels[1].classList.contains('mirror-weather__chart-past')).toBe(false)
     })
 
     it('draws a gradient area that closes on the bottom plot line, below the line, in both clipped halves', async () => {
@@ -194,7 +242,8 @@ describe('weather widget', () => {
       await screen.findByText('17°')
       const areas = [...container.querySelectorAll('path.mirror-weather__chart-area')]
       expect(areas).toHaveLength(2)
-      const bottom = container.querySelector('svg.mirror-weather__chart > line')?.getAttribute('y1')
+      // The plot's bottom line, not the lowest point: a flat day's values are padded and stay above it.
+      const bottom = 175
       for (const area of areas) {
         const d = area.getAttribute('d') as string
         expect(d).toMatch(new RegExp(`L [\\d.]+,${bottom} L [\\d.]+,${bottom} Z$`))
