@@ -166,6 +166,7 @@ Nutzerentscheidung 2026-11-14: Der Spiegel besteht aus **internen Modulen**, und
   - Layout und Stil folgen SmartMirror2 (`SmartMirror2/smartmirror2.client/src/features/dashboard/`): schwarzer Hintergrund, weiße Schrift, IBM Plex Sans (mitgeliefert über `@fontsource`).
   - Sekundärtexte sind hell genug für das teildurchlässige Spiegelglas.
   - Ein ausgefallener Datenbereich zeigt seine Fehlermeldung an Ort und Stelle.
+  - **Temperaturdiagramm** (Nutzerentscheidung 2026-11-15): live gezeichnet in echten Pixeln (SVG für Formen, HTML für alle Beschriftungen), ohne Gitter und Skala. Die Kurve ist nach festen Schwellen eingefärbt (≤0 °C `#7fc8ff`, 10 °C weiß, 20 °C `#ffb35c`, ≥28 °C `#ff6b5c`, dazwischen fließend), die Wertespanne beträgt mindestens 10 °C. Regen erscheint als abgerundete blaue Säulen mit Prozentzahl, bei 0 % gar nicht. Die Vergangenheit ist abgedunkelt.
 - **Das Admin-UI ist ein vollständiger Neuentwurf** (Nutzerentscheidung 2026-11-14): Aus dem Admin-Bereich von SmartMirror2 werden weder Aufbau noch Gestaltung übernommen, nur der fachliche Umfang der Einstellungen. Festgelegt im Feinplan von Phase 2 (Nutzerentscheidung 2026-11-14):
   - **Bibliothek:** Mantine (`@mantine/core`, `hooks`, `form`, `notifications`), Symbole aus `@tabler/icons-react`. Bootstrap-Icons bleiben dem Dashboard vorbehalten.
   - **Immer dunkel** (`forceColorScheme="dark"`), Schrift IBM Plex Sans wie am Spiegel, Akzentfarbe Gelb (`primaryColor: 'yellow'`, `autoContrast: true`, angelehnt an den Spiegel-Akzent `#f6b73c`).
