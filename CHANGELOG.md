@@ -24,6 +24,7 @@ automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages gener
 - **icons**: Hochgeladene SVG-Symbole nehmen die Textfarbe an
 - **calendar**: Schichtzeiten immer mit Minuten
 - **weather**: Temperaturdiagramm so scharf wie der übrige Text
+- **bring**: Kacheln schneiden Symbole und Namen nicht mehr ab
 
 ## [0.9.1] - 2026-11-14
 
