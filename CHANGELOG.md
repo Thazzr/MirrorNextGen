@@ -9,10 +9,15 @@ automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages gener
 
 ## [Unreleased]
 
+### Added
+
+- **weather**: Temperaturkurve nach Temperatur eingefärbt, Regen als Säulen
+
 ### Changed
 
 - Tags nur noch für festgehaltene Versionen
 - Schichtzeiten mit Minuten in den Projektregeln
+- Temperaturdiagramm in den Projektregeln
 
 ### Fixed
 
