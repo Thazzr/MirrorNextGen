@@ -165,57 +165,99 @@ function WeatherChart({ entries, now, width }: { entries: Hourly[]; now: number;
   const lastTime = new Date(entries[entries.length - 1].time).getTime()
   const currentProgress = Math.max(0, Math.min(1, (now - firstTime) / (lastTime - firstTime || 1)))
   const currentX = left + plotWidth * currentProgress
+  const first = temperatures[0]
+  const last = temperatures[temperatures.length - 1]
+  // Closed shape below the curve down to the bottom plot line; the gradient fades it out towards that line.
+  const areaPath = `${path} L ${last.x},${yBottom} L ${first.x},${yBottom} Z`
+  const scaleLabels = [
+    { value: high, y: yTop },
+    { value: mid, y: 130 },
+    { value: low, y: yBottom },
+  ]
+  const pct = (x: number) => `${(x / width) * 100}%`
+  // Text is HTML on top of the SVG: Chromium draws SVG text without the hinting and weight of HTML text.
   return (
-    <svg
-      className="mirror-weather__chart"
-      viewBox={`0 0 ${width} ${chartHeight}`}
-      width={width}
-      height={chartHeight}
-      aria-label="Temperatur- und Niederschlagsverlauf"
-    >
-      <defs>
-        <clipPath id={`${clipId}-past`}>
-          <rect x="-20" y="0" width={currentX + 20} height={chartHeight} />
-        </clipPath>
-        <clipPath id={`${clipId}-future`}>
-          <rect x={currentX} y="0" width={width - currentX + 20} height={chartHeight} />
-        </clipPath>
-      </defs>
-      <line x1={left} y1={yBottom} x2={right} y2={yBottom} />
-      <line x1={left} y1="130" x2={right} y2="130" />
-      <line x1={left} y1={yTop} x2={right} y2={yTop} />
-      <text className="mirror-weather__chart-scale" x="0" y="217">{low}°</text>
-      <text className="mirror-weather__chart-scale" x="0" y="137">{mid}°</text>
-      <text className="mirror-weather__chart-scale" x="0" y="57">{high}°</text>
-      <g className="mirror-weather__rain-bars">
+    <div className="mirror-weather__chart-box" style={{ height: chartHeight }}>
+      <svg
+        className="mirror-weather__chart"
+        viewBox={`0 0 ${width} ${chartHeight}`}
+        width={width}
+        height={chartHeight}
+        aria-label="Temperatur- und Niederschlagsverlauf"
+      >
+        <defs>
+          <clipPath id={`${clipId}-past`}>
+            <rect x="-20" y="0" width={currentX + 20} height={chartHeight} />
+          </clipPath>
+          <clipPath id={`${clipId}-future`}>
+            <rect x={currentX} y="0" width={width - currentX + 20} height={chartHeight} />
+          </clipPath>
+          <linearGradient id={`${clipId}-area`} gradientUnits="userSpaceOnUse" x1="0" y1={yTop} x2="0" y2={yBottom}>
+            <stop offset="0" stopColor="#fff" stopOpacity="0.16" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1={left} y1={yBottom} x2={right} y2={yBottom} />
+        <line x1={left} y1="130" x2={right} y2="130" />
+        <line x1={left} y1={yTop} x2={right} y2={yTop} />
+        <g className="mirror-weather__rain-bars">
+          {entries.map((entry, index) => {
+            const height = Math.max(0, entry.precipitationProbability * 0.28)
+            return height > 0 ? (
+              <g className={isPast(entry.time, now) ? 'mirror-weather__chart-past' : undefined} key={entry.time}>
+                <rect x={xAt(index) - 5} y={244 - height} width="10" height={height} rx="2">
+                  <title>{entry.precipitationProbability}% Regenwahrscheinlichkeit</title>
+                </rect>
+              </g>
+            ) : null
+          })}
+        </g>
+        {/* The same curve twice, clipped at "now": the past part is dimmed and there is no join to kink. */}
+        <g className="mirror-weather__chart-past" clipPath={`url(#${clipId}-past)`}>
+          <path className="mirror-weather__chart-area" d={areaPath} fill={`url(#${clipId}-area)`} />
+          <path className="mirror-weather__chart-temp" d={path} />
+        </g>
+        <g clipPath={`url(#${clipId}-future)`}>
+          <path className="mirror-weather__chart-area" d={areaPath} fill={`url(#${clipId}-area)`} />
+          <path className="mirror-weather__chart-temp" d={path} />
+        </g>
+        <line className="mirror-weather__chart-now" x1={currentX} y1="32" x2={currentX} y2="244" />
+        <circle className="mirror-weather__chart-now-marker" cx={currentX} cy="244" r="3" />
+        {temperatures.map((value, index) => (
+          <g className={isPast(entries[index].time, now) ? 'mirror-weather__chart-past' : undefined} key={entries[index].time}>
+            <circle className="mirror-weather__chart-point" cx={value.x} cy={value.y} r="4.5" stroke="#000" strokeWidth="2" />
+          </g>
+        ))}
+      </svg>
+      <div className="mirror-weather__chart-labels" aria-hidden="true">
+        {scaleLabels.map((label) => (
+          <span className="mirror-weather__chart-scale" key={label.y} style={{ left: pct(first.x - 12), top: label.y }}>
+            {label.value}°
+          </span>
+        ))}
         {entries.map((entry, index) => {
           const height = Math.max(0, entry.precipitationProbability * 0.28)
           return height > 0 ? (
-            <g className={isPast(entry.time, now) ? 'mirror-weather__chart-past' : undefined} key={entry.time}>
-              <rect x={xAt(index) - 5} y={244 - height} width="10" height={height} rx="2">
-                <title>{entry.precipitationProbability}% Regenwahrscheinlichkeit</title>
-              </rect>
-              <text x={xAt(index)} y={240 - height}>{entry.precipitationProbability}%</text>
-            </g>
+            <span
+              className={`mirror-weather__chart-rain${isPast(entry.time, now) ? ' mirror-weather__chart-past' : ''}`}
+              key={`rain-${entry.time}`}
+              style={{ left: pct(xAt(index)), top: 240 - height }}
+            >
+              {entry.precipitationProbability}%
+            </span>
           ) : null
         })}
-      </g>
-      {/* The same curve twice, clipped at "now": the past part is dimmed and there is no join to kink. */}
-      <g className="mirror-weather__chart-past" clipPath={`url(#${clipId}-past)`}>
-        <path className="mirror-weather__chart-temp" d={path} />
-      </g>
-      <g clipPath={`url(#${clipId}-future)`}>
-        <path className="mirror-weather__chart-temp" d={path} />
-      </g>
-      <line className="mirror-weather__chart-now" x1={currentX} y1="32" x2={currentX} y2="244" />
-      <circle className="mirror-weather__chart-now-marker" cx={currentX} cy="244" r="3" />
-      {temperatures.map((value, index) => (
-        <g className={isPast(entries[index].time, now) ? 'mirror-weather__chart-past' : undefined} key={entries[index].time}>
-          <circle cx={value.x} cy={value.y} r="4" />
-          <text className="mirror-weather__chart-value" x={value.x} y={value.y - 11}>{entries[index].temperatureC}°</text>
-        </g>
-      ))}
-    </svg>
+        {temperatures.map((value, index) => (
+          <span
+            className={`mirror-weather__chart-value${isPast(entries[index].time, now) ? ' mirror-weather__chart-past' : ''}`}
+            key={`value-${entries[index].time}`}
+            style={{ left: pct(value.x), top: value.y - 9 }}
+          >
+            {entries[index].temperatureC}°
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 

@@ -15,15 +15,19 @@
 .mirror-weather__hourly { margin-top: 3.5rem; text-align: left; width: 100%; }
 .mirror-weather__forecast h2 { color: #fff; font-size: clamp(1.35rem,1.7vw,1.8rem); font-weight: 500; letter-spacing: .08rem; margin: 0 0 1.15rem; text-transform: uppercase; }
 
-.mirror-weather__chart { display: block; height: 265px; margin-top: .9rem; overflow: visible; width: 100%; }
+.mirror-weather__chart-box { margin-top: .9rem; position: relative; width: 100%; }
+.mirror-weather__chart { display: block; height: 265px; overflow: visible; shape-rendering: geometricPrecision; width: 100%; }
 .mirror-weather__chart line { stroke: rgba(255,255,255,.15); stroke-dasharray: 3 6; stroke-width: 1; }
 .mirror-weather__chart-now { stroke: rgba(255,255,255,.8) !important; stroke-dasharray: 3 5 !important; stroke-width: 1.5 !important; }
-.mirror-weather__chart-temp { fill: none; stroke: #fff; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
+.mirror-weather__chart-temp { fill: none; shape-rendering: geometricPrecision; stroke: #fff; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+.mirror-weather__chart-area { stroke: none; }
 .mirror-weather__chart circle { fill: #fff; }
-.mirror-weather__chart-scale { fill: var(--mirror-muted); font-size: 27px; text-anchor: start; }
-.mirror-weather__chart-value { fill: #fff; font-size: 27px; text-anchor: middle; }
+.mirror-weather__chart-labels { inset: 0; pointer-events: none; position: absolute; }
+.mirror-weather__chart-labels > span { font-size: 27px; line-height: 1; position: absolute; white-space: nowrap; }
+.mirror-weather__chart-labels .mirror-weather__chart-scale { color: var(--mirror-muted); font-weight: 500; transform: translate(-100%, calc(-100% - 4px)); }
+.mirror-weather__chart-labels .mirror-weather__chart-value { color: #fff; font-weight: 600; transform: translate(-50%, -100%); }
+.mirror-weather__chart-labels .mirror-weather__chart-rain { color: rgba(255,255,255,.8); font-size: 22px; font-weight: 500; transform: translate(-50%, -100%); }
 .mirror-weather__rain-bars rect { fill: rgba(255,255,255,.42); }
-.mirror-weather__rain-bars text { fill: rgba(255,255,255,.8); font-size: 24px; text-anchor: middle; }
 .mirror-weather__chart-past { opacity: .86; }
 .mirror-weather__chart-now-marker { fill: #fff; }
 
