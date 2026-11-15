@@ -84,6 +84,70 @@ describe('bring widget', () => {
     expect(container.querySelectorAll('.mirror-bring__fallback')).toHaveLength(1)
   })
 
+  it('shows an emoji-only name once, as the symbol, without a name below', async () => {
+    setup(state([{ name: '🥛', iconUrl: '' }]))
+    const { container } = renderWithProviders('/')
+    await waitFor(() => expect(container.querySelector('.mirror-bring__emoji')).not.toBeNull())
+    expect(container.querySelectorAll('.mirror-bring__item')).toHaveLength(1)
+    expect(screen.getAllByText('🥛')).toHaveLength(1)
+    expect(container.querySelector('.mirror-bring__name')).toBeNull()
+  })
+
+  it('keeps the specification of an emoji-only name', async () => {
+    setup(state([{ name: '🥛', iconUrl: '', specification: '2 Liter' }]))
+    const { container } = renderWithProviders('/')
+    await screen.findByText('2 Liter')
+    expect(container.querySelector('.mirror-bring__name')).toBeNull()
+  })
+
+  it('shows the emoji as the symbol, without a name, when its picture fails to load', async () => {
+    setup(state([{ name: '🥛', iconUrl: 'https://example.test/milk.png' }]))
+    const { container } = renderWithProviders('/')
+    const img = await waitFor(() => {
+      const found = container.querySelector('img')
+      expect(found).not.toBeNull()
+      return found!
+    })
+    fireEvent.error(img)
+    await waitFor(() => expect(container.querySelector('.mirror-bring__emoji')).toHaveTextContent('🥛'))
+    expect(screen.getAllByText('🥛')).toHaveLength(1)
+    expect(container.querySelector('.mirror-bring__name')).toBeNull()
+  })
+
+  it('shows picture plus the emoji as name when the picture loads', async () => {
+    setup(state([{ name: '🥛', iconUrl: 'https://example.test/milk.png' }]))
+    const { container } = renderWithProviders('/')
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull())
+    expect(container.querySelector('.mirror-bring__name')).toHaveTextContent('🥛')
+    expect(container.querySelector('.mirror-bring__emoji')).toBeNull()
+  })
+
+  it('fits a name whose word is wider than the tile and leaves a short one alone', async () => {
+    const realComputed = window.getComputedStyle.bind(window)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100)
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      if (!this.classList.contains('mirror-bring__name')) return 0
+      const size = parseFloat(this.style.fontSize) || 16
+      return Math.max(...(this.textContent ?? '').split(' ').map((w) => w.length)) * size * 0.5
+    })
+    // Only the name gets the stub; everything else keeps the real computed style.
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) =>
+      el instanceof HTMLElement && el.classList.contains('mirror-bring__name')
+        ? ({ fontSize: '16px', lineHeight: '19.2px' } as CSSStyleDeclaration)
+        : realComputed(el, pseudo),
+    )
+    try {
+      setup(state([item('Fünfzehnzeichen'), item('Ei')]))
+      renderWithProviders('/')
+      const long = await screen.findByText('Fünfzehnzeichen')
+      const short = await screen.findByText('Ei')
+      expect(parseFloat(long.style.fontSize)).toBeLessThan(16)
+      expect(short.style.fontSize).toBe('')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
   it('renders nothing when not configured', async () => {
     const api = setup({ configured: false, stale: false, items: [] })
     renderWithProviders('/')

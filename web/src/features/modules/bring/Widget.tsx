@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { BringItem } from './api.ts'
 import { dashboardBringQueryKey, fetchDashboardBring } from './api.ts'
+import { FitName } from './FitName.tsx'
 import './bring.css'
 
 export const columns = 6
@@ -13,14 +14,25 @@ function isEmojiOnly(value: string) {
   return /^\p{Extended_Pictographic}️?$/u.test(value.trim())
 }
 
-function BringIcon({ item }: { item: BringItem }) {
+/** One tile. The emoji is shown as the symbol when no picture is, and then needs no second appearance as the name. */
+function BringTile({ item }: { item: BringItem }) {
   const [failed, setFailed] = useState(false)
-  if (item.iconUrl && !failed) {
-    return <img className="mirror-bring__icon" src={item.iconUrl} alt="" onError={() => setFailed(true)} />
-  }
   const name = item.name.trim()
-  if (isEmojiOnly(name)) return <span className="mirror-bring__emoji">{name}</span>
-  return <span className="mirror-bring__fallback">{Array.from(name)[0]?.toLocaleUpperCase('de-DE')}</span>
+  const hasPicture = Boolean(item.iconUrl) && !failed
+  const emojiSymbol = !hasPicture && isEmojiOnly(name)
+  let icon: ReactNode
+  if (hasPicture) icon = <img className="mirror-bring__icon" src={item.iconUrl} alt="" onError={() => setFailed(true)} />
+  else if (emojiSymbol) icon = <span className="mirror-bring__emoji">{name}</span>
+  else icon = <span className="mirror-bring__fallback">{Array.from(name)[0]?.toLocaleUpperCase('de-DE')}</span>
+  return (
+    <li className="mirror-bring__item">
+      <div className="mirror-bring__icon-slot">{icon}</div>
+      <div className="mirror-bring__label">
+        {!emojiSymbol && <FitName name={item.name} />}
+        {item.specification && <span className="mirror-bring__specification">{item.specification}</span>}
+      </div>
+    </li>
+  )
 }
 
 export function BringWidget() {
@@ -55,15 +67,7 @@ export function BringWidget() {
         {rows.map((row, rowIndex) => (
           <ul className="mirror-bring__list" key={rowIndex}>
             {row.map((item) => (
-              <li key={`${item.name}\u001f${item.specification ?? ''}`} className="mirror-bring__item">
-                <div className="mirror-bring__icon-slot">
-                  <BringIcon item={item} />
-                </div>
-                <div className="mirror-bring__label">
-                  <span className="mirror-bring__name">{item.name}</span>
-                  {item.specification && <span className="mirror-bring__specification">{item.specification}</span>}
-                </div>
-              </li>
+              <BringTile key={`${item.name}\u001f${item.specification ?? ''}`} item={item} />
             ))}
           </ul>
         ))}
