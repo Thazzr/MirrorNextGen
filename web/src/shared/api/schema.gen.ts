@@ -1213,7 +1213,7 @@ export interface components {
             dayLabel: string;
             /** @description Shift name, the event title when no shift matches, or `frei`. */
             title: string;
-            /** @description For example `06–14` or `06:30–19:00`; absent when unknown. */
+            /** @description For example `06:00–14:00` or `06:30–19:00`; absent when unknown. */
             timeRange?: string;
             icon: components["schemas"]["IconRef"];
             free: boolean;

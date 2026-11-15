@@ -206,7 +206,7 @@ describe('calendar widget (shifts)', () => {
     type: 'shifts',
     days: [
       { date: '2026-11-14', dayLabel: 'Heute', title: 'Frühdienst', timeRange: '06:30–19:00', icon: { kind: 'bootstrap', name: 'sunrise' }, free: false, ongoing: true },
-      { date: '2026-11-16', dayLabel: 'Montag', title: 'Spätdienst', timeRange: '14–22', icon: none, free: false, ongoing: false },
+      { date: '2026-11-16', dayLabel: 'Montag', title: 'Spätdienst', timeRange: '14:00–22:00', icon: none, free: false, ongoing: false },
     ],
     ...parts,
   })
@@ -220,7 +220,7 @@ describe('calendar widget (shifts)', () => {
     expect(rows[0].querySelector('.mirror-agenda__title')).toHaveTextContent('Frühdienst')
     expect(rows[0].querySelector('.mirror-agenda__time .mirror-agenda__relative')).toHaveTextContent('Heute 06:30–19:00')
     expect(rows[0].querySelector('.mirror-agenda__symbol i')).toHaveClass('bi-sunrise')
-    expect(rows[1].querySelector('.mirror-agenda__relative')).toHaveTextContent('Montag 14–22')
+    expect(rows[1].querySelector('.mirror-agenda__relative')).toHaveTextContent('Montag 14:00–22:00')
     expect(container.querySelector('.mirror-shifts')).toBeNull()
   })
 

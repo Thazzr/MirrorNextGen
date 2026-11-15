@@ -40,7 +40,7 @@ func TestBuildShifts(t *testing.T) {
 			occs:   []SourcedOccurrence{mk("F", at(10, 6, 0), at(10, 14, 0), false)},
 			shifts: testShifts, days: 2,
 			want: []ShiftDay{
-				{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06–14", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}},
+				{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06:00–14:00", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}},
 				{Date: "2026-03-11", DayLabel: "Morgen", Title: "frei", Free: true},
 			},
 		},
@@ -49,7 +49,7 @@ func TestBuildShifts(t *testing.T) {
 			occs:   []SourcedOccurrence{mk("f", at(10, 6, 0), at(10, 14, 0), false), mk("Frei", at(11, 8, 0), at(11, 9, 0), false)},
 			shifts: testShifts, days: 2,
 			want: []ShiftDay{
-				{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06–14", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}},
+				{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06:00–14:00", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}},
 				{Date: "2026-03-11", DayLabel: "Morgen", Title: "Frei", Icon: def},
 			},
 		},
@@ -64,8 +64,8 @@ func TestBuildShifts(t *testing.T) {
 			occs:   []SourcedOccurrence{mk("Dienst Nachtbereitschaft", at(10, 22, 0), at(11, 6, 0), false)},
 			shifts: testShifts, days: 2,
 			want: []ShiftDay{
-				{Date: "2026-03-10", DayLabel: "Heute", Title: "Nachtdienst", TimeRange: "22–06", Icon: def},
-				{Date: "2026-03-11", DayLabel: "Morgen", Title: "Nachtdienst", TimeRange: "22–06", Icon: def},
+				{Date: "2026-03-10", DayLabel: "Heute", Title: "Nachtdienst", TimeRange: "22:00–06:00", Icon: def},
+				{Date: "2026-03-11", DayLabel: "Morgen", Title: "Nachtdienst", TimeRange: "22:00–06:00", Icon: def},
 			},
 		},
 		{
@@ -84,7 +84,7 @@ func TestBuildShifts(t *testing.T) {
 			name:   "all-day shift with definition times uses them",
 			occs:   []SourcedOccurrence{mk("F", at(10, 0, 0), at(11, 0, 0), true)},
 			shifts: testShifts, days: 1,
-			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06–14", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}}},
+			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06:00–14:00", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}}},
 		},
 		{
 			name:   "multi-day all-day shift shows on every day it covers",
@@ -119,7 +119,7 @@ func TestBuildShifts(t *testing.T) {
 				{ID: "r1", MatchMode: MatchEquals, Text: "Dienst A", Action: ActionRename, RenameTo: "F"},
 			},
 			shifts: testShifts, days: 1,
-			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06–14", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}}},
+			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06:00–14:00", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}}},
 		},
 		{
 			name:   "hide rule removes the event, day becomes free",
@@ -136,7 +136,7 @@ func TestBuildShifts(t *testing.T) {
 				mk("Zahnarzt", at(10, 5, 0), at(10, 5, 30), false),
 			},
 			shifts: testShifts, days: 1,
-			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06–14", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}}},
+			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "Frühdienst", TimeRange: "06:00–14:00", Icon: IconRef{Kind: IconBootstrap, Name: "sunrise"}}},
 		},
 		{
 			name: "definitions are tried in order",
@@ -146,7 +146,7 @@ func TestBuildShifts(t *testing.T) {
 				{ID: "b", Match: "nachtfrüh", MatchMode: MatchEquals, Label: "B"},
 			},
 			days: 1,
-			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "A", TimeRange: "04–06", Icon: def}},
+			want: []ShiftDay{{Date: "2026-03-10", DayLabel: "Heute", Title: "A", TimeRange: "04:00–06:00", Icon: def}},
 		},
 		{
 			name:   "definition with an empty keyword never matches",
@@ -262,7 +262,7 @@ func TestBuildShiftsWorkDays(t *testing.T) {
 		if want := []string{"2026-10-27", "2026-10-29", "2026-10-30"}; !reflect.DeepEqual(dates(got), want) {
 			t.Fatalf("dates %v, want %v", dates(got), want)
 		}
-		if got[0].DayLabel != "Dienstag" || got[0].Title != "Frühdienst" || got[0].TimeRange != "06–14" || got[0].Free {
+		if got[0].DayLabel != "Dienstag" || got[0].Title != "Frühdienst" || got[0].TimeRange != "06:00–14:00" || got[0].Free {
 			t.Errorf("row 0 = %+v", got[0])
 		}
 		if got[1].DayLabel != "Donnerstag" || got[1].TimeRange != "14:00–22:30" {
@@ -340,11 +340,24 @@ func TestBuildShiftsWorkDays(t *testing.T) {
 	})
 }
 
-func TestFormatRangeHasNoSuffix(t *testing.T) {
-	if got := formatRange(6, 0, 14, 0); got != "06–14" {
-		t.Errorf("got %q", got)
+func TestFormatRange(t *testing.T) {
+	tests := []struct {
+		name           string
+		sh, sm, eh, em int
+		want           string
+	}{
+		{"full hours", 11, 0, 19, 0, "11:00–19:00"},
+		{"early full hours", 6, 0, 14, 0, "06:00–14:00"},
+		{"minutes", 6, 30, 19, 0, "06:30–19:00"},
+		{"minutes at end", 6, 0, 14, 15, "06:00–14:15"},
+		{"overnight", 18, 30, 7, 0, "18:30–07:00"},
+		{"overnight full hours", 22, 0, 6, 0, "22:00–06:00"},
 	}
-	if got := formatRange(6, 30, 19, 0); got != "06:30–19:00" {
-		t.Errorf("got %q", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatRange(tt.sh, tt.sm, tt.eh, tt.em); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

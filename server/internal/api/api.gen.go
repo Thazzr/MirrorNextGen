@@ -1017,7 +1017,7 @@ type ShiftDay struct {
 	// Ongoing The shift is running now (all-day: today).
 	Ongoing bool `json:"ongoing"`
 
-	// TimeRange For example `06–14` or `06:30–19:00`; absent when unknown.
+	// TimeRange For example `06:00–14:00` or `06:30–19:00`; absent when unknown.
 	TimeRange *string `json:"timeRange,omitempty"`
 
 	// Title Shift name, the event title when no shift matches, or `frei`.

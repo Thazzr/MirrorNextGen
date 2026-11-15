@@ -78,7 +78,7 @@ func TestServiceShiftsSection(t *testing.T) {
 	for _, d := range res.Days {
 		got = append(got, d.DayLabel+": "+d.Title+" "+d.TimeRange)
 	}
-	want := []string{"Montag: Standup ", "Dienstag: Spätdienst 14–22"}
+	want := []string{"Montag: Standup ", "Dienstag: Spätdienst 14:00–22:00"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("rows = %q\nwant   %q", got, want)
 	}
