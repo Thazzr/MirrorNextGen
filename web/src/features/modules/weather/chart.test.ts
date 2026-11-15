@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSmoothPath, chartX, chartXPercent } from './chart.ts'
+import { buildSmoothPath, chartX, chartXPercent, temperatureColor, temperatureStops, valueRange } from './chart.ts'
 
 type P = { x: number; y: number }
 
@@ -68,5 +68,74 @@ describe('chartX', () => {
   it('gives the same position in percent of the width', () => {
     expect(chartXPercent(8, 9, 760)).toBeCloseTo(93)
     expect(chartXPercent(0, 9, 760)).toBeCloseTo(8)
+  })
+})
+
+describe('temperatureColor', () => {
+  it('clamps below 0 °C and above 28 °C', () => {
+    expect(temperatureColor(-5)).toBe('#7fc8ff')
+    expect(temperatureColor(0)).toBe('#7fc8ff')
+    expect(temperatureColor(28)).toBe('#ff6b5c')
+    expect(temperatureColor(35)).toBe('#ff6b5c')
+  })
+
+  it('hits the middle stops exactly', () => {
+    expect(temperatureColor(10)).toBe('#ffffff')
+    expect(temperatureColor(20)).toBe('#ffb35c')
+  })
+
+  it('interpolates linearly in RGB between stops', () => {
+    // Midpoint of #7fc8ff and #ffffff: (127+255)/2 = 191, (200+255)/2 = 227.5 -> 228.
+    expect(temperatureColor(5)).toBe('#bfe4ff')
+  })
+})
+
+describe('temperatureStops', () => {
+  it('has both ends plus the 0 °C threshold inside -3..5', () => {
+    expect(temperatureStops(-3, 5)).toEqual([
+      { offset: 0, color: temperatureColor(-3) },
+      { offset: 3 / 8, color: temperatureColor(0) },
+      { offset: 1, color: temperatureColor(5) },
+    ])
+  })
+
+  it('has only the 20 °C threshold inside 12..25', () => {
+    const stops = temperatureStops(12, 25)
+    expect(stops).toHaveLength(3)
+    expect(stops[1]).toEqual({ offset: 8 / 13, color: '#ffb35c' })
+    expect(stops[0].color).toBe(temperatureColor(12))
+    expect(stops[2].color).toBe(temperatureColor(25))
+  })
+
+  it('has just the two end stops when no threshold lies inside', () => {
+    expect(temperatureStops(2, 8)).toEqual([
+      { offset: 0, color: temperatureColor(2) },
+      { offset: 1, color: temperatureColor(8) },
+    ])
+  })
+
+  it('stays valid when low equals high', () => {
+    const stops = temperatureStops(10, 10)
+    expect(stops).toEqual([
+      { offset: 0, color: '#ffffff' },
+      { offset: 1, color: '#ffffff' },
+    ])
+  })
+})
+
+describe('valueRange', () => {
+  it('pads a flat range symmetrically around its midpoint to the minimum span', () => {
+    expect(valueRange([1, 2, 1], 10)).toEqual({ low: -3.5, high: 6.5 })
+  })
+
+  it('keeps a range that already spans the minimum', () => {
+    expect(valueRange([-3, 7])).toEqual({ low: -3, high: 7 })
+    expect(valueRange([-5, 20])).toEqual({ low: -5, high: 20 })
+  })
+
+  it('handles a single value without NaN', () => {
+    const { low, high } = valueRange([5])
+    expect(high - low).toBe(10)
+    expect(low).toBe(0)
   })
 })
