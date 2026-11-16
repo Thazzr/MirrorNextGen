@@ -646,3 +646,188 @@ func TestRunWhileConfiguredWarnsAndBacksOff(t *testing.T) {
 		t.Errorf("no warning while configured:\n%s", logs)
 	}
 }
+
+// methodFake answers per HTTP method and records every call; the body echoes
+// an address like go2rtc does for a known stream.
+type methodFake struct {
+	*fakeGo2RTC
+	statuses map[string]int
+}
+
+func newMethodFake(t *testing.T, statuses map[string]int) *methodFake {
+	t.Helper()
+	m := &methodFake{fakeGo2RTC: &fakeGo2RTC{}, statuses: statuses}
+	m.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		m.mu.Lock()
+		m.calls = append(m.calls, recorded{r.Method, r.URL.RawQuery, r.URL.Path})
+		st, ok := m.statuses[r.Method]
+		m.mu.Unlock()
+		if !ok {
+			st = http.StatusOK
+		}
+		w.WriteHeader(st)
+		_, _ = w.Write([]byte(`{"producers":[{"url":"rtsp://admin:geheim-passwort@192.168.1.20:554/stream1"}]}`))
+	}))
+	t.Cleanup(m.server.Close)
+	return m
+}
+
+func count(calls []recorded, method string) int {
+	n := 0
+	for _, c := range calls {
+		if c.method == method {
+			n++
+		}
+	}
+	return n
+}
+
+func TestEnsure(t *testing.T) {
+	configured := Config{Enabled: true, StreamURL: "rtspx://10.10.1.1:7441/Tok?enableSrtp"}
+	tests := []struct {
+		name    string
+		cfg     Config
+		get     int
+		methods []string // expected methods in order
+		wantErr string
+	}{
+		{"configured, stream exists", configured, 200, []string{"GET"}, ""},
+		{"configured, stream missing", configured, 404, []string{"GET", "PUT"}, ""},
+		{"not configured, stream exists", Config{}, 200, []string{"GET", "DELETE"}, ""},
+		{"not configured, stream missing", Config{}, 404, []string{"GET"}, ""},
+		{"configured, go2rtc fails", configured, 500, []string{"GET"}, "500"},
+		{"not configured, go2rtc fails", Config{}, 500, []string{"GET"}, "500"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newMethodFake(t, map[string]int{"GET": tt.get})
+			s := newService(t, f.server.URL, fixed(tt.cfg), io.Discard)
+			err := s.Ensure(context.Background())
+			if tt.wantErr == "" && err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want it to contain %q", err, tt.wantErr)
+				}
+				for _, part := range []string{"geheim", "admin", "Tok", "192.168.1.20", "10.10.1.1", "src="} {
+					if strings.Contains(err.Error(), part) {
+						t.Errorf("error leaks %q: %v", part, err)
+					}
+				}
+			}
+			calls := f.got()
+			if len(calls) != len(tt.methods) {
+				t.Fatalf("calls = %+v, want methods %v", calls, tt.methods)
+			}
+			for i, m := range tt.methods {
+				if calls[i].method != m {
+					t.Errorf("call %d = %s, want %s", i, calls[i].method, m)
+				}
+			}
+			if calls[0].query != "src=mirror-camera" {
+				t.Errorf("GET query = %q, want src=mirror-camera", calls[0].query)
+			}
+			if tt.name == "configured, stream missing" {
+				want := url.Values{"name": {StreamName}, "src": {"rtspx://10.10.1.1:7441/Tok"}}.Encode()
+				if calls[1].query != want {
+					t.Errorf("PUT query = %s, want %s", calls[1].query, want)
+				}
+			}
+		})
+	}
+}
+
+func TestEnsureNeverReachesGo2RTCWithAnUnsupportedAddress(t *testing.T) {
+	f := newMethodFake(t, nil)
+	s := newService(t, f.server.URL, fixed(Config{Enabled: true, StreamURL: "exec:ffmpeg"}), io.Discard)
+	if err := s.Ensure(context.Background()); !errors.Is(err, ErrUnsupportedURL) {
+		t.Errorf("err = %v, want ErrUnsupportedURL", err)
+	}
+	if n := len(f.got()); n != 0 {
+		t.Errorf("%d calls reached go2rtc", n)
+	}
+}
+
+func TestRunOnlyChecksAfterTheFirstRegistration(t *testing.T) {
+	f := newMethodFake(t, nil) // everything answers 200: the stream exists
+	logs := &logBuf{}
+	s, err := New(Options{
+		HTTPClient: &http.Client{Timeout: 2 * time.Second},
+		BaseURL:    f.server.URL,
+		Config:     fixed(Config{Enabled: true, StreamURL: secretURL}),
+		Logger:     slog.New(slog.NewTextHandler(logs, nil)),
+		Backoff:    func(int) time.Duration { return time.Millisecond },
+		Resync:     20 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+
+	waitFor(t, func() bool { return count(f.got(), "GET") >= 4 }, "several periodic checks")
+	calls := f.got()
+	if calls[0].method != http.MethodPut {
+		t.Errorf("first call = %s, want PUT", calls[0].method)
+	}
+	if n := count(calls, "PUT"); n != 1 {
+		t.Errorf("PUTs = %d over several resync periods, want 1", n)
+	}
+
+	// A changed setting registers again.
+	s.Apply()
+	waitFor(t, func() bool { return count(f.got(), "PUT") == 2 }, "PUT after Apply")
+	if strings.Contains(logs.String(), "geheim") {
+		t.Errorf("log leaks the address: %s", logs)
+	}
+}
+
+func TestRunRegistersAgainWhenTheStreamIsGone(t *testing.T) {
+	f := newMethodFake(t, map[string]int{"GET": 404})
+	s, err := New(Options{
+		HTTPClient: &http.Client{Timeout: 2 * time.Second},
+		BaseURL:    f.server.URL,
+		Config:     fixed(Config{Enabled: true, StreamURL: "rtsp://cam/x"}),
+		Backoff:    func(int) time.Duration { return time.Millisecond },
+		Resync:     20 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	// PUT (start), GET 404 -> PUT (the check found nothing).
+	waitFor(t, func() bool { return count(f.got(), "PUT") >= 2 }, "re-registration after a 404 check")
+}
+
+func TestRunFailedCheckBacksOffAndThenSyncs(t *testing.T) {
+	f := newMethodFake(t, map[string]int{"GET": 500})
+	a := &attempts{wait: time.Millisecond}
+	s, err := New(Options{
+		HTTPClient: &http.Client{Timeout: 2 * time.Second},
+		BaseURL:    f.server.URL,
+		Config:     fixed(Config{Enabled: true, StreamURL: "rtsp://cam/x"}),
+		Backoff:    a.backoff,
+		Resync:     20 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	waitFor(t, func() bool { return count(f.got(), "PUT") >= 2 }, "full Sync after a failed check")
+	if got := a.got(); len(got) == 0 || got[0] != 0 {
+		t.Errorf("backoff attempts = %v, want to start with 0", got)
+	}
+	calls := f.got()
+	if len(calls) < 3 || calls[0].method != "PUT" || calls[1].method != "GET" || calls[2].method != "PUT" {
+		t.Errorf("calls = %+v, want PUT, GET, PUT", calls)
+	}
+}

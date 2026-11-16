@@ -52,8 +52,12 @@ type Options struct {
 	// Backoff is the wait before retry number attempt (0-based) while go2rtc
 	// is not reachable; nil uses 1 s doubling up to 30 s.
 	Backoff func(attempt int) time.Duration
-	// Resync is how often a successful registration is repeated, so a camera
-	// service that lost its state gets the stream again; 0 means 5 minutes.
+	// Resync is how often a successful registration is checked (Ensure, a
+	// read-only GET), so a camera service that lost its state gets the
+	// stream again; 0 means 5 minutes. It is not re-registered while go2rtc
+	// still knows it: every PUT puts a new stream object
+	// in go2rtc's map (a running consumer stays on the orphaned old one) and
+	// rewrites its config file on the SD card.
 	Resync time.Duration
 }
 
@@ -104,13 +108,23 @@ func (s *Service) Apply() {
 }
 
 // Run keeps go2rtc in step with the settings until ctx ends. It registers on
-// start and after every Apply, retries with backoff while go2rtc is down and
-// repeats a successful registration now and then.
+// start and after every Apply (Sync), retries with backoff while go2rtc is
+// down (Sync again) and, once a pass succeeded and Resync has passed, only
+// checks that go2rtc still knows the stream (Ensure). A failed check is
+// followed by backoff and a full Sync.
 func (s *Service) Run(ctx context.Context) {
 	attempt := 0
+	checkOnly := false // the next pass is the periodic check, not a registration
 	for {
 		wait := s.resync
-		if err := s.Sync(ctx); err != nil && !s.config().configured() {
+		var err error
+		if checkOnly {
+			err = s.Ensure(ctx)
+		} else {
+			err = s.Sync(ctx)
+		}
+		checkOnly = false
+		if err != nil && !s.config().configured() {
 			// Nothing to register and go2rtc is not running: that is the normal
 			// state for a mirror without the camera service, so no backoff and no warning.
 			s.log.Debug("camera service not reachable, camera is not configured", "error", err)
@@ -121,6 +135,7 @@ func (s *Service) Run(ctx context.Context) {
 			s.log.Warn("camera service not updated, will retry", "error", err, "retryIn", wait.String())
 		} else {
 			attempt = 0
+			checkOnly = true
 		}
 		timer := time.NewTimer(wait)
 		select {
@@ -130,6 +145,7 @@ func (s *Service) Run(ctx context.Context) {
 		case <-s.notify:
 			timer.Stop()
 			attempt = 0
+			checkOnly = false
 		case <-timer.C:
 		}
 	}
@@ -146,6 +162,36 @@ func (s *Service) Sync(ctx context.Context) error {
 		return ErrUnsupportedURL
 	}
 	return s.request(ctx, http.MethodPut, url.Values{"name": {StreamName}, "src": {go2rtcSource(cfg.StreamURL)}})
+}
+
+// Ensure is the read-only counterpart of Sync: it asks go2rtc whether it
+// knows the stream and only acts when that disagrees with the settings,
+// registering a missing stream or removing one that is no longer wanted.
+// Unlike a repeated PUT it leaves a running stream and go2rtc's config file
+// alone.
+func (s *Service) Ensure(ctx context.Context) error {
+	cfg := s.config()
+	if cfg.configured() && !supportedScheme(cfg.StreamURL) {
+		return ErrUnsupportedURL
+	}
+	status, err := s.do(ctx, http.MethodGet, url.Values{"src": {StreamName}})
+	if err != nil {
+		return err
+	}
+	switch status {
+	case http.StatusOK:
+		if cfg.configured() {
+			return nil
+		}
+		return s.request(ctx, http.MethodDelete, url.Values{"src": {StreamName}})
+	case http.StatusNotFound:
+		if cfg.configured() {
+			return s.Sync(ctx)
+		}
+		return nil
+	default:
+		return fmt.Errorf("GET camera stream: camera service answered %d", status)
+	}
 }
 
 func supportedScheme(raw string) bool {
@@ -189,14 +235,15 @@ func (s *Service) endpoint(apiPath string, query url.Values) *url.URL {
 	return &u
 }
 
-// request calls go2rtc's /api/streams. Errors carry the status code or the
+// do calls go2rtc's /api/streams and returns the status code. Errors carry the
 // transport cause only: the request URL holds the stream address in its query
-// and url.Error would print it.
-func (s *Service) request(ctx context.Context, method string, query url.Values) error {
+// and url.Error would print it. The body (which may echo the address) is read
+// in a bounded way and dropped.
+func (s *Service) do(ctx context.Context, method string, query url.Values) (int, error) {
 	u := s.endpoint("api/streams", query)
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
 	if err != nil {
-		return errors.New("build camera service request")
+		return 0, errors.New("build camera service request")
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -204,12 +251,22 @@ func (s *Service) request(ctx context.Context, method string, query url.Values) 
 		if errors.As(err, &ue) {
 			err = ue.Err
 		}
-		return fmt.Errorf("%s camera stream: %w", method, err)
+		return 0, fmt.Errorf("%s camera stream: %w", method, err)
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
-	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("%s camera stream: camera service answered %d", method, resp.StatusCode)
+	return resp.StatusCode, nil
+}
+
+// request calls go2rtc and treats anything but 2xx as an error carrying the
+// method and status code only.
+func (s *Service) request(ctx context.Context, method string, query url.Values) error {
+	status, err := s.do(ctx, method, query)
+	if err != nil {
+		return err
+	}
+	if status/100 != 2 {
+		return fmt.Errorf("%s camera stream: camera service answered %d", method, status)
 	}
 	return nil
 }
