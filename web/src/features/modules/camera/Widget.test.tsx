@@ -18,13 +18,16 @@ class FakeWebSocket {
   static CLOSING = 2
   static CLOSED = 3
   static opened: string[] = []
+  static closed = 0
   binaryType = ''
   constructor(url: string) {
     FakeWebSocket.opened.push(url)
   }
   addEventListener() {}
   send() {}
-  close() {}
+  close() {
+    FakeWebSocket.closed++
+  }
 }
 
 function setup(dashboardCamera: unknown | Response, region: 'topRight' | 'topLeft' | 'middle' | 'bottomLeft' | 'bottomRight' = 'topRight') {
@@ -40,6 +43,7 @@ const settled = () => new Promise((r) => setTimeout(r, 20))
 describe('camera widget', () => {
   beforeEach(() => {
     FakeWebSocket.opened = []
+    FakeWebSocket.closed = 0
     vi.stubGlobal('WebSocket', FakeWebSocket)
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -172,6 +176,98 @@ describe('camera widget refresh', () => {
     expect(api.callsTo('GET /api/v1/dashboard/camera')).toHaveLength(1)
     await vi.advanceTimersByTimeAsync(1_500)
     expect(api.callsTo('GET /api/v1/dashboard/camera')).toHaveLength(2)
+  })
+})
+
+describe('camera widget stall watchdog', () => {
+  const proto = HTMLVideoElement.prototype as unknown as { getVideoPlaybackQuality?: unknown }
+  let frames = 0
+  const streamUrl = `ws${location.origin.substring(4)}/api/v1/camera/stream`
+
+  beforeEach(() => {
+    frames = 0
+    FakeWebSocket.opened = []
+    FakeWebSocket.closed = 0
+    vi.stubGlobal('WebSocket', FakeWebSocket)
+    proto.getVideoPlaybackQuality = () => ({ totalVideoFrames: frames, droppedVideoFrames: 0 })
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'Date'] })
+  })
+  afterEach(() => {
+    delete proto.getVideoPlaybackQuality
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('replaces a frozen player with a fresh one and closes the old socket', async () => {
+    setup(camera)
+    renderWithProviders('/')
+    await vi.advanceTimersByTimeAsync(100)
+    const first = document.querySelector('video-rtc')!
+    expect(first).not.toBeNull()
+    expect(FakeWebSocket.opened).toEqual([streamUrl])
+
+    await vi.advanceTimersByTimeAsync(24_000)
+    const players = document.querySelectorAll('video-rtc')
+    expect(players).toHaveLength(1)
+    expect(players[0]).not.toBe(first)
+    expect(first.isConnected).toBe(false)
+    expect(FakeWebSocket.closed).toBeGreaterThanOrEqual(1)
+    expect(FakeWebSocket.opened).toEqual([streamUrl, streamUrl])
+  })
+
+  it('leaves a running picture alone', async () => {
+    setup(camera)
+    renderWithProviders('/')
+    await vi.advanceTimersByTimeAsync(100)
+    const first = document.querySelector('video-rtc')!
+    for (let i = 0; i < 30; i++) {
+      frames += 50
+      await vi.advanceTimersByTimeAsync(2_000)
+    }
+    expect(document.querySelector('video-rtc')).toBe(first)
+    expect(FakeWebSocket.opened).toEqual([streamUrl])
+    expect(FakeWebSocket.closed).toBe(0)
+  })
+
+  it('does not count hidden time and starts its clocks again when visible', async () => {
+    let hidden = true
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden })
+    try {
+      setup(camera)
+      renderWithProviders('/')
+      await vi.advanceTimersByTimeAsync(100)
+      const first = document.querySelector('video-rtc')!
+
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(document.querySelector('video-rtc')).toBe(first)
+      expect(FakeWebSocket.closed).toBe(0)
+
+      hidden = false
+      await vi.advanceTimersByTimeAsync(18_000)
+      expect(document.querySelector('video-rtc')).toBe(first)
+      expect(FakeWebSocket.opened).toHaveLength(1)
+
+      await vi.advanceTimersByTimeAsync(4_000)
+      const players = document.querySelectorAll('video-rtc')
+      expect(players).toHaveLength(1)
+      expect(players[0]).not.toBe(first)
+      expect(FakeWebSocket.opened).toHaveLength(2)
+    } finally {
+      // Drop the own property so jsdom's prototype getter is visible again.
+      delete (document as unknown as { hidden?: boolean }).hidden
+    }
+  })
+
+  it('stops watching and closes the socket on unmount', async () => {
+    setup(camera)
+    const view = renderWithProviders('/')
+    await vi.advanceTimersByTimeAsync(100)
+    expect(FakeWebSocket.opened).toHaveLength(1)
+    view.unmount()
+    expect(FakeWebSocket.closed).toBeGreaterThanOrEqual(1)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(document.querySelector('video-rtc')).toBeNull()
+    expect(FakeWebSocket.opened).toHaveLength(1)
   })
 })
 
