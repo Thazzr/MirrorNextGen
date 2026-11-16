@@ -88,6 +88,8 @@ Pi 5 · Ubuntu 26.04 Server · Host: nur Docker
   4. Feature-API-Funktion im Frontend über den erzeugten Client schreiben.
 - **Jeder Frontend-API-Aufruf läuft über den erzeugten Client** (`web/src/shared/api/client.ts`). Rohes `fetch` auf `/api/*` ist verboten.
 - **Einzige Ausnahme: der Kamera-Stream** `GET /api/v1/camera/stream`. Er ist ein WebSocket-Proxy (`httputil.ReverseProxy`) und kein Strict-Server-Endpunkt. Er steht im Vertrag (101/404/426/502), ist per `exclude-operation-ids` von der Erzeugung ausgenommen und wird in `api.Register` von Hand registriert, bewusst öffentlich wie das Dashboard. Er leitet nur zur festen Quelle `mirror-camera` weiter, nichts aus der Anfrage des Browsers bestimmt die Quelle. Der Player `web/src/vendor/go2rtc/video-rtc.js` (MIT, unverändert bis auf den Herkunftskopf) öffnet ihn direkt.
+  - Der Player verbindet sich nur neu, wenn der Socket schließt oder `<video>` einen Fehler meldet. Eine hängende MSE-Wiedergabe bliebe stehen (go2rtc#1102). Deshalb baut ihn ein Wächter im Widget neu auf (`camera/stall.ts`): wenn 10 s lang kein neues Bild gezeigt wurde bzw. 20 s nach dem Start noch keins. Maßgeblich sind die gezeigten Bilder aus `getVideoPlaybackQuality()`, nicht `currentTime`, das der Player auch ohne Bild vorschiebt.
+  - Der Server meldet den Stream beim Start und nach jeder Änderung der Einstellungen per PUT an, danach prüft er nur per GET, ob go2rtc ihn noch kennt. Jedes PUT legt in go2rtc ein neues Stream-Objekt an und schreibt dessen Konfigurationsdatei neu.
 - **Keine Datenbank.**
   - Persistenter Zustand liegt unter `MIRROR_DATA_DIR` (Container: `/data`, ein Docker-Volume).
   - Einstellungen liegen in `settings.json` mit `schemaVersion`.
