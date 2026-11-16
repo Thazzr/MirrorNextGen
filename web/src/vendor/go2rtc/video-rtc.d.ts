@@ -10,4 +10,6 @@ export class VideoRTC extends HTMLElement {
   video: HTMLVideoElement | null
   /** WebSocket address; a path starting with "/" is resolved against the page origin. */
   set src(value: string | URL)
+  /** Closes the WebSocket and the media source at once (remove() alone waits DISCONNECT_TIMEOUT). */
+  ondisconnect(): void
 }

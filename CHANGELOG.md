@@ -18,6 +18,7 @@ automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages gener
 - Tags nur noch für festgehaltene Versionen
 - Schichtzeiten mit Minuten in den Projektregeln
 - Temperaturdiagramm in den Projektregeln
+- Kamera-Wächter und go2rtc-Abgleich in den Projektregeln
 
 ### Fixed
 
@@ -25,6 +26,8 @@ automatisch mit [git-cliff](https://git-cliff.org) aus den Commit-Messages gener
 - **calendar**: Schichtzeiten immer mit Minuten
 - **weather**: Temperaturdiagramm so scharf wie der übrige Text
 - **bring**: Kacheln schneiden Symbole und Namen nicht mehr ab
+- **camera**: Eingefrorenes Kamerabild startet den Player neu
+- **camera**: Stream bei go2rtc nicht mehr alle 5 Minuten neu anlegen
 
 ## [0.9.1] - 2026-11-14
 
