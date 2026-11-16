@@ -25,4 +25,30 @@ describe('bring.css', () => {
     expect(match).not.toBeNull()
     expect(Number(match![1])).toBe(columns)
   })
+
+  it('never clips a tile, its icon or its texts', () => {
+    const item = declarations('.mirror-bring__item')
+    expect(item).not.toMatch(/aspect-ratio/)
+    expect(item).not.toMatch(/overflow:\s*hidden/)
+    expect(declarations('.mirror-bring__icon')).not.toMatch(/transform:/)
+    expect(declarations('.mirror-bring__emoji')).not.toMatch(/transform:/)
+    for (const selector of ['.mirror-bring__name, .mirror-bring__specification', '.mirror-bring__specification']) {
+      const rule = declarations(selector)
+      expect(rule).not.toMatch(/nowrap|text-overflow/)
+    }
+    expect(css).not.toMatch(/nowrap|text-overflow|aspect-ratio|(?<![-\w])transform:/)
+  })
+
+  it('is 880px wide at most', () => {
+    expect(declarations('.mirror-bring')).toMatch(/width:\s*min\(880px,\s*62vw\)/)
+  })
+
+  it('breaks inside a word only for the last-resort name class and the specification', () => {
+    for (const selector of ['.mirror-bring__item', '.mirror-bring__label', '.mirror-bring__list', '.mirror-bring__name']) {
+      expect(declarations(selector), selector).not.toMatch(/break-word|anywhere|break-all/)
+    }
+    expect(declarations('.mirror-bring__name')).toMatch(/overflow-wrap:\s*normal/)
+    expect(declarations('.mirror-bring__name')).toMatch(/word-break:\s*normal/)
+    expect(declarations('.mirror-bring__name--break')).toMatch(/overflow-wrap:\s*anywhere/)
+  })
 })
